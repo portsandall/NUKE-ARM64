@@ -1,0 +1,15 @@
+diff --git a/src/physics/phys_local.h b/src/physics/phys_local.h
+--- a/src/physics/phys_local.h
++++ b/src/physics/phys_local.h
+@@ -2,7 +2,11 @@
+ #include <universal/assertive.h>
+ #include <cstring>
+ 
++#if defined(_WIN32)
+ #include <Windows.h> // interlockedxchg
++#else
++#include <nuke/win_atomic_compat.h>
++#endif
+ #include <cmath>
+ 
+ struct phys_vec2 // sizeof=0x8
