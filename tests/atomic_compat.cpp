@@ -1,21 +1,24 @@
 #include <nuke/win_atomic_compat.h>
-#include <cassert>
+#include <cstdlib>
 #include <cstdint>
 #include <thread>
 #include <vector>
 
+// Never hide atomic operations inside assert(): NDEBUG removes their side effects.
+static void check(bool ok) { if (!ok) std::abort(); }
+
 int main() {
     volatile LONG value = 1;
-    assert(_InterlockedCompareExchange(&value, 4, 0) == 1);
-    assert(value == 1);
-    assert(_InterlockedCompareExchange(&value, 4, 1) == 1);
-    assert(value == 4);
-    assert(InterlockedIncrement(&value) == 5);
+    check(_InterlockedCompareExchange(&value, 4, 0) == 1);
+    check(value == 1);
+    check(_InterlockedCompareExchange(&value, 4, 1) == 1);
+    check(value == 4);
+    check(InterlockedIncrement(&value) == 5);
 
     int a = 1, b = 2;
     PVOID pointer = &a;
-    assert(InterlockedExchangePointer(&pointer, &b) == &a);
-    assert(pointer == &b);
+    check(InterlockedExchangePointer(&pointer, &b) == &a);
+    check(pointer == &b);
     _ReadWriteBarrier();
     MemoryBarrier();
 
@@ -29,7 +32,7 @@ int main() {
         });
     }
     for (auto &worker : workers) worker.join();
-    assert(counter == threads * iterations);
+    check(counter == threads * iterations);
 
     volatile LONG spin = 0;
     std::int64_t protected_total = 0;
@@ -39,10 +42,10 @@ int main() {
             for (int j = 0; j < iterations; ++j) {
                 while (_InterlockedCompareExchange(&spin, 1, 0) != 0) {}
                 ++protected_total;
-                assert(_InterlockedCompareExchange(&spin, 0, 1) == 1);
+                check(_InterlockedCompareExchange(&spin, 0, 1) == 1);
             }
         });
     }
     for (auto &worker : workers) worker.join();
-    assert(protected_total == threads * iterations);
+    check(protected_total == threads * iterations);
 }
