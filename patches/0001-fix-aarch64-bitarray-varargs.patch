@@ -18,7 +18,8 @@ index 35f5c62..c5c7f69 100644
          {
 -            v2 = va_arg(argList, unsigned int);
 +            v2 = va_arg(va, unsigned int);
-             if (v2 == -1)
+-            if (v2 == -1)
++            if (v2 == ~0u)
                  break;
              setBit(v2);
          }
