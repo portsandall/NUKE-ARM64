@@ -1,0 +1,23 @@
+--- a/src/qcommon/bitarray.h
++++ b/src/qcommon/bitarray.h
+@@ -2,7 +2,7 @@
+     {
+         unsigned int v2; // kr00_4
+         int i; // [esp+0h] [ebp-Ch]
+-        char *argList; // [esp+8h] [ebp-4h]
++        va_list argList;
+         va_list va; // [esp+1Ch] [ebp+10h] BYREF
+ 
+         va_start(va, first);
+@@ -13,8 +13,10 @@
+         while (1)
+         {
+             v2 = va_arg(argList, unsigned int);
+-            if (v2 == -1)
++            if (v2 == ~0u)
+                 break;
+             setBit(v2);
+         }
++        va_end(argList);
++        va_end(va);
+     }
