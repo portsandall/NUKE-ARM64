@@ -8,12 +8,19 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - name: Checkout pinned KisakBlack sources
+        uses: actions/checkout@v4
+        with:
+          repository: SwagSoftware/KisakBlack
+          ref: 306bb14a8e052a6244bd1df4e4df7d8504c04ef4
+          path: upstream/KisakBlack
       - name: Configure with Android NDK
         run: |
           cmake -S . -B build/android -G Ninja \
             -DCMAKE_TOOLCHAIN_FILE="$ANDROID_NDK_HOME/build/cmake/android.toolchain.cmake" \
             -DANDROID_ABI=arm64-v8a -DANDROID_PLATFORM=android-26 \
-            -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTING=OFF
+            -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTING=OFF \
+            -DNUKE_KISAKBLACK_ROOT="$GITHUB_WORKSPACE/upstream/KisakBlack"
       - name: Compile AArch64 probe
         run: cmake --build build/android --verbose
       - name: Verify ELF architecture
