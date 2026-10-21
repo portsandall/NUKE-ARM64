@@ -1,0 +1,37 @@
+name: Android APK bootstrap
+on:
+  push:
+    branches: [feature/upstream-base64-bootstrap]
+  pull_request:
+  workflow_dispatch:
+jobs:
+  apk:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+        with:
+          repository: SwagSoftware/KisakBlack
+          ref: 306bb14a8e052a6244bd1df4e4df7d8504c04ef4
+          path: upstream/KisakBlack
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: android-actions/setup-android@v3
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.10.2'
+      - name: Install SDK packages
+        run: sdkmanager "platforms;android-35" "build-tools;35.0.0" "ndk;27.2.12479018" "cmake;3.22.1"
+      - name: Assemble debug APK
+        working-directory: android
+        env:
+          NUKE_KISAKBLACK_ROOT: ${{ github.workspace }}/upstream/KisakBlack
+        run: gradle :app:assembleDebug --stacktrace --no-daemon
+      - name: Publish APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: NUKE-ARM64-PoC-debug-APK
+          path: android/app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
