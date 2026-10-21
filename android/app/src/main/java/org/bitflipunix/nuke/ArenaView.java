@@ -2,145 +2,222 @@ package org.bitflipunix.nuke;
 
 import android.content.Context;
 import android.graphics.Canvas;
-import android.graphics.Paint;
 import android.graphics.Color;
-import android.graphics.RectF;
-import android.view.View;
+import android.graphics.Paint;
 import android.view.MotionEvent;
+import android.view.View;
 import java.util.Random;
 
-/** Playable top-down Nuketown-inspired blockout. No original game assets. */
+/** Original-asset-free first-person Nuketown-inspired training blockout. */
 public final class ArenaView extends View {
-    private final Paint p = new Paint(3);
-    private final Random random = new Random(7);
-    private final float[][] walls = {
-        {60,60,310,275}, {690,60,940,275}, // houses
-        {60,525,310,740}, {690,525,940,740}, // rear gardens/sheds
-        {425,285,565,470}, // bus
-        {315,80,405,175}, {600,625,690,720}, // vehicles
-        {120,330,205,430},{790,345,885,445}
-    };
-    private final float[] ex = new float[6], ey = new float[6];
-    private final boolean[] alive = new boolean[6];
-    private float px=500,py=590, aimx=500, aimy=200;
-    private float joyx=0,joyy=0;
-    private boolean shoot=false, gameover=false;
-    private int score=0,hp=100,ticks=0;
+    private static final int W=24,H=18;
+    private final int[][] m=new int[H][W];
+    private final Paint p=new Paint(3);
+    private final Random rng=new Random(73);
+    private final float[] botsX=new float[5],botsY=new float[5];
+    private final boolean[] botsLive=new boolean[5];
+    private final float[] depth=new float[240];
+    private float x=12.0f,y=14.5f,a=-1.57f,vx=0,vy=0;
+    private float lastAimX, moveX,moveY;
+    private int health=100,score=0,frames=0;
     private long last=System.nanoTime();
-    public ArenaView(Context ctx) { super(ctx); setLayerType(View.LAYER_TYPE_SOFTWARE,null); reset(); }
-    private void reset() {
-        px=500;py=590;hp=100;score=0;ticks=0;gameover=false;
-        for(int i=0;i<6;i++) respawn(i);
+    private boolean firing=false,dead=false;
+    private int leftId=-1,rightId=-1;
+    public ArenaView(Context context){super(context);setLayerType(View.LAYER_TYPE_SOFTWARE,null);layout();reset();}
+    private void block(int ax,int ay,int bx,int by,int type) {
+        for(int j=Math.max(0,ay);j<=Math.min(H-1,by);j++)
+            for(int i=Math.max(0,ax);i<=Math.min(W-1,bx);i++)m[j][i]=type;
     }
-    private void respawn(int i) {
-        for(int tries=0;tries<100;tries++) {
-            float x=70+random.nextInt(860), y=70+random.nextInt(650);
-            if(!blocked(x,y,18) && Math.hypot(x-px,y-py)>220) {
-                ex[i]=x;ey[i]=y;alive[i]=true;return;
+    private void layout(){
+        block(0,0,23,0,1);block(0,17,23,17,1);
+        block(0,0,0,17,1);block(23,0,23,17,1);
+        // Two opposing house footprints with accessible hallways.
+        block(2,2,8,2,2);block(2,2,2,8,2);block(8,2,8,8,2);
+        block(2,8,4,8,2);block(6,8,8,8,2);
+        block(15,9,21,9,3);block(15,9,15,15,3);block(21,9,21,15,3);
+        block(15,15,17,15,3);block(19,15,21,15,3);
+        // Central bus and two vehicles.
+        block(11,6,12,10,4);block(9,3,10,4,5);block(13,13,14,14,5);
+        block(4,11,6,12,6);block(17,4,19,5,6);
+        // Middle lane, walkable rear yards and door gaps remain open.
+    }
+    private boolean solid(float xx,float yy,float r){
+        int minX=(int)Math.floor(xx-r),maxX=(int)Math.floor(xx+r);
+        int minY=(int)Math.floor(yy-r),maxY=(int)Math.floor(yy+r);
+        for(int j=minY;j<=maxY;j++)for(int i=minX;i<=maxX;i++){
+            if(i<0||j<0||i>=W||j>=H)return true;
+            if(m[j][i]!=0){
+                float nx=Math.max(i,Math.min(xx,i+1));
+                float ny=Math.max(j,Math.min(yy,j+1));
+                if((xx-nx)*(xx-nx)+(yy-ny)*(yy-ny)<r*r)return true;
             }
         }
-        alive[i]=false;
-    }
-    private boolean blocked(float x,float y,float r) {
-        if(x<r||x>1000-r||y<r||y>800-r) return true;
-        for(float[] a:walls) if(x+r>a[0]&&x-r<a[2]&&y+r>a[1]&&y-r<a[3]) return true;
         return false;
     }
-    private void movePlayer(float dx,float dy) {
-        if(!blocked(px+dx,py,14)) px+=dx;
-        if(!blocked(px,py+dy,14)) py+=dy;
+    private void reset(){
+        x=12;y=14.5f;a=-1.57f;health=100;score=0;frames=0;dead=false;
+        for(int i=0;i<botsLive.length;i++)spawn(i);
     }
-    private void rect(Canvas c,int col,float a,float b,float d,float e) {
-        p.setColor(col);p.setStyle(Paint.Style.FILL);c.drawRect(a,b,d,e,p);
-    }
-    private void circle(Canvas c,int col,float x,float y,float r) {
-        p.setColor(col);p.setStyle(Paint.Style.FILL);c.drawCircle(x,y,r,p);
-    }
-    private void line(Canvas c,int col,float x,float y,float xx,float yy,float sw){
-        p.setColor(col);p.setStrokeWidth(sw);c.drawLine(x,y,xx,yy,p);
-    }
-    private void text(Canvas c,String s,float x,float y,int size,int col){
-        p.setColor(col);p.setTextSize(size);p.setStyle(Paint.Style.FILL);c.drawText(s,x,y,p);
-    }
-    private void update(float dt) {
-        if(gameover) return;
-        ticks++;
-        float len=(float)Math.hypot(joyx,joyy);
-        if(len>0.01f) movePlayer(joyx/Math.max(1,len)*170*dt,joyy/Math.max(1,len)*170*dt);
-        for(int i=0;i<6;i++){
-            if(!alive[i]){if(ticks%150==i*20)respawn(i);continue;}
-            float dx=px-ex[i],dy=py-ey[i],dist=(float)Math.hypot(dx,dy);
-            if(dist>75&&dist<500){
-                float speed=45*dt;
-                float mx=dx/dist*speed,my=dy/dist*speed;
-                if(!blocked(ex[i]+mx,ey[i],14))ex[i]+=mx;
-                if(!blocked(ex[i],ey[i]+my,14))ey[i]+=my;
+    private void spawn(int i){
+        for(int j=0;j<100;j++){
+            float bx=1+rng.nextInt(22)+.5f,by=1+rng.nextInt(16)+.5f;
+            if(!solid(bx,by,.26f)&&Math.hypot(bx-x,by-y)>4){
+                botsX[i]=bx;botsY[i]=by;botsLive[i]=true;return;
             }
-            if(dist<45&&ticks%26==i%6)hp-=5;
         }
-        if(shoot&&ticks%9==0) {
-            float ax=aimx-px,ay=aimy-py,mag=(float)Math.hypot(ax,ay);
-            if(mag<1){ax=0;ay=-1;mag=1;}
-            ax/=mag;ay/=mag;
-            int hit=-1;float best=420;
-            for(int i=0;i<6;i++)if(alive[i]){
-                float rx=ex[i]-px,ry=ey[i]-py,proj=rx*ax+ry*ay;
-                float perp=Math.abs(rx*ay-ry*ax);
-                if(proj>0&&proj<best&&perp<23){hit=i;best=proj;}
+        botsLive[i]=false;
+    }
+    private void step(float dt){
+        if(dead)return;
+        frames++;
+        float f=(float)Math.cos(a)*(-moveY)+(float)Math.cos(a+Math.PI/2)*moveX;
+        float g=(float)Math.sin(a)*(-moveY)+(float)Math.sin(a+Math.PI/2)*moveX;
+        float s=3.3f*dt;
+        float xx=x+f*s,yy=y+g*s;
+        if(!solid(xx,y,.23f))x=xx;
+        if(!solid(x,yy,.23f))y=yy;
+        for(int i=0;i<botsLive.length;i++){
+            if(!botsLive[i]) {if(frames%160==i*19)spawn(i);continue;}
+            float dx=x-botsX[i],dy=y-botsY[i],dist=(float)Math.hypot(dx,dy);
+            if(dist>1.0f&&dist<8.5f){
+                float speed=0.68f*dt;
+                float tx=botsX[i]+dx/dist*speed,ty=botsY[i]+dy/dist*speed;
+                if(!solid(tx,botsY[i],.24f))botsX[i]=tx;
+                if(!solid(botsX[i],ty,.24f))botsY[i]=ty;
             }
-            if(hit>=0) {alive[hit]=false;score+=100;}
+            if(dist<1.1f&&frames%55==i*7)health=Math.max(0,health-6);
         }
-        if(hp<=0)gameover=true;
+        if(firing&&frames%13==0){
+            float hitDist=9.0f;int target=-1;
+            float wx=(float)Math.cos(a),wy=(float)Math.sin(a);
+            float wallDist=cast(wx,wy);
+            for(int i=0;i<botsLive.length;i++)if(botsLive[i]){
+                float dx=botsX[i]-x,dy=botsY[i]-y,proj=dx*wx+dy*wy;
+                float side=Math.abs(dx*wy-dy*wx);
+                if(proj>0&&proj<hitDist&&proj<wallDist&&side<.28f){
+                    target=i;hitDist=proj;
+                }
+            }
+            if(target>=0){botsLive[target]=false;score+=100;}
+        }
+        if(health==0)dead=true;
     }
-    @Override protected void onDraw(Canvas raw){
-        super.onDraw(raw);
-        float sx=getWidth()/1000f,sy=getHeight()/800f;
-        Canvas c=raw;c.save();c.scale(sx,sy);
-        long now=System.nanoTime();float dt=Math.min(.045f,(now-last)/1000000000f);last=now;update(dt);
-        rect(c,Color.rgb(76,105,72),0,0,1000,800);
-        rect(c,Color.rgb(90,91,82),310,0,690,800);
-        line(c,0xffd8d0ad,500,0,500,800,4);
-        for(int i=0;i<walls.length;i++){
-            float[] a=walls[i];
-            int color=i<4?0xffb0af9e:(i==4?0xffd3b84d:0xff7193ac);
-            rect(c,color,a[0],a[1],a[2],a[3]);
-            p.setColor(0xff303d3c);p.setStrokeWidth(4);p.setStyle(Paint.Style.STROKE);
-            c.drawRect(new RectF(a[0],a[1],a[2],a[3]),p);p.setStyle(Paint.Style.FILL);
+    private float cast(float dx,float dy){
+        float d=0;
+        // DDA-like short ray march; solid ray intersection never penetrates occupied cells.
+        for(int k=0;k<320;k++){
+            d+=.055f;
+            float rx=x+dx*d,ry=y+dy*d;
+            int ix=(int)Math.floor(rx),iy=(int)Math.floor(ry);
+            if(ix<0||iy<0||ix>=W||iy>=H||m[iy][ix]!=0)return d;
         }
-        rect(c,0xffa4aba8,35,285,285,300);
-        rect(c,0xffa4aba8,715,500,965,515);
-        for(int i=0;i<6;i++)if(alive[i]) {circle(c,0xffe85b57,ex[i],ey[i],15);circle(c,0xff5b1818,ex[i],ey[i],5);}
-        circle(c,0xff56d7ff,px,py,16);
-        float ax=aimx-px,ay=aimy-py,d=(float)Math.hypot(ax,ay);
-        if(d>1)line(c,0xfff6f3d4,px,py,px+ax/d*35,py+ay/d*35,5);
-        rect(c,0xcc101920,0,0,1000,55);
-        text(c,"NUKE-ARM64  |  BLOCKOUT ARENA  |  SCORE "+score+"  |  HP "+Math.max(hp,0),18,37,26,Color.WHITE);
-        circle(c,0x8840e0ff,130,655,90);
-        text(c,"MOVE",91,665,24,Color.WHITE);
-        circle(c,0x88ff704d,860,660,85);
-        text(c,"FIRE",828,670,27,Color.WHITE);
-        if(gameover) {
-            rect(c,0xdd0b1720,140,285,860,500);
-            text(c,"MATCH OVER  -  SCORE "+score,260,375,35,Color.WHITE);
-            text(c,"TAP TO RESTART",357,425,25,Color.WHITE);
-        }
-        c.restore();postInvalidateDelayed(16);
+        return 17.6f;
     }
-    @Override public boolean onTouchEvent(MotionEvent e) {
-        int action=e.getActionMasked();
-        if(gameover&&action==MotionEvent.ACTION_DOWN){reset();return true;}
-        joyx=joyy=0;shoot=false;
-        for(int i=0;i<e.getPointerCount();i++){
-            if(action==MotionEvent.ACTION_POINTER_UP&&i==e.getActionIndex())continue;
-            float x=e.getX(i)*1000f/Math.max(1,getWidth());
-            float y=e.getY(i)*800f/Math.max(1,getHeight());
-            if(x<440&&y>490) {
-                joyx=Math.max(-1,Math.min(1,(x-130)/90));
-                joyy=Math.max(-1,Math.min(1,(y-655)/90));
-            }else if(x>580&&y>490){
-                shoot=true;aimx=px+(x-860);aimy=py+(y-660)-200;
-            }else if(action!=MotionEvent.ACTION_UP){aimx=x;aimy=y;}
+    private int wallColor(int kind,float shade){
+        int[][] colors={{60,67,66},{114,112,98},{166,188,183},{186,144,111},{205,171,55},{108,142,166},{119,110,91}};
+        int[] b=colors[Math.min(colors.length-1,Math.max(0,kind))];
+        return Color.rgb((int)(b[0]*shade),(int)(b[1]*shade),(int)(b[2]*shade));
+    }
+    private void rectangle(Canvas c,int col,float x1,float y1,float x2,float y2){
+        p.setColor(col);p.setStyle(Paint.Style.FILL);c.drawRect(x1,y1,x2,y2,p);
+    }
+    private void label(Canvas c,String str,float xx,float yy,int size){
+        p.setColor(Color.WHITE);p.setTextSize(size);p.setStyle(Paint.Style.FILL);c.drawText(str,xx,yy,p);
+    }
+    @Override protected void onDraw(Canvas canvas){
+        super.onDraw(canvas);
+        float w=getWidth(),h=getHeight();
+        long now=System.nanoTime();
+        float dt=Math.min(.05f,(now-last)/1000000000f);last=now;
+        step(dt);
+        rectangle(canvas,0xff779db7,0,0,w,h*.5f);
+        rectangle(canvas,0xff666b61,0,h*.5f,w,h);
+        float focal=h*.74f;
+        int columns=depth.length;
+        float colwidth=w/columns+1;
+        for(int col=0;col<columns;col++){
+            float camera=(col+0.5f)/(float)columns-.5f;
+            float ang=a+(float)Math.atan(camera*1.12f);
+            float dx=(float)Math.cos(ang),dy=(float)Math.sin(ang);
+            float dist=cast(dx,dy);
+            float corrected=dist*(float)Math.cos(ang-a);
+            depth[col]=corrected;
+            float tall=Math.min(h*3,focal/Math.max(.08f,corrected));
+            float rx=x+dx*dist-.001f*dx,ry=y+dy*dist-.001f*dy;
+            int ix=Math.max(0,Math.min(W-1,(int)rx));
+            int iy=Math.max(0,Math.min(H-1,(int)ry));
+            int kind=m[iy][ix];
+            float shade=Math.max(.28f,1f-corrected/23f);
+            rectangle(canvas,wallColor(kind,shade),col*colwidth,(h-tall)/2,(col+1)*colwidth,(h+tall)/2);
         }
-        invalidate();return true;
+        // Draw sprites from far to near with depth-buffer occlusion.
+        boolean[] drawn=new boolean[botsLive.length];
+        for(int count=0;count<botsLive.length;count++){
+            int nearest=-1;float best=-1;
+            for(int i=0;i<botsLive.length;i++)if(botsLive[i]&&!drawn[i]){
+                float d=(botsX[i]-x)*(botsX[i]-x)+(botsY[i]-y)*(botsY[i]-y);
+                if(d>best){best=d;nearest=i;}
+            }
+            if(nearest<0)break;
+            drawn[nearest]=true;
+            float dx=botsX[nearest]-x,dy=botsY[nearest]-y;
+            float forward=dx*(float)Math.cos(a)+dy*(float)Math.sin(a);
+            float side=-dx*(float)Math.sin(a)+dy*(float)Math.cos(a);
+            if(forward<=.25f)continue;
+            float screenX=w*(.5f+side/(forward*1.12f));
+            float tall=Math.min(h*2,focal/forward*.85f);
+            int col=(int)(screenX/w*columns);
+            if(col<0||col>=columns||depth[col]<forward-.3f)continue;
+            p.setColor(0xffd5493d);p.setStyle(Paint.Style.FILL);
+            canvas.drawOval(screenX-tall*.17f,h*.5f-tall*.46f,screenX+tall*.17f,h*.5f+tall*.45f,p);
+            p.setColor(0xfff2ba8b);
+            canvas.drawCircle(screenX,h*.5f-tall*.37f,tall*.13f,p);
+        }
+        float cx=w/2,cy=h/2;
+        rectangle(canvas,Color.WHITE,cx-12,cy-1,cx-4,cy+1);
+        rectangle(canvas,Color.WHITE,cx+4,cy-1,cx+12,cy+1);
+        rectangle(canvas,Color.WHITE,cx-1,cy-12,cx+1,cy-4);
+        rectangle(canvas,Color.WHITE,cx-1,cy+4,cx+1,cy+12);
+        rectangle(canvas,0xbb101820,0,0,w,50);
+        label(canvas,"NUKE-ARM64  |  NUKETOWN-INSPIRED BLOCKOUT  |  HP "+health+"  SCORE "+score,16,33,Math.max(13,(int)(h*.036f)));
+        rectangle(canvas,0x7766bfff,18,h-152,180,h-18);
+        rectangle(canvas,0x77e86f47,w-195,h-152,w-20,h-18);
+        label(canvas,"MOVE",46,h-75,25);
+        label(canvas,"FIRE",w-148,h-75,25);
+        label(canvas,"DRAG RIGHT SIDE TO LOOK",w*.38f,h-30,17);
+        if(dead){
+            rectangle(canvas,0xee10191e,w*.20f,h*.29f,w*.8f,h*.67f);
+            label(canvas,"MATCH OVER   SCORE "+score,w*.28f,h*.44f,30);
+            label(canvas,"TAP TO RESTART",w*.35f,h*.55f,25);
+        }
+        postInvalidateDelayed(16);
+    }
+    @Override public boolean onTouchEvent(MotionEvent event){
+        int action=event.getActionMasked(), index=event.getActionIndex();
+        if(dead&&action==MotionEvent.ACTION_DOWN){reset();return true;}
+        if(action==MotionEvent.ACTION_DOWN||action==MotionEvent.ACTION_POINTER_DOWN){
+            int id=event.getPointerId(index);float tx=event.getX(index);
+            if(tx<getWidth()*.42f&&leftId<0)leftId=id;
+            else if(rightId<0){rightId=id;lastAimX=tx;firing=true;}
+        }
+        if(action==MotionEvent.ACTION_UP||action==MotionEvent.ACTION_POINTER_UP||action==MotionEvent.ACTION_CANCEL){
+            int id=event.getPointerId(index);
+            if(id==leftId){leftId=-1;moveX=moveY=0;}
+            if(id==rightId){rightId=-1;firing=false;}
+        }
+        for(int i=0;i<event.getPointerCount();i++){
+            int id=event.getPointerId(i);
+            if(id==leftId) {
+                float xx=event.getX(i)/getWidth(),yy=event.getY(i)/getHeight();
+                moveX=Math.max(-1f,Math.min(1f,(xx-.13f)*5));
+                moveY=Math.max(-1f,Math.min(1f,(yy-.82f)*5));
+            }
+            if(id==rightId){
+                float xx=event.getX(i);
+                if(action==MotionEvent.ACTION_MOVE){a+=(xx-lastAimX)/Math.max(1,getWidth())*3.5f;}
+                lastAimX=xx;
+            }
+        }
+        return true;
     }
 }
