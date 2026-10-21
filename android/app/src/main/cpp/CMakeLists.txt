@@ -1,0 +1,8 @@
+cmake_minimum_required(VERSION 3.22)
+project(nuke_android LANGUAGES CXX)
+set(CMAKE_CXX_STANDARD 17)
+if(NOT DEFINED NUKE_KISAKBLACK_ROOT)
+    message(FATAL_ERROR "Set NUKE_KISAKBLACK_ROOT to a KisakBlack source checkout")
+endif()
+add_library(nuke_bootstrap SHARED native.cpp "${NUKE_KISAKBLACK_ROOT}/src/universal/base64.cpp")
+target_include_directories(nuke_bootstrap PRIVATE "${NUKE_KISAKBLACK_ROOT}/src/universal")
