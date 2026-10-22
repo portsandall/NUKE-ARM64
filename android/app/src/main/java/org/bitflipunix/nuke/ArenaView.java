@@ -19,7 +19,8 @@ public final class ArenaView extends View {
     private final float[] depth=new float[240];
     private float x=12.0f,y=14.5f,a=-1.57f,vx=0,vy=0;
     private float lastAimX, moveX,moveY;
-    private int health=100,score=0,frames=0;
+    private int health=100,score=0,kills=0,frames=0;
+    private boolean victory=false;
     private long last=System.nanoTime();
     private boolean firing=false,dead=false;
     private int leftId=-1,rightId=-1;
@@ -55,7 +56,7 @@ public final class ArenaView extends View {
         return false;
     }
     private void reset(){
-        x=12;y=14.5f;a=-1.57f;health=100;score=0;frames=0;dead=false;
+        x=12;y=14.5f;a=-1.57f;health=100;score=0;kills=0;frames=0;dead=false;victory=false;
         for(int i=0;i<botsLive.length;i++)spawn(i);
     }
     private void spawn(int i){
@@ -98,7 +99,7 @@ public final class ArenaView extends View {
                     target=i;hitDist=proj;
                 }
             }
-            if(target>=0){botsLive[target]=false;score+=100;}
+            if(target>=0){botsLive[target]=false;score+=100;kills++;if(kills>=30){victory=true;dead=true;}}
         }
         if(health==0)dead=true;
     }
@@ -179,7 +180,7 @@ public final class ArenaView extends View {
         rectangle(canvas,Color.WHITE,cx-1,cy-12,cx+1,cy-4);
         rectangle(canvas,Color.WHITE,cx-1,cy+4,cx+1,cy+12);
         rectangle(canvas,0xbb101820,0,0,w,50);
-        label(canvas,"NUKE-ARM64  |  NUKETOWN-INSPIRED BLOCKOUT  |  HP "+health+"  SCORE "+score,16,33,Math.max(13,(int)(h*.036f)));
+        label(canvas,"NUKE-ARM64  |  NUKETOWN-INSPIRED BLOCKOUT  |  HP "+health+"  KILLS "+kills+"/30  SCORE "+score,16,33,Math.max(13,(int)(h*.036f)));
         rectangle(canvas,0x7766bfff,18,h-152,180,h-18);
         rectangle(canvas,0x77e86f47,w-195,h-152,w-20,h-18);
         label(canvas,"MOVE",46,h-75,25);
@@ -187,7 +188,7 @@ public final class ArenaView extends View {
         label(canvas,"DRAG RIGHT SIDE TO LOOK",w*.38f,h-30,17);
         if(dead){
             rectangle(canvas,0xee10191e,w*.20f,h*.29f,w*.8f,h*.67f);
-            label(canvas,"MATCH OVER   SCORE "+score,w*.28f,h*.44f,30);
+            label(canvas,(victory?"VICTORY - 30 KILLS":"MATCH OVER")+"   SCORE "+score,w*.28f,h*.44f,30);
             label(canvas,"TAP TO RESTART",w*.35f,h*.55f,25);
         }
         postInvalidateDelayed(16);
