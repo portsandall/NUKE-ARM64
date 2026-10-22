@@ -48,7 +48,7 @@ public final class MainActivity extends Activity {
         root.setOrientation(LinearLayout.VERTICAL);
         root.setBackgroundColor(0xff111e25);
         TextView title=new TextView(this);
-        title.setText("NUKE-ARM64  |  FIRING RANGE MAP TEST");
+        title.setText("NUKE-ARM64  |  3D MAP FLYTHROUGH");
         title.setTextColor(0xffbceccd);
         title.setTextSize(24);
         root.addView(title);
@@ -56,8 +56,9 @@ public final class MainActivity extends Activity {
         status.setTextColor(Color.WHITE);
         status.setTextSize(15);
         status.setPadding(0,12,0,12);
-        status.setText("FIRING RANGE IMPORT READY  //  Select a converted .nmap to fly through its geometry. Original BO1 assets are not bundled.\nOffline FFA prototype remains a separate blockout; imported maps are view-only until collision and spawn support are implemented.");
+        status.setText("Offline 3D flythrough: left touch to move, right touch to look.\nBundled original-asset-free Nuketown-style blockout. You can also import your own NMAP.");
         root.addView(status);
+        button("FLY THROUGH NUKETOWN-STYLE 3D MAP",root).setOnClickListener(v->openDemoMap());
         button("PLAY OFFLINE FFA // TEST ARENA",root).setOnClickListener(v->loadingScreen());
         button("IMPORT MAP GEOMETRY (.NMAP)",root).setOnClickListener(v->choose(REQUEST_MAP));
         button("IMPORT MAP PHYSICS (.JSON)",root).setOnClickListener(v->choose(REQUEST_PHYSICS));
@@ -185,6 +186,16 @@ public final class MainActivity extends Activity {
                 tmp.delete();
                 runOnUiThread(()->status.setText("Import failed: "+e.getMessage()));
             }
+        }).start();
+    }
+    private void openDemoMap(){
+        status.setText("Generating standalone 3D map...");
+        new Thread(()->{
+            try{
+                File demo=DemoMap.create(new File(getCacheDir(),"demo_nuketown.nmap"));
+                NmapView view=new NmapView(this,demo);
+                runOnUiThread(()->{mapView=view;setContentView(view);});
+            }catch(Exception e){runOnUiThread(()->status.setText("Demo map failed: "+e.getMessage()));}
         }).start();
     }
     private void openMap(){
