@@ -20,6 +20,11 @@ public final class ArenaView extends View {
     private float x=12.0f,y=14.5f,a=-1.57f,vx=0,vy=0;
     private float lastAimX, moveX,moveY;
     private int health=100,score=0,kills=0,frames=0;
+    // Deterministic 60 Hz simulation, independent of device rendering refresh rate.
+    private static final float FIXED_DT=1f/60f;
+    private float accumulated=0;
+    private final int[] botAttackCooldown=new int[5];
+    private int weaponCooldown=0;
     private boolean victory=false;
     private long last=System.nanoTime();
     private boolean firing=false,dead=false;
@@ -56,7 +61,8 @@ public final class ArenaView extends View {
         return false;
     }
     private void reset(){
-        x=12;y=14.5f;a=-1.57f;health=100;score=0;kills=0;frames=0;dead=false;victory=false;
+        x=12;y=14.5f;a=-1.57f;health=100;score=0;kills=0;frames=0;dead=false;victory=false;accumulated=0;weaponCooldown=0;
+        java.util.Arrays.fill(botAttackCooldown,0);
         for(int i=0;i<botsLive.length;i++)spawn(i);
     }
     private void spawn(int i){
@@ -86,9 +92,15 @@ public final class ArenaView extends View {
                 if(!solid(tx,botsY[i],.24f))botsX[i]=tx;
                 if(!solid(botsX[i],ty,.24f))botsY[i]=ty;
             }
-            if(dist<1.1f&&frames%55==i*7)health=Math.max(0,health-6);
+            if(botAttackCooldown[i]>0)botAttackCooldown[i]--;
+            if(dist<5.5f&&botAttackCooldown[i]==0&&lineOfSight(botsX[i],botsY[i],x,y)){
+                health=Math.max(0,health-4);
+                botAttackCooldown[i]=65+i*4;
+            }
         }
-        if(firing&&frames%13==0){
+        if(weaponCooldown>0)weaponCooldown--;
+        if(firing&&weaponCooldown==0){
+            weaponCooldown=8;
             float hitDist=9.0f;int target=-1;
             float wx=(float)Math.cos(a),wy=(float)Math.sin(a);
             float wallDist=cast(wx,wy);
@@ -102,6 +114,19 @@ public final class ArenaView extends View {
             if(target>=0){botsLive[target]=false;score+=100;kills++;if(kills>=30){victory=true;dead=true;}}
         }
         if(health==0)dead=true;
+    }
+    /** Shared visibility test for AI and projectile targeting; walls block fire. */
+    private boolean lineOfSight(float ax,float ay,float bx,float by){
+        float dx=bx-ax,dy=by-ay;
+        float dist=(float)Math.hypot(dx,dy);
+        if(dist<.001f)return true;
+        int n=Math.max(1,(int)Math.ceil(dist/.09f));
+        for(int k=1;k<n;k++){
+            float t=k/(float)n;
+            int ix=(int)Math.floor(ax+dx*t),iy=(int)Math.floor(ay+dy*t);
+            if(ix<0||iy<0||ix>=W||iy>=H||m[iy][ix]!=0)return false;
+        }
+        return true;
     }
     private float cast(float dx,float dy){
         float d=0;
@@ -130,7 +155,9 @@ public final class ArenaView extends View {
         float w=getWidth(),h=getHeight();
         long now=System.nanoTime();
         float dt=Math.min(.05f,(now-last)/1000000000f);last=now;
-        step(dt);
+        accumulated=Math.min(.20f,accumulated+dt);
+        int ticks=0;
+        while(accumulated>=FIXED_DT&&ticks<8){step(FIXED_DT);accumulated-=FIXED_DT;ticks++;}
         rectangle(canvas,0xff779db7,0,0,w,h*.5f);
         rectangle(canvas,0xff666b61,0,h*.5f,w,h);
         float focal=h*.74f;
