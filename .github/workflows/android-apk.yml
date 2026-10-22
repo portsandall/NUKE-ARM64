@@ -16,6 +16,22 @@ jobs:
           repository: SwagSoftware/KisakBlack
           ref: 306bb14a8e052a6244bd1df4e4df7d8504c04ef4
           path: upstream/KisakBlack
+      - uses: actions/checkout@v4
+        with:
+          repository: Tomobobo710/ActionEngineJS
+          ref: main
+          path: upstream/ActionEngineJS
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Bundle ActionRenderer3D for offline Android WebView
+        run: |
+          cd upstream/ActionEngineJS
+          npm ci --ignore-scripts || npm install --ignore-scripts
+          npm run build
+          test -s dist/action-engine.min.js
+          cp dist/action-engine.min.js "$GITHUB_WORKSPACE/android/app/src/main/assets/action3d/action-engine.min.js"
+          cp LICENSE "$GITHUB_WORKSPACE/android/app/src/main/assets/action3d/ACTIONENGINE_LICENSE.txt"
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
