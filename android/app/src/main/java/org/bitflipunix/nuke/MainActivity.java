@@ -22,7 +22,7 @@ import java.io.InputStream;
 
 /** Never bundles proprietary COD assets. Imports an NMAP made from the user's own OBJ export. */
 public final class MainActivity extends Activity {
-    private static final int REQUEST_MAP=1001;
+    private static final int REQUEST_MAP=1001,REQUEST_PHYSICS=1002;
     private NmapView mapView;
     private final Handler ui=new Handler(Looper.getMainLooper());
     private boolean launching=false;
@@ -59,7 +59,8 @@ public final class MainActivity extends Activity {
         status.setText("FIRING RANGE IMPORT READY  //  Select a converted .nmap to fly through its geometry. Original BO1 assets are not bundled.\nOffline FFA prototype remains a separate blockout; imported maps are view-only until collision and spawn support are implemented.");
         root.addView(status);
         button("PLAY OFFLINE FFA // TEST ARENA",root).setOnClickListener(v->loadingScreen());
-        button("IMPORT FIRING RANGE .NMAP / OTHER .NMAP",root).setOnClickListener(v->choose());
+        button("IMPORT MAP GEOMETRY (.NMAP)",root).setOnClickListener(v->choose(REQUEST_MAP));
+        button("IMPORT MAP PHYSICS (.JSON)",root).setOnClickListener(v->choose(REQUEST_PHYSICS));
         Button open=button("EXPLORE FIRING RANGE / IMPORTED MAP (3D)",root);
         open.setEnabled(mapFile().isFile());
         open.setOnClickListener(v->openMap());
@@ -145,19 +146,20 @@ public final class MainActivity extends Activity {
             },i*105L);
         }
     }
-    private void choose(){
+    private void choose(int request){
         Intent intent=new Intent(Intent.ACTION_OPEN_DOCUMENT);
         intent.setType("*/*");
         intent.addCategory(Intent.CATEGORY_OPENABLE);
-        startActivityForResult(intent,REQUEST_MAP);
+        startActivityForResult(intent,request);
     }
     @Override protected void onActivityResult(int request,int result,Intent intent){
         super.onActivityResult(request,result,intent);
-        if(request!=REQUEST_MAP||result!=RESULT_OK||intent==null||intent.getData()==null)return;
+        if((request!=REQUEST_MAP&&request!=REQUEST_PHYSICS)||result!=RESULT_OK||intent==null||intent.getData()==null)return;
+        final boolean physics=request==REQUEST_PHYSICS;
         final Uri uri=intent.getData();
         status.setText("Importing map...");
         new Thread(()->{
-            File tmp=new File(getCacheDir(),"import.nmap");
+            File tmp=new File(getCacheDir(),physics?"import.physics.json":"import.nmap");
             try(InputStream in=getContentResolver().openInputStream(uri);
                 FileOutputStream out=new FileOutputStream(tmp)){
                 if(in==null)throw new IllegalArgumentException("Could not open the selected document");
@@ -165,14 +167,20 @@ public final class MainActivity extends Activity {
                 long size=0;int n;
                 while((n=in.read(buf))!=-1){
                     size+=n;
-                    if(size>80L*1024*1024)throw new IllegalArgumentException("NMAP exceeds 80 MiB");
+                    if(size>(physics?1024L*1024:80L*1024*1024))throw new IllegalArgumentException("Import too large");
                     out.write(buf,0,n);
                 }
-                if(size<40)throw new IllegalArgumentException("Selected file is not an NMAP");
+                if(size<10)throw new IllegalArgumentException("Selected file is too small");
+                if(physics){
+                    String body=new String(java.nio.file.Files.readAllBytes(tmp.toPath()),java.nio.charset.StandardCharsets.UTF_8);
+                    org.json.JSONObject obj=new org.json.JSONObject(body);
+                    if(!"NUKE_PHYSICS_AABB".equals(obj.optString("format"))||obj.optInt("version")!=1)
+                        throw new IllegalArgumentException("Expected NUKE_PHYSICS_AABB v1 JSON");
+                }
                 out.getFD().sync();
-                java.nio.file.Files.move(tmp.toPath(),mapFile().toPath(),
+                java.nio.file.Files.move(tmp.toPath(),physics?new File(getFilesDir(),"arena.physics.json").toPath():mapFile().toPath(),
                     java.nio.file.StandardCopyOption.REPLACE_EXISTING);
-                runOnUiThread(this::openMap);
+                runOnUiThread(()->{if(mapFile().isFile())openMap();else menu();});
             }catch(Exception e){
                 tmp.delete();
                 runOnUiThread(()->status.setText("Import failed: "+e.getMessage()));
