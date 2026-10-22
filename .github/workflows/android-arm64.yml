@@ -24,9 +24,17 @@ jobs:
         run: cmake --build build/android --verbose
       - name: Verify AArch64 ELF outputs
         run: |
-          llvm-readelf -h build/android/nuke-platform-probe | grep -q 'AArch64'
-          llvm-readelf -h build/android/nuke-base64-smoke | grep -q 'AArch64'
-          llvm-readelf -h build/android/nuke-atomic-test | grep -q 'AArch64'
+          python3 - <<'PY'
+          from pathlib import Path
+          for name in ("nuke-platform-probe", "nuke-base64-smoke", "nuke-atomic-test"):
+              path = Path("build/android") / name
+              data = path.read_bytes()[:20]
+              assert len(data) == 20 and data[:4] == b"\\x7fELF", f"{path}: invalid ELF header"
+              assert data[4] == 2, f"{path}: not ELF64"
+              machine = int.from_bytes(data[18:20], "little" if data[5] == 1 else "big")
+              assert machine == 183, f"{path}: not AArch64 (e_machine={machine})"
+              print(f"Verified ELF64 AArch64: {path}")
+          PY
       - uses: actions/upload-artifact@v4
         with:
           name: nuke-aarch64-integration-probes
