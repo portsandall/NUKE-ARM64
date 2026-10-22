@@ -27,7 +27,7 @@ public final class MainActivity extends Activity {
     private final Handler ui=new Handler(Looper.getMainLooper());
     private boolean launching=false;
     private TextView status;
-    private final File mapFile(){return new File(getFilesDir(),"user_nuketown.nmap");}
+    private final File mapFile(){return new File(getFilesDir(),"user_firingrange.nmap");}
     @Override public void onCreate(Bundle savedInstanceState){
         super.onCreate(savedInstanceState);
         setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE);
@@ -48,7 +48,7 @@ public final class MainActivity extends Activity {
         root.setOrientation(LinearLayout.VERTICAL);
         root.setBackgroundColor(0xff111e25);
         TextView title=new TextView(this);
-        title.setText("NUKE-ARM64  |  NUKETOWN STANDALONE");
+        title.setText("NUKE-ARM64  |  FIRING RANGE MAP TEST");
         title.setTextColor(0xffbceccd);
         title.setTextSize(24);
         root.addView(title);
@@ -56,11 +56,11 @@ public final class MainActivity extends Activity {
         status.setTextColor(Color.WHITE);
         status.setTextSize(15);
         status.setPadding(0,12,0,12);
-        status.setText("Original map geometry is not included. Import a .nmap made from your own Black Ops OBJ export.\nImported mesh preview: touch left to move, right to look. Collision, textures and COD gameplay are not yet implemented.");
+        status.setText("FIRING RANGE IMPORT READY  //  Select a converted .nmap to fly through its geometry. Original BO1 assets are not bundled.\nOffline FFA prototype remains a separate blockout; imported maps are view-only until collision and spawn support are implemented.");
         root.addView(status);
-        button("DEPLOY // OFFLINE FFA PROTOTYPE",root).setOnClickListener(v->loadingScreen());
-        button("IMPORT EXPORTED NUKETOWN .NMAP",root).setOnClickListener(v->choose());
-        Button open=button("EXPLORE IMPORTED MAP (3D)",root);
+        button("PLAY OFFLINE FFA // TEST ARENA",root).setOnClickListener(v->loadingScreen());
+        button("IMPORT FIRING RANGE .NMAP / OTHER .NMAP",root).setOnClickListener(v->choose());
+        Button open=button("EXPLORE FIRING RANGE / IMPORTED MAP (3D)",root);
         open.setEnabled(mapFile().isFile());
         open.setOnClickListener(v->openMap());
         setContentView(root);
@@ -89,7 +89,7 @@ public final class MainActivity extends Activity {
         eyebrow.setTypeface(Typeface.MONOSPACE,Typeface.BOLD);
         panel.addView(eyebrow);
         TextView heading=new TextView(this);
-        heading.setText("NUKETOWN");
+        heading.setText("FIRING RANGE");
         heading.setTextSize(66);
         heading.setTextColor(0xffe8e6d9);
         heading.setTypeface(Typeface.create("sans-serif-condensed",Typeface.BOLD));
@@ -112,7 +112,7 @@ public final class MainActivity extends Activity {
         mission.setTypeface(Typeface.MONOSPACE);
         panel.addView(mission);
         TextView notice=new TextView(this);
-        notice.setText("PROTOTYPE ENVIRONMENT  •  ORIGINAL BO1 MAP ASSETS NOT YET INTEGRATED");
+        notice.setText("PROTOTYPE FFA BLOCKOUT  •  FIRING RANGE MAP MUST BE IMPORTED SEPARATELY");
         notice.setTextColor(0xffa8b5ad);
         notice.setTextSize(12);
         notice.setPadding(0,16,0,22);
