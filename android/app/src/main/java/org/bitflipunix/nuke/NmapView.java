@@ -11,6 +11,9 @@ import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.nio.FloatBuffer;
 import java.nio.file.Files;
+import org.json.JSONArray;
+import org.json.JSONObject;
+import java.util.ArrayList;
 
 /**
  * Standalone untextured NMAP world-geometry preview (Z-up OBJ coordinate system).
@@ -27,6 +30,11 @@ public final class NmapView extends GLSurfaceView implements GLSurfaceView.Rende
     private volatile float yaw=0.5f,pitch=-0.2f,forward=0,strafe=0;
     private float cameraX,cameraY,cameraZ;
     private int program,positionLoc,normalLoc,mvpLoc;
+    private final ArrayList<float[]> solids=new ArrayList<>(),floors=new ArrayList<>();
+    private float radius=.35f,eyeHeight=1.6f,playerHeight=1.75f,gravity=-18f,jumpSpeed=6f,walkSpeed=5f;
+    private float feetZ,verticalSpeed;
+    private boolean grounded=false,physicsEnabled=false;
+    private volatile boolean jumpRequested=false;
     private long last=System.nanoTime();
     private int movePointer=-1,lookPointer=-1;
     private float moveStartX,moveStartY,lastLookX,lastLookY;
@@ -76,10 +84,85 @@ public final class NmapView extends GLSurfaceView implements GLSurfaceView.Rende
         cameraX=(bounds[0]+bounds[3])*0.5f-extent*.55f;
         cameraY=(bounds[1]+bounds[4])*0.5f-extent*.55f;
         cameraZ=(bounds[2]+bounds[5])*0.5f+extent*.23f;
+        loadPhysics(new File(map.getParentFile(),"arena.physics.json"));
         setRenderer(this);
         setRenderMode(RENDERMODE_CONTINUOUSLY);
     }
 
+
+    private static float[] box(JSONObject o) throws Exception {
+        JSONArray lo=o.getJSONArray("min"),hi=o.getJSONArray("max");
+        float[] b=new float[6];
+        for(int i=0;i<3;i++){b[i]=(float)lo.getDouble(i);b[i+3]=(float)hi.getDouble(i);
+            if(!Float.isFinite(b[i])||!Float.isFinite(b[i+3])||b[i]>b[i+3])
+                throw new IOException("Invalid physics collider");}
+        return b;
+    }
+    private void loadPhysics(File file) throws IOException {
+        if(!file.isFile())return; // Legacy NMAP remains a free-flight viewer.
+        try{
+            byte[] raw=Files.readAllBytes(file.toPath());
+            if(raw.length>1024*1024)throw new IOException("Physics JSON exceeds 1 MiB");
+            JSONObject root=new JSONObject(new String(raw,java.nio.charset.StandardCharsets.UTF_8));
+            if(!"NUKE_PHYSICS_AABB".equals(root.getString("format"))||root.getInt("version")!=1)
+                throw new IOException("Unsupported physics format");
+            JSONObject player=root.getJSONObject("player");
+            radius=(float)player.getDouble("radius");
+            playerHeight=(float)player.getDouble("height");
+            eyeHeight=(float)player.getDouble("eye_height");
+            gravity=(float)player.getDouble("gravity");
+            jumpSpeed=(float)player.getDouble("jump_speed");
+            walkSpeed=(float)player.getDouble("walk_speed");
+            if(radius<=0||playerHeight<=eyeHeight||eyeHeight<=0||walkSpeed<=0)
+                throw new IOException("Invalid player dimensions");
+            JSONArray boxes=root.getJSONArray("solid_colliders"),grounds=root.getJSONArray("ground_surfaces");
+            if(boxes.length()>50000||grounds.length()>50000)throw new IOException("Too many colliders");
+            for(int i=0;i<boxes.length();i++)solids.add(box(boxes.getJSONObject(i)));
+            for(int i=0;i<grounds.length();i++)floors.add(box(grounds.getJSONObject(i)));
+            // Start near map centre and settle on highest floor below eye level.
+            cameraX=(bounds[0]+bounds[3])*.5f;
+            cameraY=(bounds[1]+bounds[4])*.5f;
+            feetZ=bounds[2]+.2f;
+            for(float[] b:floors)if(cameraX>=b[0]&&cameraX<=b[3]&&cameraY>=b[1]&&cameraY<=b[4])
+                feetZ=Math.max(feetZ,b[5]);
+            cameraZ=feetZ+eyeHeight;
+            physicsEnabled=true;
+        }catch(IOException e){throw e;}catch(Exception e){throw new IOException("Physics JSON: "+e.getMessage(),e);}
+    }
+    private boolean blocked(float px,float py,float bottom){
+        for(float[] b:solids){
+            if(bottom+playerHeight<=b[2]+.001f||bottom>=b[5]-.001f)continue;
+            float nx=Math.max(b[0],Math.min(px,b[3])),ny=Math.max(b[1],Math.min(py,b[4]));
+            float dx=px-nx,dy=py-ny;
+            if(dx*dx+dy*dy<radius*radius)return true;
+        }
+        return false;
+    }
+    private float floorAt(float px,float py,float bottom){
+        float top=Float.NEGATIVE_INFINITY;
+        for(float[] b:floors)if(px>=b[0]-radius*.5f&&px<=b[3]+radius*.5f
+            &&py>=b[1]-radius*.5f&&py<=b[4]+radius*.5f
+            &&b[5]<=bottom+.35f&&b[5]>top)top=b[5];
+        return top;
+    }
+    private void physicsStep(float dt){
+        if(jumpRequested){jumpRequested=false;if(grounded){verticalSpeed=jumpSpeed;grounded=false;}}
+        float dx=((float)Math.cos(yaw)*forward-(float)Math.sin(yaw)*strafe)*walkSpeed*dt;
+        float dy=((float)Math.sin(yaw)*forward+(float)Math.cos(yaw)*strafe)*walkSpeed*dt;
+        int steps=Math.max(1,(int)Math.ceil(Math.max(Math.abs(dx),Math.abs(dy))/.12f));
+        for(int i=0;i<steps;i++){
+            float nx=cameraX+dx/steps,ny=cameraY+dy/steps;
+            if(!blocked(nx,cameraY,feetZ))cameraX=nx;
+            if(!blocked(cameraX,ny,feetZ))cameraY=ny;
+        }
+        verticalSpeed+=gravity*dt;
+        float next=feetZ+verticalSpeed*dt;
+        float floor=floorAt(cameraX,cameraY,Math.max(feetZ,next));
+        if(verticalSpeed<=0&&floor!=Float.NEGATIVE_INFINITY&&next<=floor){
+            next=floor;verticalSpeed=0;grounded=true;
+        }else grounded=false;
+        feetZ=next;cameraZ=feetZ+eyeHeight;
+    }
     private static int shader(int kind,String source){
         int id=GLES20.glCreateShader(kind);
         GLES20.glShaderSource(id,source);
@@ -114,9 +197,12 @@ public final class NmapView extends GLSurfaceView implements GLSurfaceView.Rende
     }
     @Override public void onDrawFrame(javax.microedition.khronos.opengles.GL10 gl){
         long now=System.nanoTime();float dt=Math.min(.055f,Math.max(0,(now-last)/1e9f));last=now;
+        if(physicsEnabled)physicsStep(dt);
+        else {
         float speed=Math.max(1f,extent*.15f);
         cameraX+=((float)Math.cos(yaw)*forward-(float)Math.sin(yaw)*strafe)*speed*dt;
         cameraY+=((float)Math.sin(yaw)*forward+(float)Math.cos(yaw)*strafe)*speed*dt;
+        }
         float cp=(float)Math.cos(pitch);
         Matrix.setLookAtM(view,0,cameraX,cameraY,cameraZ,
             cameraX+(float)Math.cos(yaw)*cp,
@@ -140,6 +226,7 @@ public final class NmapView extends GLSurfaceView implements GLSurfaceView.Rende
         int action=ev.getActionMasked(),idx=ev.getActionIndex();
         if(action==MotionEvent.ACTION_DOWN||action==MotionEvent.ACTION_POINTER_DOWN){
             int id=ev.getPointerId(idx);
+            if(physicsEnabled&&ev.getX(idx)>getWidth()*.80f&&ev.getY(idx)<getHeight()*.32f){jumpRequested=true;return true;}
             if(ev.getX(idx)<getWidth()*.45f&&movePointer<0){
                 movePointer=id;moveStartX=ev.getX(idx);moveStartY=ev.getY(idx);
             }else if(lookPointer<0){
