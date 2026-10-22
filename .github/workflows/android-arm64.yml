@@ -29,7 +29,7 @@ jobs:
           for name in ("nuke-platform-probe", "nuke-base64-smoke", "nuke-atomic-test"):
               path = Path("build/android") / name
               data = path.read_bytes()[:20]
-              assert len(data) == 20 and data[:4] == b"\\x7fELF", f"{path}: invalid ELF header"
+              assert len(data) == 20 and data[:4] == bytes((127, 69, 76, 70)), f"{path}: invalid ELF header"
               assert data[4] == 2, f"{path}: not ELF64"
               machine = int.from_bytes(data[18:20], "little" if data[5] == 1 else "big")
               assert machine == 183, f"{path}: not AArch64 (e_machine={machine})"
