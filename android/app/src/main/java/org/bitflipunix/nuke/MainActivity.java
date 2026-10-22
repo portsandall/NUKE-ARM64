@@ -58,7 +58,8 @@ public final class MainActivity extends Activity {
         status.setPadding(0,12,0,12);
         status.setText("Offline 3D flythrough: left touch to move, right touch to look.\nBundled original-asset-free Nuketown-style blockout. You can also import your own NMAP.");
         root.addView(status);
-        button("FLY THROUGH NUKETOWN-STYLE 3D MAP",root).setOnClickListener(v->openDemoMap());
+        button("ACTIONRENDERER3D // NUKETOWN FLYTHROUGH",root).setOnClickListener(v->openAction3D());
+        button("LEGACY GLES2 // NUKETOWN FLYTHROUGH",root).setOnClickListener(v->openDemoMap());
         button("PLAY OFFLINE FFA // TEST ARENA",root).setOnClickListener(v->loadingScreen());
         button("IMPORT MAP GEOMETRY (.NMAP)",root).setOnClickListener(v->choose(REQUEST_MAP));
         button("IMPORT MAP PHYSICS (.JSON)",root).setOnClickListener(v->choose(REQUEST_PHYSICS));
@@ -187,6 +188,14 @@ public final class MainActivity extends Activity {
                 runOnUiThread(()->status.setText("Import failed: "+e.getMessage()));
             }
         }).start();
+    }
+    private void openAction3D(){
+        android.webkit.WebView web=new android.webkit.WebView(this);
+        web.getSettings().setJavaScriptEnabled(true);
+        web.getSettings().setAllowFileAccess(true);
+        web.setBackgroundColor(0xff101b20);
+        web.loadUrl("file:///android_asset/action3d/index.html");
+        setContentView(web);
     }
     private void openDemoMap(){
         status.setText("Generating standalone 3D map...");
