@@ -4,6 +4,12 @@ import android.app.Activity;
 import android.content.Intent;
 import android.content.pm.ActivityInfo;
 import android.graphics.Color;
+import android.graphics.Typeface;
+import android.graphics.drawable.GradientDrawable;
+import android.os.Handler;
+import android.os.Looper;
+import android.widget.FrameLayout;
+import android.widget.ProgressBar;
 import android.net.Uri;
 import android.os.Bundle;
 import android.view.Gravity;
@@ -18,6 +24,8 @@ import java.io.InputStream;
 public final class MainActivity extends Activity {
     private static final int REQUEST_MAP=1001;
     private NmapView mapView;
+    private final Handler ui=new Handler(Looper.getMainLooper());
+    private boolean launching=false;
     private TextView status;
     private final File mapFile(){return new File(getFilesDir(),"user_nuketown.nmap");}
     @Override public void onCreate(Bundle savedInstanceState){
@@ -50,12 +58,92 @@ public final class MainActivity extends Activity {
         status.setPadding(0,12,0,12);
         status.setText("Original map geometry is not included. Import a .nmap made from your own Black Ops OBJ export.\nImported mesh preview: touch left to move, right to look. Collision, textures and COD gameplay are not yet implemented.");
         root.addView(status);
-        button("PLAY OFFLINE BLOCKOUT",root).setOnClickListener(v->setContentView(new ArenaView(this)));
+        button("DEPLOY // OFFLINE FFA PROTOTYPE",root).setOnClickListener(v->loadingScreen());
         button("IMPORT EXPORTED NUKETOWN .NMAP",root).setOnClickListener(v->choose());
         Button open=button("EXPLORE IMPORTED MAP (3D)",root);
         open.setEnabled(mapFile().isFile());
         open.setOnClickListener(v->openMap());
         setContentView(root);
+    }
+
+    /** In-app loading presentation: no copyrighted art or false asset-loading claims. */
+    private void loadingScreen(){
+        if(launching)return;
+        launching=true;
+        final FrameLayout frame=new FrameLayout(this);
+        GradientDrawable background=new GradientDrawable(
+            GradientDrawable.Orientation.TL_BR,
+            new int[]{0xff101c20,0xff1b2926,0xff080d10});
+        frame.setBackground(background);
+        LinearLayout panel=new LinearLayout(this);
+        panel.setOrientation(LinearLayout.VERTICAL);
+        panel.setPadding(42,22,42,24);
+        panel.setGravity(Gravity.CENTER_VERTICAL);
+        FrameLayout.LayoutParams pp=new FrameLayout.LayoutParams(
+            FrameLayout.LayoutParams.MATCH_PARENT,FrameLayout.LayoutParams.MATCH_PARENT);
+        frame.addView(panel,pp);
+        TextView eyebrow=new TextView(this);
+        eyebrow.setText("BITFLIPUNIX  /  NUKE-ARM64                                      BUILD 0.2  •  WORK IN PROGRESS");
+        eyebrow.setTextColor(0xff8fbcaa);
+        eyebrow.setTextSize(13);
+        eyebrow.setTypeface(Typeface.MONOSPACE,Typeface.BOLD);
+        panel.addView(eyebrow);
+        TextView heading=new TextView(this);
+        heading.setText("NUKETOWN");
+        heading.setTextSize(66);
+        heading.setTextColor(0xffe8e6d9);
+        heading.setTypeface(Typeface.create("sans-serif-condensed",Typeface.BOLD));
+        panel.addView(heading);
+        TextView sub=new TextView(this);
+        sub.setText("BLACK OPS 1  //  FREE-FOR-ALL");
+        sub.setTextColor(0xffffb868);
+        sub.setTextSize(21);
+        sub.setTypeface(Typeface.MONOSPACE);
+        panel.addView(sub);
+        TextView divider=new TextView(this);
+        divider.setText("──────────────────────────────────────────────────");
+        divider.setTextColor(0xff557a6b);
+        divider.setTextSize(16);
+        panel.addView(divider);
+        TextView mission=new TextView(this);
+        mission.setText("NEVADA TEST SITE  /  30 KILL LIMIT  /  5 AI OPPONENTS");
+        mission.setTextColor(0xffd6e2da);
+        mission.setTextSize(16);
+        mission.setTypeface(Typeface.MONOSPACE);
+        panel.addView(mission);
+        TextView notice=new TextView(this);
+        notice.setText("PROTOTYPE ENVIRONMENT  •  ORIGINAL BO1 MAP ASSETS NOT YET INTEGRATED");
+        notice.setTextColor(0xffa8b5ad);
+        notice.setTextSize(12);
+        notice.setPadding(0,16,0,22);
+        panel.addView(notice);
+        ProgressBar bar=new ProgressBar(this,null,android.R.attr.progressBarStyleHorizontal);
+        bar.setMax(100);
+        bar.setProgress(0);
+        panel.addView(bar,new LinearLayout.LayoutParams(
+            LinearLayout.LayoutParams.MATCH_PARENT,12));
+        TextView stage=new TextView(this);
+        stage.setText("INITIALIZING MATCH  //  0%");
+        stage.setTextColor(0xff9dc9b2);
+        stage.setTextSize(14);
+        stage.setTypeface(Typeface.MONOSPACE);
+        stage.setPadding(0,12,0,0);
+        panel.addView(stage);
+        setContentView(frame);
+        final String[] labels={"INITIALIZING MATCH","PREPARING ARENA","SPAWNING AI OPPONENTS","DEPLOYING"};
+        for(int i=1;i<=20;i++){
+            final int progress=i*5;
+            ui.postDelayed(()->{
+                if(!launching||isFinishing())return;
+                bar.setProgress(progress);
+                stage.setText(labels[Math.min(labels.length-1,(progress-1)/25)]
+                    +"  //  "+progress+"%");
+                if(progress==100){
+                    launching=false;
+                    setContentView(new ArenaView(this));
+                }
+            },i*105L);
+        }
     }
     private void choose(){
         Intent intent=new Intent(Intent.ACTION_OPEN_DOCUMENT);
@@ -111,6 +199,7 @@ public final class MainActivity extends Activity {
         if(mapView!=null)mapView.onResume();
     }
     @Override public void onBackPressed(){
+        launching=false;
         if(mapView!=null){menu();return;}
         menu();
     }
