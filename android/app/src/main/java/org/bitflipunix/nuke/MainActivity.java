@@ -24,6 +24,16 @@ import java.io.InputStream;
 public final class MainActivity extends Activity {
     private static final int REQUEST_MAP=1001,REQUEST_PHYSICS=1002;
     private NmapView mapView;
+    // Expose the already-built KisakBlack JNI bootstrap instead of leaving it untested.
+    private static native String nativeStatus();
+    private static String nativeBootstrapStatus(){
+        try{
+            System.loadLibrary("nuke_bootstrap");
+            return nativeStatus();
+        }catch(UnsatisfiedLinkError e){
+            return "Native bootstrap unavailable: "+e.getMessage();
+        }
+    }
     private final Handler ui=new Handler(Looper.getMainLooper());
     private boolean launching=false;
     private TextView status;
@@ -56,7 +66,7 @@ public final class MainActivity extends Activity {
         status.setTextColor(Color.WHITE);
         status.setTextSize(15);
         status.setPadding(0,12,0,12);
-        status.setText("Offline 3D flythrough: left touch to move, right touch to look.\nBundled original-asset-free Nuketown-style blockout. You can also import your own NMAP.");
+        status.setText("Offline 3D flythrough: left touch to move, right touch to look.\nBundled original-asset-free Nuketown-style blockout. You can also import your own NMAP.\n"+nativeBootstrapStatus());
         root.addView(status);
         button("ACTIONRENDERER3D // NUKETOWN FLYTHROUGH",root).setOnClickListener(v->openAction3D());
         button("LEGACY GLES2 // NUKETOWN FLYTHROUGH",root).setOnClickListener(v->openDemoMap());
