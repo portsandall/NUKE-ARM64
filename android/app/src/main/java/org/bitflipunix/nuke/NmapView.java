@@ -112,6 +112,9 @@ public final class NmapView extends GLSurfaceView implements GLSurfaceView.Rende
     private void loadPhysics(File file) throws IOException {
         if(!file.isFile())return; // Legacy NMAP remains a free-flight viewer.
         try{
+            // Preflight the file size before allocating memory for untrusted JSON.
+            if(Files.size(file.toPath())>1024*1024)
+                throw new IOException("Physics JSON exceeds 1 MiB");
             byte[] raw=Files.readAllBytes(file.toPath());
             if(raw.length>1024*1024)throw new IOException("Physics JSON exceeds 1 MiB");
             JSONObject root=new JSONObject(new String(raw,java.nio.charset.StandardCharsets.UTF_8));
