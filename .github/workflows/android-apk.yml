@@ -67,11 +67,11 @@ jobs:
               'actionengine/debug/lightingdebugpanel.js',
           )
           for path in stale:
-              entry = "    '" + path + "',\\n"
+              entry = "    '" + path + "',\n"
               if source.count(entry) != 1 or Path(path).exists():
                   raise SystemExit(f"Review stale ActionEngineJS manifest entry: {path}")
               source = source.replace(entry, "", 1)
-          listed = re.findall(r"^\\s*'([^']+[.]js)',\\s*$", source, re.MULTILINE)
+          listed = re.findall(r"^\s*'([^']+[.]js)',\s*$", source, re.MULTILINE)
           missing = [path for path in listed if not Path(path).is_file()]
           if missing:
               raise SystemExit("Missing ActionEngineJS modules: " + ", ".join(missing))
