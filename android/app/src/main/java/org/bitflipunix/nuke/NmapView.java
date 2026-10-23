@@ -42,6 +42,9 @@ public final class NmapView extends GLSurfaceView implements GLSurfaceView.Rende
     public NmapView(Context ctx,File map) throws IOException {
         super(ctx);
         setEGLContextClientVersion(2);
+        // Reject oversized maps before allocating an array for the entire file.
+        long fileSize=Files.size(map.toPath());
+        if(fileSize<40||fileSize>MAX_BYTES)throw new IOException("Map file must be between 40 bytes and 80 MiB");
         final byte[] bytes=Files.readAllBytes(map.toPath());
         if(bytes.length<40||bytes.length>MAX_BYTES)throw new IOException("Map file must be between 40 bytes and 80 MiB");
         ByteBuffer data=ByteBuffer.wrap(bytes).order(ByteOrder.LITTLE_ENDIAN);
