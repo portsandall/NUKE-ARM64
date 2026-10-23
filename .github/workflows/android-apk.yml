@@ -19,7 +19,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           repository: Tomobobo710/ActionEngineJS
-          ref: main
+          ref: e74cba062fb859ca0ef309b5bde55c2275633c6b
           path: upstream/ActionEngineJS
       - uses: actions/setup-node@v4
         with:
