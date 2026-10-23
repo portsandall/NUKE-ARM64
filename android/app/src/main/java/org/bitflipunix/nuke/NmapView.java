@@ -60,7 +60,10 @@ public final class NmapView extends GLSurfaceView implements GLSurfaceView.Rende
                 throw new IOException("Invalid NMAP bounds");
         }
         float[] pts=new float[nv*3];
-        for(int i=0;i<pts.length;i++)pts[i]=data.getFloat();
+        for(int i=0;i<pts.length;i++){
+            pts[i]=data.getFloat();
+            if(!Float.isFinite(pts[i]))throw new IOException("NMAP contains non-finite vertex coordinates");
+        }
         int stride=Math.max(1,(nt+MAX_RENDER_TRIANGLES-1)/MAX_RENDER_TRIANGLES);
         int included=(nt+stride-1)/stride;
         ByteBuffer raw=ByteBuffer.allocateDirect(included*3*6*4).order(ByteOrder.nativeOrder());
