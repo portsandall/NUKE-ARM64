@@ -43,6 +43,25 @@ jobs:
               if source.count(anchor) != 1:
                   raise SystemExit("Cannot locate unique 3D physics manifest insertion point")
               manifest.write_text(source.replace(anchor, entry + "\n" + anchor, 1))
+          # Upstream lists 12 2D modules with casing that does not match Linux paths.
+          # Repair only those paths and reject future upstream layout changes.
+          source = manifest.read_text()
+          wrong_sprite = 'actionengine/rendering/actionsprite2d.js'
+          right_sprite = 'actionengine/rendering/actionsprite2D.js'
+          if source.count(wrong_sprite) != 1 or not Path(right_sprite).is_file():
+              raise SystemExit("Cannot resolve ActionSprite2D manifest path")
+          source = source.replace(wrong_sprite, right_sprite, 1)
+          import re
+          wrong_physics = re.findall(r"'(actionengine/physics/2D/[^']+2D\\.js)'", source)
+          if len(wrong_physics) != 11:
+              raise SystemExit(f"Expected 11 mis-cased 2D physics modules, got {len(wrong_physics)}")
+          for wrong in wrong_physics:
+              right = wrong[:-5] + '2d.js'
+              if not Path(right).is_file():
+                  raise SystemExit(f"Missing corrected 2D module: {right}")
+              source = source.replace("'" + wrong + "'", "'" + right + "'", 1)
+          manifest.write_text(source)
+          print("Verified and normalized 12 ActionEngineJS 2D module paths")
           PY
           npm run build
           test -s dist/action-engine.min.js
