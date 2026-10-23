@@ -54,6 +54,11 @@ public final class NmapView extends GLSurfaceView implements GLSurfaceView.Rende
         long expected=40L+12L*nv+12L*nt;
         if(expected!=bytes.length)throw new IOException("Truncated or unexpected NMAP file length");
         for(int i=0;i<6;i++)bounds[i]=data.getFloat();
+        for(int i=0;i<3;i++){
+            if(!Float.isFinite(bounds[i])||!Float.isFinite(bounds[i+3])
+                ||bounds[i]>bounds[i+3]||!Float.isFinite(bounds[i+3]-bounds[i]))
+                throw new IOException("Invalid NMAP bounds");
+        }
         float[] pts=new float[nv*3];
         for(int i=0;i<pts.length;i++)pts[i]=data.getFloat();
         int stride=Math.max(1,(nt+MAX_RENDER_TRIANGLES-1)/MAX_RENDER_TRIANGLES);
