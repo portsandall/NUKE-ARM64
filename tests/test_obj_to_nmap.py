@@ -40,7 +40,7 @@ class ObjToNmapTests(unittest.TestCase):
             src = os.path.join(temp, "wide.obj")
             dst = os.path.join(temp, "wide.nmap")
             with open(src, "w", encoding="utf-8") as f:
-                f.write("v -3.4e38 0 0\\nv 3.4e38 0 0\\nv 0 1 0\\nf 1 2 3\\n")
+                f.write("v -3.4e38 0 0\nv 3.4e38 0 0\nv 0 1 0\nf 1 2 3\n")
             with self.assertRaisesRegex(ValueError, "bounds extent"):
                 convert(src, dst)
             self.assertFalse(os.path.exists(dst))
