@@ -106,6 +106,13 @@ jobs:
         env:
           NUKE_KISAKBLACK_ROOT: ${{ github.workspace }}/upstream/KisakBlack
         run: gradle :app:assembleDebug --stacktrace --no-daemon
+      - name: Verify packaged AArch64 JNI bridge
+        run: |
+          set -euo pipefail
+          apk=android/app/build/outputs/apk/debug/app-debug.apk
+          unzip -p "$apk" lib/arm64-v8a/libnuke_bootstrap.so > "$RUNNER_TEMP/libnuke_bootstrap.so"
+          readelf -Ws "$RUNNER_TEMP/libnuke_bootstrap.so" > "$RUNNER_TEMP/nuke-symbols.txt"
+          grep -F 'Java_org_bitflipunix_nuke_MainActivity_nativeStatus' "$RUNNER_TEMP/nuke-symbols.txt"
       - name: Publish APK
         uses: actions/upload-artifact@v4
         with:
