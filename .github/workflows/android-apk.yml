@@ -28,6 +28,22 @@ jobs:
         run: |
           cd upstream/ActionEngineJS
           npm ci --ignore-scripts || npm install --ignore-scripts
+          # Upstream build.js currently omits the 3D physics backend resolver.
+          # Insert it before the 3D physics modules; fail if upstream layout changes.
+          python3 - <<'PY'
+          from pathlib import Path
+          backend = Path("actionengine/physics/3D/backend.js")
+          if not backend.is_file():
+              raise SystemExit("Missing ActionEngineJS 3D physics backend")
+          manifest = Path("build.js")
+          source = manifest.read_text()
+          entry = "    'actionengine/physics/3D/backend.js',"
+          anchor = "    'actionengine/physics/3D/actionraycast3D.js',"
+          if entry not in source:
+              if source.count(anchor) != 1:
+                  raise SystemExit("Cannot locate unique 3D physics manifest insertion point")
+              manifest.write_text(source.replace(anchor, entry + "\n" + anchor, 1))
+          PY
           npm run build
           test -s dist/action-engine.min.js
           cp dist/action-engine.min.js "$GITHUB_WORKSPACE/android/app/src/main/assets/action3d/action-engine.min.js"
