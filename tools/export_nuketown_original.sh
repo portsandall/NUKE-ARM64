@@ -65,7 +65,8 @@ echo "Inspecting Black Ops installation at: $GAME_DIR"
 "$VENV/bin/python" -m scripts.cod doctor --game bo1 --game-dir "bo1=$GAME_DIR"
 echo "Exporting original mp_nuked into: $OUT"
 "$VENV/bin/python" -m scripts.cod export mp_nuked --game bo1 \
-  --game-dir "bo1=$GAME_DIR" --out "$OUT"
+  --game-dir "bo1=$GAME_DIR" \
+  --world "$(basename "$OUT")" --worlds "$(dirname "$OUT")"
 
 for required in assets/world.glb assets/collision.glb; do
   if [[ ! -s "$OUT/$required" ]]; then
