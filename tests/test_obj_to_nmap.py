@@ -35,6 +35,16 @@ class ObjToNmapTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "out-of-range"):
                 parse_obj(src)
 
+    def test_float32_bounds_span_rejected(self):
+        with tempfile.TemporaryDirectory() as temp:
+            src = os.path.join(temp, "wide.obj")
+            dst = os.path.join(temp, "wide.nmap")
+            with open(src, "w", encoding="utf-8") as f:
+                f.write("v -3.4e38 0 0\\nv 3.4e38 0 0\\nv 0 1 0\\nf 1 2 3\\n")
+            with self.assertRaisesRegex(ValueError, "bounds extent"):
+                convert(src, dst)
+            self.assertFalse(os.path.exists(dst))
+
     def test_zero_scale_rejected(self):
         with tempfile.TemporaryDirectory() as temp:
             src = os.path.join(temp, "basic.obj")

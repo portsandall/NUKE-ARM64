@@ -78,6 +78,12 @@ def convert(input_path, output_path, scale=1.0):
     mins = tuple(min(p[i] for p in transformed) for i in range(3))
     maxs = tuple(max(p[i] for p in transformed) for i in range(3))
     bounds = mins + maxs
+    # The Android NMAP reader computes float32 axis spans and rejects infinity.
+    # Check the serialized (rounded) bounds, not only the Python float values.
+    packed_bounds = struct.unpack("<6f", struct.pack("<6f", *bounds))
+    float32_max = (2 - 2**-23) * 2**127
+    if any(packed_bounds[i + 3] - packed_bounds[i] > float32_max for i in range(3)):
+        raise ValueError("scaled map bounds extent exceeds float32 range")
     dest = os.path.abspath(output_path)
     os.makedirs(os.path.dirname(dest), exist_ok=True)
     fd, temporary = tempfile.mkstemp(prefix=".nmap_", dir=os.path.dirname(dest))
