@@ -222,6 +222,13 @@ public final class ArenaView extends View {
     }
     @Override public boolean onTouchEvent(MotionEvent event){
         int action=event.getActionMasked(), index=event.getActionIndex();
+        // Cancellation ends the entire gesture, not just the action-index pointer.
+        if(action==MotionEvent.ACTION_CANCEL){
+            leftId=rightId=-1;
+            moveX=moveY=0;
+            firing=false;
+            return true;
+        }
         if(dead&&action==MotionEvent.ACTION_DOWN){reset();return true;}
         if(action==MotionEvent.ACTION_DOWN||action==MotionEvent.ACTION_POINTER_DOWN){
             int id=event.getPointerId(index);float tx=event.getX(index);
