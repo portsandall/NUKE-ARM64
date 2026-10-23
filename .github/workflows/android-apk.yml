@@ -82,6 +82,20 @@ jobs:
           test -s dist/action-engine.min.js
           cp dist/action-engine.min.js "$GITHUB_WORKSPACE/android/app/src/main/assets/action3d/action-engine.min.js"
           cp LICENSE "$GITHUB_WORKSPACE/android/app/src/main/assets/action3d/ACTIONENGINE_LICENSE.txt"
+      - name: Validate bundled Action3D page syntax
+        run: |
+          node <<'NODE'
+          const fs = require('node:fs');
+          const vm = require('node:vm');
+          const html = fs.readFileSync('android/app/src/main/assets/action3d/index.html', 'utf8');
+          const inline = [...html.matchAll(/<script(?:\s[^>]*)?>([\s\S]*?)<\/script>/g)]
+            .map(m => m[1]).filter(s => s.trim());
+          if (inline.length !== 1) throw new Error('Expected one inline flythrough script');
+          new vm.Script(inline[0], {filename:'action3d/index.html'});
+          const bundle = fs.readFileSync('android/app/src/main/assets/action3d/action-engine.min.js');
+          if (bundle.length < 1024) throw new Error('ActionEngineJS bundle missing or unexpectedly small');
+          console.log('Action3D page parses and offline engine bundle is present');
+          NODE
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
