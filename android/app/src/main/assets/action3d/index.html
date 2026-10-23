@@ -2,11 +2,20 @@
 try{
 const canvas=document.getElementById('game');
 canvas.width=innerWidth;canvas.height=innerHeight;
+const errorBox=document.getElementById('error');
+function fail(stage,e){
+ const message=(e&&e.message)||String(e);
+ errorBox.textContent=stage+': '+message;
+ console.error('[NUKE Action3D]',stage,e);
+}
+if(!canvas.getContext('webgl2'))throw new Error('WebGL2 unavailable: enable hardware acceleration or use LEGACY GLES2');
+canvas.addEventListener('webglcontextlost',e=>{e.preventDefault();fail('GPU context lost','Restart the flythrough');});
 const renderer=new ActionRenderer3D(canvas);
 renderer.shadowsEnabled=false;
 const world=new ActionPhysicsWorld3D();
 const camera=new ActionCamera();
 camera.isDetached=true;
+camera.near=0.1; // Upstream defaults to zero, which produces an invalid perspective near plane.
 let px=-11,py=2,pz=-9,yaw=.7,pitch=0;
 function box(x,y,z,w,h,d,c){
  const o=new ActionPhysicsBox3D(w,h,d,0,new Vector3(x+w/2,y+h/2,z+d/2),c);
@@ -30,13 +39,14 @@ canvas.addEventListener('pointermove',e=>{let t=touches.get(e.pointerId);if(!t)r
 function release(e){let t=touches.get(e.pointerId);if(t&&t.move)moveX=moveY=0;touches.delete(e.pointerId);}
 canvas.addEventListener('pointerup',release);canvas.addEventListener('pointercancel',release);
 let last=performance.now();
-function frame(now){const dt=Math.min(.05,(now-last)/1000);last=now;
+function frame(now){try{const dt=Math.min(.05,(now-last)/1000);last=now;
 px+=((Math.sin(yaw)*moveY+Math.cos(yaw)*moveX)*6)*dt;
 pz+=((Math.cos(yaw)*moveY-Math.sin(yaw)*moveX)*6)*dt;
 camera.position=new Vector3(px,py,pz);
 camera.target=new Vector3(px+Math.sin(yaw)*Math.cos(pitch),py+Math.sin(pitch),pz+Math.cos(yaw)*Math.cos(pitch));
 renderer.render({renderableObjects:Array.from(world.objects),camera});
-requestAnimationFrame(frame);}
 requestAnimationFrame(frame);
-}catch(e){document.getElementById('error').textContent='ActionRenderer3D: '+e.message;console.error(e);}
+}catch(e){fail('Render frame failed',e);}}
+requestAnimationFrame(frame);
+}catch(e){fail('ActionRenderer3D initialization failed',e);}
 </script></body></html>
