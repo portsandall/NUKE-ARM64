@@ -62,6 +62,8 @@ public final class ArenaView extends View {
     }
     private void reset(){
         x=12;y=14.5f;a=-1.57f;health=100;score=0;kills=0;frames=0;dead=false;victory=false;accumulated=0;weaponCooldown=0;
+        // A restart must not inherit held movement/fire or stale pointer ownership.
+        moveX=moveY=0;firing=false;leftId=rightId=-1;
         java.util.Arrays.fill(botAttackCooldown,0);
         for(int i=0;i<botsLive.length;i++)spawn(i);
     }
