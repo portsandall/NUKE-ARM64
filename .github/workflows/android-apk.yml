@@ -52,7 +52,7 @@ jobs:
               raise SystemExit("Cannot resolve ActionSprite2D manifest path")
           source = source.replace(wrong_sprite, right_sprite, 1)
           import re
-          wrong_physics = re.findall(r"'(actionengine/physics/2D/[^']+2D\\.js)'", source)
+          wrong_physics = re.findall(r"'(actionengine/physics/2D/[^']+2D[.]js)'", source)
           if len(wrong_physics) != 11:
               raise SystemExit(f"Expected 11 mis-cased 2D physics modules, got {len(wrong_physics)}")
           for wrong in wrong_physics:
