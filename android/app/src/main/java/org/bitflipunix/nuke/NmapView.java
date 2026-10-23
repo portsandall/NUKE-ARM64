@@ -224,6 +224,13 @@ public final class NmapView extends GLSurfaceView implements GLSurfaceView.Rende
     }
     @Override public boolean onTouchEvent(MotionEvent ev){
         int action=ev.getActionMasked(),idx=ev.getActionIndex();
+        // Android cancels the entire gesture, not just the action-index pointer.
+        if(action==MotionEvent.ACTION_CANCEL){
+            movePointer=lookPointer=-1;
+            forward=strafe=0;
+            jumpRequested=false;
+            return true;
+        }
         if(action==MotionEvent.ACTION_DOWN||action==MotionEvent.ACTION_POINTER_DOWN){
             int id=ev.getPointerId(idx);
             if(physicsEnabled&&ev.getX(idx)>getWidth()*.80f&&ev.getY(idx)<getHeight()*.32f){jumpRequested=true;return true;}
