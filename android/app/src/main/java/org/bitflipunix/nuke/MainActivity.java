@@ -93,6 +93,7 @@ public final class MainActivity extends Activity {
         if(launching)return;
         showingMenu=false;
         launching=true;
+        final int generation=++mapLoadGeneration;
         final FrameLayout frame=new FrameLayout(this);
         GradientDrawable background=new GradientDrawable(
             GradientDrawable.Orientation.TL_BR,
@@ -157,7 +158,7 @@ public final class MainActivity extends Activity {
         for(int i=1;i<=20;i++){
             final int progress=i*5;
             ui.postDelayed(()->{
-                if(!launching||isFinishing())return;
+                if(!launching||generation!=mapLoadGeneration||isFinishing())return;
                 bar.setProgress(progress);
                 stage.setText(labels[Math.min(labels.length-1,(progress-1)/25)]
                     +"  //  "+progress+"%");
