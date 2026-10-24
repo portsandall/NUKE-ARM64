@@ -11,7 +11,7 @@ Nuketown-only Call of Duty: Black Ops (2010) multiplayer porting project targeti
 
 ## Candidate engine
 
-Upstream: https://github.com/SwagSoftware/KisakBlack ; snapshot observed `306bb14a8e052a6244bd1df4e4df7d8504c04ef4` (2026-10-10). Do not copy upstream sources until license and required permissions have been evaluated. KisakBlack currently targets Windows/x86, requiring considerable platform and rendering changes.
+Upstream: https://github.com/SwagSoftware/KisakBlack ; snapshot observed `306bb14a8e052a6244bd1df4e4df7d8504c04ef4` (2026-10-02). Do not copy upstream sources until license and required permissions have been evaluated. KisakBlack currently targets Windows/x86, requiring considerable platform and rendering changes.
 
 ## Build and run probe (Termux AArch64)
 
