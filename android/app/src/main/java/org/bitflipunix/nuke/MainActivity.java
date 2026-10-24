@@ -180,6 +180,7 @@ public final class MainActivity extends Activity {
         if((request!=REQUEST_MAP&&request!=REQUEST_PHYSICS)||result!=RESULT_OK||intent==null||intent.getData()==null)return;
         final boolean physics=request==REQUEST_PHYSICS;
         final Uri uri=intent.getData();
+        final int generation=++mapLoadGeneration;
         status.setText("Importing map...");
         new Thread(()->{
             File tmp=new File(getCacheDir(),physics?"import.physics.json":"import.nmap");
@@ -203,15 +204,22 @@ public final class MainActivity extends Activity {
                 out.getFD().sync();
                 java.nio.file.Files.move(tmp.toPath(),physics?new File(getFilesDir(),"arena.physics.json").toPath():mapFile().toPath(),
                     java.nio.file.StandardCopyOption.REPLACE_EXISTING);
-                runOnUiThread(()->{if(mapFile().isFile())openMap();else menu();});
+                runOnUiThread(()->{
+                    if(generation!=mapLoadGeneration||isFinishing())return;
+                    if(mapFile().isFile())openMap();else menu();
+                });
             }catch(Exception e){
                 tmp.delete();
-                runOnUiThread(()->status.setText("Import failed: "+e.getMessage()));
+                runOnUiThread(()->{
+                    if(generation==mapLoadGeneration&&!isFinishing())
+                        status.setText("Import failed: "+e.getMessage());
+                });
             }
         }).start();
     }
     private void openAction3D(){
         showingMenu=false;
+        mapLoadGeneration++;
         android.webkit.WebView web=new android.webkit.WebView(this);
         web.getSettings().setJavaScriptEnabled(true);
         web.getSettings().setAllowFileAccess(true);
