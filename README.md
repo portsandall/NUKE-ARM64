@@ -4,8 +4,9 @@ Nuketown-only Call of Duty: Black Ops (2010) multiplayer porting project targeti
 
 ## Actual status
 
-- Repository and native 64-bit platform probe implemented, with host tests and an Android NDK workflow template.
-- No Black Ops engine sources integrated, no rendering, no Nuketown map loading, no gameplay, no networking, no APK.
+- Repository and native 64-bit platform probe implemented, with host tests and an installed Android NDK workflow at `.github/workflows/android-arm64.yml`.
+- The default-branch workflow compiles the standalone `arm64-v8a` platform probe and runs host tests. It does **not** build a game APK.
+- No Black Ops engine sources integrated, no rendering, no Nuketown map loading, no gameplay, no networking, no APK on `main`.
 - `mp_nuked` is the only allowed map identifier in the current probe. This is a scope assertion, not proof of map support.
 
 ## Candidate engine
@@ -22,7 +23,7 @@ ctest --test-dir build/termux --output-on-failure
 ./build/termux/nuke-platform-probe mp_nuked
 ```
 
-The `ci/android-arm64.workflow-template.yml` file is a proposed GitHub Actions workflow, not currently installed under `.github/workflows/` because the connected GitHub OAuth token lacks workflow scope. Copy it into `.github/workflows/android-arm64.yml` once a credential with that scope is available. That workflow will compile a separate `arm64-v8a` Android NDK binary. A Termux binary is NOT necessarily compatible with a standalone Android app.
+The installed GitHub Actions workflow validates a separate `arm64-v8a` Android NDK binary on pushes and pull requests. A Termux binary is NOT necessarily compatible with a standalone Android app.
 
 ## Scope and gates
 
