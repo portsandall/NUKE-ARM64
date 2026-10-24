@@ -15,6 +15,12 @@ int main() {
     check(value == 4);
     check(InterlockedIncrement(&value) == 5);
 
+    volatile LONG exchange_add = 7;
+    check(_InterlockedExchangeAdd(&exchange_add, 3) == 7);
+    check(exchange_add == 10);
+    check(_InterlockedExchangeAdd(&exchange_add, -2) == 10);
+    check(exchange_add == 8);
+
     int a = 1, b = 2;
     PVOID pointer = &a;
     check(InterlockedExchangePointer(&pointer, &b) == &a);
