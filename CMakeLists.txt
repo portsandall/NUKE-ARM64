@@ -18,7 +18,9 @@ if(BUILD_TESTING)
   if(NOT CMAKE_CROSSCOMPILING)
     add_test(NAME physics-atomic-compat COMMAND nuke-atomic-test)
     add_test(NAME nuketown-only COMMAND nuke-platform-probe mp_nuked)
-    add_test(NAME reject-other-map COMMAND nuke-platform-probe mp_cracked)
-    set_tests_properties(reject-other-map PROPERTIES WILL_FAIL TRUE)
+    add_test(NAME reject-other-map
+      COMMAND ${CMAKE_COMMAND}
+        "-DPROBE=$<TARGET_FILE:nuke-platform-probe>"
+        -P "${CMAKE_CURRENT_SOURCE_DIR}/tests/reject_other_map.cmake")
   endif()
 endif()
