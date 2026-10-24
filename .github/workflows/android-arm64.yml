@@ -21,8 +21,16 @@ jobs:
           for binary in nuke-platform-probe nuke-atomic-test; do
             path="build/android/$binary"
             file "$path"
-            "$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-readelf" -h "$path" | grep -E 'Class:|Machine:'
-            "$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-readelf" -h "$path" | grep -q 'AArch64'
+            header="$("$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-readelf" -h "$path")"
+            printf '%s\n' "$header" | grep -E 'Class:|Machine:'
+            case "$header" in
+              *"Class:"*"ELF64"*) ;;
+              *) echo "Expected ELF64 output: $path" >&2; exit 1 ;;
+            esac
+            case "$header" in
+              *"Machine:"*"AArch64"*) ;;
+              *) echo "Expected AArch64 machine: $path" >&2; exit 1 ;;
+            esac
           done
       - uses: actions/upload-artifact@v6
         with:
