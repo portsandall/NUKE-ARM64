@@ -38,6 +38,7 @@ public final class MainActivity extends Activity {
     private final Handler ui=new Handler(Looper.getMainLooper());
     private boolean launching=false;
     private boolean showingMenu=false;
+    private int mapLoadGeneration=0;
     private TextView status;
     private final File mapFile(){return new File(getFilesDir(),"user_firingrange.nmap");}
     @Override public void onCreate(Bundle savedInstanceState){
@@ -53,6 +54,7 @@ public final class MainActivity extends Activity {
         return b;
     }
     private void menu(){
+        mapLoadGeneration++;
         showingMenu=true;
         if(mapView!=null){mapView.onPause();mapView=null;}
         LinearLayout root=new LinearLayout(this);
@@ -219,24 +221,32 @@ public final class MainActivity extends Activity {
     }
     private void openDemoMap(){
         showingMenu=false;
+        final int generation=++mapLoadGeneration;
         status.setText("Generating standalone 3D map...");
         new Thread(()->{
             try{
                 File demo=DemoMap.create(new File(getCacheDir(),"demo_nuketown.nmap"));
                 NmapView view=new NmapView(this,demo);
-                runOnUiThread(()->{mapView=view;setContentView(view);});
-            }catch(Exception e){runOnUiThread(()->status.setText("Demo map failed: "+e.getMessage()));}
+                runOnUiThread(()->{
+                    if(generation!=mapLoadGeneration||isFinishing()){view.onPause();return;}
+                    mapView=view;setContentView(view);
+                });
+            }catch(Exception e){runOnUiThread(()->{if(generation==mapLoadGeneration&&!isFinishing())status.setText("Demo map failed: "+e.getMessage());});}
         }).start();
     }
     private void openMap(){
         showingMenu=false;
+        final int generation=++mapLoadGeneration;
         status.setText("Loading 3D mesh...");
         new Thread(()->{
             try{
                 NmapView view=new NmapView(this,mapFile());
-                runOnUiThread(()->{mapView=view;setContentView(view);});
+                runOnUiThread(()->{
+                    if(generation!=mapLoadGeneration||isFinishing()){view.onPause();return;}
+                    mapView=view;setContentView(view);
+                });
             }catch(Exception e){
-                runOnUiThread(()->status.setText("Map load failed: "+e.getMessage()));
+                runOnUiThread(()->{if(generation==mapLoadGeneration&&!isFinishing())status.setText("Map load failed: "+e.getMessage());});
             }
         }).start();
     }
