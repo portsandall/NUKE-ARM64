@@ -41,6 +41,39 @@ public final class MainActivity extends Activity {
     private int mapLoadGeneration=0;
     private TextView status;
     private final File mapFile(){return new File(getFilesDir(),"user_firingrange.nmap");}
+
+    // Validate a physics import before it can replace the active configuration.
+    private static void validatePhysicsDocument(File file) throws Exception {
+        org.json.JSONObject root=new org.json.JSONObject(
+            new String(java.nio.file.Files.readAllBytes(file.toPath()),
+                       java.nio.charset.StandardCharsets.UTF_8));
+        if(!"NUKE_PHYSICS_AABB".equals(root.optString("format"))||root.optInt("version")!=1)
+            throw new IllegalArgumentException("Expected NUKE_PHYSICS_AABB v1 JSON");
+        org.json.JSONObject p=root.getJSONObject("player");
+        double radius=p.getDouble("radius"),height=p.getDouble("height");
+        double eye=p.getDouble("eye_height"),gravity=p.getDouble("gravity");
+        double jump=p.getDouble("jump_speed"),walk=p.getDouble("walk_speed");
+        if(!Double.isFinite(radius)||!Double.isFinite(height)||!Double.isFinite(eye)
+            ||!Double.isFinite(gravity)||!Double.isFinite(jump)||!Double.isFinite(walk)
+            ||radius<=0||height<=eye||eye<=0||walk<=0||gravity>=0||jump<0)
+            throw new IllegalArgumentException("Invalid player physics parameters");
+        validatePhysicsBoxes(root.getJSONArray("solid_colliders"));
+        validatePhysicsBoxes(root.getJSONArray("ground_surfaces"));
+    }
+    private static void validatePhysicsBoxes(org.json.JSONArray boxes) throws Exception {
+        if(boxes.length()>50000)throw new IllegalArgumentException("Too many colliders");
+        for(int i=0;i<boxes.length();i++){
+            org.json.JSONObject box=boxes.getJSONObject(i);
+            org.json.JSONArray lo=box.getJSONArray("min"),hi=box.getJSONArray("max");
+            if(lo.length()!=3||hi.length()!=3)
+                throw new IllegalArgumentException("Physics collider bounds must have three axes");
+            for(int axis=0;axis<3;axis++){
+                double min=lo.getDouble(axis),max=hi.getDouble(axis);
+                if(!Double.isFinite(min)||!Double.isFinite(max)||min>max)
+                    throw new IllegalArgumentException("Invalid physics collider bounds");
+            }
+        }
+    }
     @Override public void onCreate(Bundle savedInstanceState){
         super.onCreate(savedInstanceState);
         setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE);
@@ -198,14 +231,10 @@ public final class MainActivity extends Activity {
                         out.write(buf,0,n);
                     }
                     if(size<10)throw new IllegalArgumentException("Selected file is too small");
-                    if(physics){
-                        String body=new String(java.nio.file.Files.readAllBytes(tmp.toPath()),java.nio.charset.StandardCharsets.UTF_8);
-                        org.json.JSONObject obj=new org.json.JSONObject(body);
-                        if(!"NUKE_PHYSICS_AABB".equals(obj.optString("format"))||obj.optInt("version")!=1)
-                            throw new IllegalArgumentException("Expected NUKE_PHYSICS_AABB v1 JSON");
-                    }
                     out.getFD().sync();
                 }
+                // Validate the complete schema after the staged file is closed and synced.
+                if(physics)validatePhysicsDocument(tmp);
                 final File completed=tmp;
                 // Promote only on the UI thread after checking that this import is still current.
                 runOnUiThread(()->{
