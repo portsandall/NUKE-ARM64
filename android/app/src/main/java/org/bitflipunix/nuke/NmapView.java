@@ -129,7 +129,8 @@ public final class NmapView extends GLSurfaceView implements GLSurfaceView.Rende
             walkSpeed=(float)player.getDouble("walk_speed");
             if(!Float.isFinite(radius)||!Float.isFinite(playerHeight)||!Float.isFinite(eyeHeight)
                 ||!Float.isFinite(gravity)||!Float.isFinite(jumpSpeed)||!Float.isFinite(walkSpeed)
-                ||radius<=0||playerHeight<=eyeHeight||eyeHeight<=0||walkSpeed<=0)
+                ||radius<=0||playerHeight<=eyeHeight||eyeHeight<=0||walkSpeed<=0
+                ||gravity>=0||jumpSpeed<0)
                 throw new IOException("Invalid player physics parameters");
             JSONArray boxes=root.getJSONArray("solid_colliders"),grounds=root.getJSONArray("ground_surfaces");
             if(boxes.length()>50000||grounds.length()>50000)throw new IOException("Too many colliders");
