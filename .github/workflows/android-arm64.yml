@@ -57,6 +57,7 @@ jobs:
           git -C build/upstream apply "$GITHUB_WORKSPACE/patches/0002-port-physics-win32-atomics.patch"
           test -f build/upstream/src/nuke/win_atomic_compat.h
           grep -q '#include <nuke/win_atomic_compat.h>' build/upstream/src/physics/phys_local.h
+          grep -q 'inline LONG _InterlockedExchangeAdd' build/upstream/src/nuke/win_atomic_compat.h
   host-tests:
     runs-on: ubuntu-latest
     steps:
