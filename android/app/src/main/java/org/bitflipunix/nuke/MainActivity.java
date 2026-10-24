@@ -24,6 +24,7 @@ import java.io.InputStream;
 public final class MainActivity extends Activity {
     private static final int REQUEST_MAP=1001,REQUEST_PHYSICS=1002;
     private NmapView mapView;
+    private android.webkit.WebView actionWebView;
     // Expose the already-built KisakBlack JNI bootstrap instead of leaving it untested.
     private static native String nativeStatus();
     private static String nativeBootstrapStatus(){
@@ -76,7 +77,11 @@ public final class MainActivity extends Activity {
         Button open=button("EXPLORE FIRING RANGE / IMPORTED MAP (3D)",root);
         open.setEnabled(mapFile().isFile());
         open.setOnClickListener(v->openMap());
+        // Detach before destroying: an abandoned WebView otherwise keeps its JS render loop alive.
+        android.webkit.WebView oldWeb=actionWebView;
+        actionWebView=null;
         setContentView(root);
+        if(oldWeb!=null){oldWeb.onPause();oldWeb.destroy();}
     }
 
     /** In-app loading presentation: no copyrighted art or false asset-loading claims. */
@@ -205,6 +210,7 @@ public final class MainActivity extends Activity {
         web.getSettings().setAllowFileAccess(true);
         web.setBackgroundColor(0xff101b20);
         web.loadUrl("file:///android_asset/action3d/index.html");
+        actionWebView=web;
         setContentView(web);
     }
     private void openDemoMap(){
@@ -230,11 +236,13 @@ public final class MainActivity extends Activity {
     }
     @Override protected void onPause(){
         if(mapView!=null)mapView.onPause();
+        if(actionWebView!=null)actionWebView.onPause();
         super.onPause();
     }
     @Override protected void onResume(){
         super.onResume();
         if(mapView!=null)mapView.onResume();
+        if(actionWebView!=null)actionWebView.onResume();
     }
     @Override public void onBackPressed(){
         launching=false;
