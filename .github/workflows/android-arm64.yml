@@ -19,8 +19,8 @@ jobs:
       - name: Verify ELF architecture
         run: |
           file build/android/nuke-platform-probe
-          llvm-readelf -h build/android/nuke-platform-probe | grep -E 'Class:|Machine:'
-          llvm-readelf -h build/android/nuke-platform-probe | grep -q 'AArch64'
+          "$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-readelf" -h build/android/nuke-platform-probe | grep -E 'Class:|Machine:'
+          "$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-readelf" -h build/android/nuke-platform-probe | grep -q 'AArch64'
       - uses: actions/upload-artifact@v4
         with:
           name: nuke-android-aarch64-probe
