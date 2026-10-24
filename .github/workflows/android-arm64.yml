@@ -7,7 +7,7 @@ jobs:
   android-arm64:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: Configure with Android NDK
         run: |
           cmake -S . -B build/android -G Ninja \
@@ -21,14 +21,14 @@ jobs:
           file build/android/nuke-platform-probe
           "$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-readelf" -h build/android/nuke-platform-probe | grep -E 'Class:|Machine:'
           "$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-readelf" -h build/android/nuke-platform-probe | grep -q 'AArch64'
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v6
         with:
           name: nuke-android-aarch64-probe
           path: build/android/nuke-platform-probe
   host-tests:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - run: cmake -S . -B build/host -G Ninja -DCMAKE_BUILD_TYPE=Debug
       - run: cmake --build build/host
       - run: ctest --test-dir build/host --output-on-failure
