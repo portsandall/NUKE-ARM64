@@ -183,33 +183,46 @@ public final class MainActivity extends Activity {
         final int generation=++mapLoadGeneration;
         status.setText("Importing map...");
         new Thread(()->{
-            File tmp=new File(getCacheDir(),physics?"import.physics.json":"import.nmap");
-            try(InputStream in=getContentResolver().openInputStream(uri);
-                FileOutputStream out=new FileOutputStream(tmp)){
-                if(in==null)throw new IllegalArgumentException("Could not open the selected document");
-                byte[] buf=new byte[32768];
-                long size=0;int n;
-                while((n=in.read(buf))!=-1){
-                    size+=n;
-                    if(size>(physics?1024L*1024:80L*1024*1024))throw new IllegalArgumentException("Import too large");
-                    out.write(buf,0,n);
+            File tmp=null;
+            try{
+                // Unique staging files prevent overlapping imports from corrupting each other.
+                tmp=File.createTempFile(physics?"import-physics-":"import-nmap-", ".tmp", getCacheDir());
+                try(InputStream in=getContentResolver().openInputStream(uri);
+                    FileOutputStream out=new FileOutputStream(tmp)){
+                    if(in==null)throw new IllegalArgumentException("Could not open the selected document");
+                    byte[] buf=new byte[32768];
+                    long size=0;int n;
+                    while((n=in.read(buf))!=-1){
+                        size+=n;
+                        if(size>(physics?1024L*1024:80L*1024*1024))throw new IllegalArgumentException("Import too large");
+                        out.write(buf,0,n);
+                    }
+                    if(size<10)throw new IllegalArgumentException("Selected file is too small");
+                    if(physics){
+                        String body=new String(java.nio.file.Files.readAllBytes(tmp.toPath()),java.nio.charset.StandardCharsets.UTF_8);
+                        org.json.JSONObject obj=new org.json.JSONObject(body);
+                        if(!"NUKE_PHYSICS_AABB".equals(obj.optString("format"))||obj.optInt("version")!=1)
+                            throw new IllegalArgumentException("Expected NUKE_PHYSICS_AABB v1 JSON");
+                    }
+                    out.getFD().sync();
                 }
-                if(size<10)throw new IllegalArgumentException("Selected file is too small");
-                if(physics){
-                    String body=new String(java.nio.file.Files.readAllBytes(tmp.toPath()),java.nio.charset.StandardCharsets.UTF_8);
-                    org.json.JSONObject obj=new org.json.JSONObject(body);
-                    if(!"NUKE_PHYSICS_AABB".equals(obj.optString("format"))||obj.optInt("version")!=1)
-                        throw new IllegalArgumentException("Expected NUKE_PHYSICS_AABB v1 JSON");
-                }
-                out.getFD().sync();
-                java.nio.file.Files.move(tmp.toPath(),physics?new File(getFilesDir(),"arena.physics.json").toPath():mapFile().toPath(),
-                    java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+                final File completed=tmp;
+                // Promote only on the UI thread after checking that this import is still current.
                 runOnUiThread(()->{
-                    if(generation!=mapLoadGeneration||isFinishing())return;
-                    if(mapFile().isFile())openMap();else menu();
+                    if(generation!=mapLoadGeneration||isFinishing()){completed.delete();return;}
+                    try{
+                        java.nio.file.Files.move(completed.toPath(),
+                            physics?new File(getFilesDir(),"arena.physics.json").toPath():mapFile().toPath(),
+                            java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+                        if(mapFile().isFile())openMap();else menu();
+                    }catch(Exception e){
+                        completed.delete();
+                        if(generation==mapLoadGeneration&&!isFinishing())
+                            status.setText("Import failed: "+e.getMessage());
+                    }
                 });
             }catch(Exception e){
-                tmp.delete();
+                if(tmp!=null)tmp.delete();
                 runOnUiThread(()->{
                     if(generation==mapLoadGeneration&&!isFinishing())
                         status.setText("Import failed: "+e.getMessage());
