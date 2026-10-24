@@ -19,6 +19,9 @@ inline LONG _InterlockedCompareExchange(volatile LONG* p, LONG next, LONG expect
 inline LONG InterlockedIncrement(volatile LONG* p) noexcept {
     return __atomic_add_fetch(p, LONG{1}, __ATOMIC_SEQ_CST);
 }
+inline LONG _InterlockedExchangeAdd(volatile LONG* p, LONG value) noexcept {
+    return __atomic_fetch_add(p, value, __ATOMIC_SEQ_CST);
+}
 inline PVOID InterlockedExchangePointer(PVOID* p, PVOID next) noexcept {
     return __atomic_exchange_n(p, next, __ATOMIC_SEQ_CST);
 }
