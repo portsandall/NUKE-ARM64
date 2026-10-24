@@ -38,6 +38,25 @@ jobs:
           path: |
             build/android/nuke-platform-probe
             build/android/nuke-atomic-test
+  upstream-patch-check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - name: Checkout pinned KisakBlack source
+        uses: actions/checkout@v5
+        with:
+          repository: SwagSoftware/KisakBlack
+          ref: 306bb14a8e052a6244bd1df4e4df7d8504c04ef4
+          path: build/upstream
+          persist-credentials: false
+      - name: Verify portability patches apply cleanly
+        run: |
+          git -C build/upstream apply --check "$GITHUB_WORKSPACE/patches/0001-fix-aarch64-bitarray-varargs.patch"
+          git -C build/upstream apply "$GITHUB_WORKSPACE/patches/0001-fix-aarch64-bitarray-varargs.patch"
+          git -C build/upstream apply --check "$GITHUB_WORKSPACE/patches/0002-port-physics-win32-atomics.patch"
+          git -C build/upstream apply "$GITHUB_WORKSPACE/patches/0002-port-physics-win32-atomics.patch"
+          test -f build/upstream/src/nuke/win_atomic_compat.h
+          grep -q '#include <nuke/win_atomic_compat.h>' build/upstream/src/physics/phys_local.h
   host-tests:
     runs-on: ubuntu-latest
     steps:
