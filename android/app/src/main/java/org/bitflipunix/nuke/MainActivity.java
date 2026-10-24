@@ -37,6 +37,7 @@ public final class MainActivity extends Activity {
     }
     private final Handler ui=new Handler(Looper.getMainLooper());
     private boolean launching=false;
+    private boolean showingMenu=false;
     private TextView status;
     private final File mapFile(){return new File(getFilesDir(),"user_firingrange.nmap");}
     @Override public void onCreate(Bundle savedInstanceState){
@@ -52,6 +53,7 @@ public final class MainActivity extends Activity {
         return b;
     }
     private void menu(){
+        showingMenu=true;
         if(mapView!=null){mapView.onPause();mapView=null;}
         LinearLayout root=new LinearLayout(this);
         root.setPadding(28,16,28,12);
@@ -87,6 +89,7 @@ public final class MainActivity extends Activity {
     /** In-app loading presentation: no copyrighted art or false asset-loading claims. */
     private void loadingScreen(){
         if(launching)return;
+        showingMenu=false;
         launching=true;
         final FrameLayout frame=new FrameLayout(this);
         GradientDrawable background=new GradientDrawable(
@@ -205,6 +208,7 @@ public final class MainActivity extends Activity {
         }).start();
     }
     private void openAction3D(){
+        showingMenu=false;
         android.webkit.WebView web=new android.webkit.WebView(this);
         web.getSettings().setJavaScriptEnabled(true);
         web.getSettings().setAllowFileAccess(true);
@@ -214,6 +218,7 @@ public final class MainActivity extends Activity {
         setContentView(web);
     }
     private void openDemoMap(){
+        showingMenu=false;
         status.setText("Generating standalone 3D map...");
         new Thread(()->{
             try{
@@ -224,6 +229,7 @@ public final class MainActivity extends Activity {
         }).start();
     }
     private void openMap(){
+        showingMenu=false;
         status.setText("Loading 3D mesh...");
         new Thread(()->{
             try{
@@ -246,7 +252,7 @@ public final class MainActivity extends Activity {
     }
     @Override public void onBackPressed(){
         launching=false;
-        if(mapView!=null){menu();return;}
+        if(showingMenu){super.onBackPressed();return;}
         menu();
     }
 }
