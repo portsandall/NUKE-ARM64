@@ -1,0 +1,135 @@
+name: Android APK bootstrap
+on:
+  push:
+    branches: [feature/upstream-base64-bootstrap]
+  pull_request:
+  workflow_dispatch:
+jobs:
+  apk:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Test geometry converter
+        run: python3 -m unittest discover -s tests -p test_obj_to_nmap.py -v
+      - uses: actions/checkout@v4
+        with:
+          repository: SwagSoftware/KisakBlack
+          ref: 306bb14a8e052a6244bd1df4e4df7d8504c04ef4
+          path: upstream/KisakBlack
+      - uses: actions/checkout@v4
+        with:
+          repository: Tomobobo710/ActionEngineJS
+          ref: e74cba062fb859ca0ef309b5bde55c2275633c6b
+          path: upstream/ActionEngineJS
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Bundle ActionRenderer3D for offline Android WebView
+        run: |
+          cd upstream/ActionEngineJS
+          npm ci --ignore-scripts || npm install --ignore-scripts
+          # Upstream build.js currently omits the 3D physics backend resolver.
+          # Insert it before the 3D physics modules; fail if upstream layout changes.
+          python3 - <<'PY'
+          from pathlib import Path
+          backend = Path("actionengine/physics/3D/backend.js")
+          if not backend.is_file():
+              raise SystemExit("Missing ActionEngineJS 3D physics backend")
+          manifest = Path("build.js")
+          source = manifest.read_text()
+          entry = "    'actionengine/physics/3D/backend.js',"
+          anchor = "    'actionengine/physics/3D/actionraycast3D.js',"
+          if entry not in source:
+              if source.count(anchor) != 1:
+                  raise SystemExit("Cannot locate unique 3D physics manifest insertion point")
+              manifest.write_text(source.replace(anchor, entry + "\n" + anchor, 1))
+          # Upstream lists 12 2D modules with casing that does not match Linux paths.
+          # Repair only those paths and reject future upstream layout changes.
+          source = manifest.read_text()
+          wrong_sprite = 'actionengine/rendering/actionsprite2d.js'
+          right_sprite = 'actionengine/rendering/actionsprite2D.js'
+          if source.count(wrong_sprite) != 1 or not Path(right_sprite).is_file():
+              raise SystemExit("Cannot resolve ActionSprite2D manifest path")
+          source = source.replace(wrong_sprite, right_sprite, 1)
+          import re
+          wrong_physics = re.findall(r"'(actionengine/physics/2D/[^']+2D[.]js)'", source)
+          if len(wrong_physics) != 11:
+              raise SystemExit(f"Expected 11 mis-cased 2D physics modules, got {len(wrong_physics)}")
+          for wrong in wrong_physics:
+              right = wrong[:-5] + '2d.js'
+              if not Path(right).is_file():
+                  raise SystemExit(f"Missing corrected 2D module: {right}")
+              source = source.replace("'" + wrong + "'", "'" + right + "'", 1)
+          # Upstream manifest references two files that are absent from the checkout.
+          # They were already skipped by build.js; make this explicit and reject new omissions.
+          stale = (
+              'actionengine/rendering/renderers/actionrenderer3D/sunrenderer3D.js',
+              'actionengine/debug/lightingdebugpanel.js',
+          )
+          for path in stale:
+              entry = "    '" + path + "',\n"
+              if source.count(entry) != 1 or Path(path).exists():
+                  raise SystemExit(f"Review stale ActionEngineJS manifest entry: {path}")
+              source = source.replace(entry, "", 1)
+          listed = re.findall(r"^\s*'([^']+[.]js)',\s*$", source, re.MULTILINE)
+          missing = [path for path in listed if not Path(path).is_file()]
+          if missing:
+              raise SystemExit("Missing ActionEngineJS modules: " + ", ".join(missing))
+          manifest.write_text(source)
+          print(f"Verified {len(listed)} ActionEngineJS modules; omitted 2 stale entries")
+          PY
+          npm run build
+          test -s dist/action-engine.min.js
+          cp dist/action-engine.min.js "$GITHUB_WORKSPACE/android/app/src/main/assets/action3d/action-engine.min.js"
+          cp LICENSE "$GITHUB_WORKSPACE/android/app/src/main/assets/action3d/ACTIONENGINE_LICENSE.txt"
+      - name: Validate bundled Action3D page syntax
+        run: |
+          node <<'NODE'
+          const fs = require('node:fs');
+          const vm = require('node:vm');
+          const html = fs.readFileSync('android/app/src/main/assets/action3d/index.html', 'utf8');
+          const inline = [...html.matchAll(/<script(?:\s[^>]*)?>([\s\S]*?)<\/script>/g)]
+            .map(m => m[1]).filter(s => s.trim());
+          if (inline.length !== 1) throw new Error('Expected one inline flythrough script');
+          new vm.Script(inline[0], {filename:'action3d/index.html'});
+          const bundle = fs.readFileSync('android/app/src/main/assets/action3d/action-engine.min.js');
+          if (bundle.length < 1024) throw new Error('ActionEngineJS bundle missing or unexpectedly small');
+          console.log('Action3D page parses and offline engine bundle is present');
+          NODE
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.10.2'
+      - name: Install SDK packages
+        run: |
+          SDKMANAGER=$(find "$ANDROID_HOME/cmdline-tools" -name sdkmanager -type f | head -1)
+          test -n "$SDKMANAGER"
+          yes | "$SDKMANAGER" --licenses >/dev/null || true
+          for attempt in 1 2 3; do
+            if "$SDKMANAGER" "platforms;android-35" "build-tools;35.0.0" "ndk;27.2.12479018" "cmake;3.22.1"; then
+              break
+            fi
+            if [ "$attempt" -eq 3 ]; then exit 1; fi
+            sleep 8
+          done
+      - name: Assemble debug APK
+        working-directory: android
+        env:
+          NUKE_KISAKBLACK_ROOT: ${{ github.workspace }}/upstream/KisakBlack
+        run: gradle :app:assembleDebug --stacktrace --no-daemon
+      - name: Verify packaged AArch64 JNI bridge
+        run: |
+          set -euo pipefail
+          apk=android/app/build/outputs/apk/debug/app-debug.apk
+          unzip -p "$apk" lib/arm64-v8a/libnuke_bootstrap.so > "$RUNNER_TEMP/libnuke_bootstrap.so"
+          readelf -Ws "$RUNNER_TEMP/libnuke_bootstrap.so" > "$RUNNER_TEMP/nuke-symbols.txt"
+          grep -F 'Java_org_bitflipunix_nuke_MainActivity_nativeStatus' "$RUNNER_TEMP/nuke-symbols.txt"
+      - name: Publish APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: NUKE-ARM64-PoC-debug-APK
+          path: android/app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error

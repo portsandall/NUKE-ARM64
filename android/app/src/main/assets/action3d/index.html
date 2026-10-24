@@ -1,0 +1,52 @@
+<!doctype html><html><head><meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no"><style>html,body{margin:0;background:#101b20;overflow:hidden;color:#d6e9db;font:14px monospace}canvas{width:100vw;height:100vh;display:block;touch-action:none}#hud{position:fixed;top:8px;left:12px;pointer-events:none}#error{position:fixed;bottom:12px;left:12px;color:#ffb9a1}</style></head><body><canvas id="game"></canvas><div id="hud">ACTIONRENDERER3D / NUKE-ARM64<br>Left drag: move · Right drag: look</div><div id="error"></div><script src="action-engine.min.js"></script><script>
+try{
+const canvas=document.getElementById('game');
+canvas.width=innerWidth;canvas.height=innerHeight;
+const errorBox=document.getElementById('error');
+function fail(stage,e){
+ const message=(e&&e.message)||String(e);
+ errorBox.textContent=stage+': '+message;
+ console.error('[NUKE Action3D]',stage,e);
+}
+if(!canvas.getContext('webgl2'))throw new Error('WebGL2 unavailable: enable hardware acceleration or use LEGACY GLES2');
+canvas.addEventListener('webglcontextlost',e=>{e.preventDefault();fail('GPU context lost','Restart the flythrough');});
+const renderer=new ActionRenderer3D(canvas);
+renderer.shadowsEnabled=false;
+const world=new ActionPhysicsWorld3D();
+const camera=new ActionCamera();
+camera.isDetached=true;
+camera.near=0.1; // Upstream defaults to zero, which produces an invalid perspective near plane.
+let px=-11,py=2,pz=-9,yaw=.7,pitch=0;
+function box(x,y,z,w,h,d,c){
+ const o=new ActionPhysicsBox3D(w,h,d,0,new Vector3(x+w/2,y+h/2,z+d/2),c);
+ world.addObject(o);
+}
+box(-16,-.5,-13,32,.5,26,'#7d8a70');
+box(-13,0,-10,9,5,.35,'#a9d2c2');box(-13,0,-10,.35,5,9,'#a9d2c2');
+box(-4.35,0,-10,.35,5,3.5,'#a9d2c2');box(-4.35,0,-3.5,.35,5,2.5,'#a9d2c2');
+box(-13,0,-1.35,3,5,.35,'#a9d2c2');box(-7,0,-1.35,3,5,.35,'#a9d2c2');
+box(-13,5,-10,9,.3,9,'#85999b');
+box(4,0,1,9,5,.35,'#d5aa7a');box(4,0,1,.35,5,9,'#d5aa7a');
+box(12.65,0,1,.35,5,9,'#d5aa7a');box(4,0,9.65,3,5,.35,'#d5aa7a');
+box(10,0,9.65,3,5,.35,'#d5aa7a');box(4,5,1,9,.3,9,'#927967');
+box(-1.6,0,-5,3.2,3.3,10,'#d2b453');
+box(-6,0,4,3.3,1.9,2.4,'#6288a2');box(4,0,-6,3.3,1.9,2.4,'#6288a2');
+box(-16,0,-13,32,2.3,.4,'#868982');box(-16,0,12.6,32,2.3,.4,'#868982');
+box(-16,0,-13,.4,2.3,26,'#868982');box(15.6,0,-13,.4,2.3,26,'#868982');
+const touches=new Map();let moveX=0,moveY=0;
+canvas.addEventListener('pointerdown',e=>{canvas.setPointerCapture(e.pointerId);touches.set(e.pointerId,{x:e.clientX,y:e.clientY,sx:e.clientX,sy:e.clientY,move:e.clientX<innerWidth*.48});});
+canvas.addEventListener('pointermove',e=>{let t=touches.get(e.pointerId);if(!t)return;if(t.move){moveX=Math.max(-1,Math.min(1,(e.clientX-t.sx)/90));moveY=Math.max(-1,Math.min(1,(t.sy-e.clientY)/90));}else{yaw+=(e.clientX-t.x)*.005;pitch=Math.max(-1.35,Math.min(1.35,pitch-(e.clientY-t.y)*.005));}t.x=e.clientX;t.y=e.clientY;});
+function release(e){let t=touches.get(e.pointerId);if(t&&t.move)moveX=moveY=0;touches.delete(e.pointerId);}
+canvas.addEventListener('pointerup',release);canvas.addEventListener('pointercancel',release);
+let last=performance.now();
+function frame(now){try{const dt=Math.min(.05,(now-last)/1000);last=now;
+px+=((Math.sin(yaw)*moveY+Math.cos(yaw)*moveX)*6)*dt;
+pz+=((Math.cos(yaw)*moveY-Math.sin(yaw)*moveX)*6)*dt;
+camera.position=new Vector3(px,py,pz);
+camera.target=new Vector3(px+Math.sin(yaw)*Math.cos(pitch),py+Math.sin(pitch),pz+Math.cos(yaw)*Math.cos(pitch));
+renderer.render({renderableObjects:Array.from(world.objects),camera});
+requestAnimationFrame(frame);
+}catch(e){fail('Render frame failed',e);}}
+requestAnimationFrame(frame);
+}catch(e){fail('ActionRenderer3D initialization failed',e);}
+</script></body></html>
