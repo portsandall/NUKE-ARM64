@@ -1,5 +1,7 @@
 #pragma once
 
+#include <cstdint>
+
 // Minimal non-Windows compatibility layer for KisakBlack physics atomics.
 // Not a general-purpose replacement for Windows.h.
 #if defined(_WIN32)
@@ -23,6 +25,25 @@ inline LONG _InterlockedCompareExchange(volatile LONG* p, LONG next, LONG expect
     __atomic_compare_exchange_n(p, &previous, next, false,
                                 __ATOMIC_SEQ_CST, __ATOMIC_SEQ_CST);
     return previous;
+}
+
+inline std::uint32_t _InterlockedCompareExchange(volatile std::uint32_t* p, std::uint32_t next, std::uint32_t expected) noexcept {
+    std::uint32_t previous = expected;
+    __atomic_compare_exchange_n(p, &previous, next, false,
+                               __ATOMIC_SEQ_CST, __ATOMIC_SEQ_CST);
+    return previous;
+}
+inline std::uint32_t InterlockedIncrement(volatile std::uint32_t* p) noexcept {
+    return __atomic_add_fetch(p, std::uint32_t{1}, __ATOMIC_SEQ_CST);
+}
+inline std::uint32_t InterlockedExchange(volatile std::uint32_t* p, std::uint32_t value) noexcept {
+    return __atomic_exchange_n(p, value, __ATOMIC_SEQ_CST);
+}
+inline std::uint32_t _InterlockedDecrement(volatile std::uint32_t* p) noexcept {
+    return __atomic_sub_fetch(p, std::uint32_t{1}, __ATOMIC_SEQ_CST);
+}
+inline std::uint32_t _InterlockedExchangeAdd(volatile std::uint32_t* p, std::uint32_t value) noexcept {
+    return __atomic_fetch_add(p, value, __ATOMIC_SEQ_CST);
 }
 inline LONG InterlockedIncrement(volatile LONG* p) noexcept {
     return __atomic_add_fetch(p, LONG{1}, __ATOMIC_SEQ_CST);

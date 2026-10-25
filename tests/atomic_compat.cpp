@@ -31,6 +31,19 @@ int main() {
     check(InterlockedExchange(&exchanged, 0) == -7);
     check(exchanged == 0);
 
+
+    volatile std::uint32_t unsigned_value = 1;
+    check(_InterlockedCompareExchange(&unsigned_value, 4u, 0u) == 1u);
+    check(unsigned_value == 1u);
+    check(_InterlockedCompareExchange(&unsigned_value, 4u, 1u) == 1u);
+    check(unsigned_value == 4u);
+    check(_InterlockedExchangeAdd(&unsigned_value, 3u) == 4u);
+    check(unsigned_value == 7u);
+    check(_InterlockedDecrement(&unsigned_value) == 6u);
+    check(InterlockedIncrement(&unsigned_value) == 7u);
+    check(InterlockedExchange(&unsigned_value, 9u) == 7u);
+    check(unsigned_value == 9u);
+
     volatile LONG exchange_add = 7;
     check(_InterlockedExchangeAdd(&exchange_add, 3) == 7);
     check(exchange_add == 10);

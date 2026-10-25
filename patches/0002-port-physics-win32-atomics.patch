@@ -17,8 +17,10 @@ diff --git a/src/nuke/win_atomic_compat.h b/src/nuke/win_atomic_compat.h
 new file mode 100644
 --- /dev/null
 +++ b/src/nuke/win_atomic_compat.h
-@@ -0,0 +1,48 @@
+@@ -0,0 +1,68 @@
 +#pragma once
++
++#include <cstdint>
 +
 +// Minimal non-Windows compatibility layer for KisakBlack physics atomics.
 +// Not a general-purpose replacement for Windows.h.
@@ -27,10 +29,10 @@ new file mode 100644
 +#endif
 +
 +using LONG = __INT32_TYPE__;
-+using LONGLONG = long long;
 +using PVOID = void*;
 +static_assert(sizeof(LONG) == 4, "Windows LONG must be 32-bit");
 +
++using LONGLONG = long long;
 +inline LONGLONG _InterlockedCompareExchange64(volatile LONGLONG* p, LONGLONG exchange, LONGLONG comparand) noexcept {
 +    LONGLONG previous = comparand;
 +    __atomic_compare_exchange_n(p, &previous, exchange, false,
@@ -44,6 +46,25 @@ new file mode 100644
 +                                __ATOMIC_SEQ_CST, __ATOMIC_SEQ_CST);
 +    return previous;
 +}
++
++inline std::uint32_t _InterlockedCompareExchange(volatile std::uint32_t* p, std::uint32_t next, std::uint32_t expected) noexcept {
++    std::uint32_t previous = expected;
++    __atomic_compare_exchange_n(p, &previous, next, false,
++                               __ATOMIC_SEQ_CST, __ATOMIC_SEQ_CST);
++    return previous;
++}
++inline std::uint32_t InterlockedIncrement(volatile std::uint32_t* p) noexcept {
++    return __atomic_add_fetch(p, std::uint32_t{1}, __ATOMIC_SEQ_CST);
++}
++inline std::uint32_t InterlockedExchange(volatile std::uint32_t* p, std::uint32_t value) noexcept {
++    return __atomic_exchange_n(p, value, __ATOMIC_SEQ_CST);
++}
++inline std::uint32_t _InterlockedDecrement(volatile std::uint32_t* p) noexcept {
++    return __atomic_sub_fetch(p, std::uint32_t{1}, __ATOMIC_SEQ_CST);
++}
++inline std::uint32_t _InterlockedExchangeAdd(volatile std::uint32_t* p, std::uint32_t value) noexcept {
++    return __atomic_fetch_add(p, value, __ATOMIC_SEQ_CST);
++}
 +inline LONG InterlockedIncrement(volatile LONG* p) noexcept {
 +    return __atomic_add_fetch(p, LONG{1}, __ATOMIC_SEQ_CST);
 +}
@@ -53,7 +74,6 @@ new file mode 100644
 +inline LONG _InterlockedDecrement(volatile LONG* p) noexcept {
 +    return __atomic_sub_fetch(p, LONG{1}, __ATOMIC_SEQ_CST);
 +}
-+
 +inline LONG _InterlockedExchangeAdd(volatile LONG* p, LONG value) noexcept {
 +    return __atomic_fetch_add(p, value, __ATOMIC_SEQ_CST);
 +}
