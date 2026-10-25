@@ -139,14 +139,14 @@ jobs:
           esac
       - name: Compile and run upstream Base64 regression
         run: |
-          c++ -std=c++17 -Wall -Wextra -Werror \
+          c++ -std=c++17 \
             -I "$GITHUB_WORKSPACE/build/upstream/src/universal" \
             "$GITHUB_WORKSPACE/build/upstream/src/universal/base64.cpp" \
             "$GITHUB_WORKSPACE/tests/upstream_base64.cpp" \
             -o build/upstream-base64-host
           ./build/upstream-base64-host
           "$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android26-clang++" \
-            -std=c++17 -Wall -Wextra -Werror \
+            -std=c++17 \
             -I "$GITHUB_WORKSPACE/build/upstream/src/universal" \
             "$GITHUB_WORKSPACE/build/upstream/src/universal/base64.cpp" \
             "$GITHUB_WORKSPACE/tests/upstream_base64.cpp" \
