@@ -10,6 +10,14 @@ using LONG = __INT32_TYPE__;
 using PVOID = void*;
 static_assert(sizeof(LONG) == 4, "Windows LONG must be 32-bit");
 
+using LONGLONG = long long;
+inline LONGLONG _InterlockedCompareExchange64(volatile LONGLONG* p, LONGLONG exchange, LONGLONG comparand) noexcept {
+    LONGLONG previous = comparand;
+    __atomic_compare_exchange_n(p, &previous, exchange, false,
+                                __ATOMIC_SEQ_CST, __ATOMIC_SEQ_CST);
+    return previous;
+}
+
 inline LONG _InterlockedCompareExchange(volatile LONG* p, LONG next, LONG expected) noexcept {
     LONG previous = expected;
     __atomic_compare_exchange_n(p, &previous, next, false,
