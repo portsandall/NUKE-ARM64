@@ -10,6 +10,39 @@ if(CMAKE_C_COMPILER_ID MATCHES "Clang|GNU")
 endif()
 # Standalone portability shim test. Does not yet compile the upstream game engine.
 include(CTest)
+
+# Optional integration target for one real, pinned KisakBlack translation unit.
+# CI supplies the upstream checkout after applying the portability patches.
+option(NUKE_BUILD_UPSTREAM_BASE64_TEST
+  "Build the pinned KisakBlack Base64 implementation and its regression test" OFF)
+set(NUKE_UPSTREAM_SOURCE_DIR "" CACHE PATH
+  "Path to a checked-out KisakBlack source tree")
+
+if(NUKE_BUILD_UPSTREAM_BASE64_TEST)
+  if(NOT IS_DIRECTORY "${NUKE_UPSTREAM_SOURCE_DIR}")
+    message(FATAL_ERROR
+      "NUKE_BUILD_UPSTREAM_BASE64_TEST requires NUKE_UPSTREAM_SOURCE_DIR to point to KisakBlack")
+  endif()
+
+  set(NUKE_UPSTREAM_BASE64_SOURCE
+    "${NUKE_UPSTREAM_SOURCE_DIR}/src/universal/base64.cpp")
+  if(NOT EXISTS "${NUKE_UPSTREAM_BASE64_SOURCE}")
+    message(FATAL_ERROR
+      "KisakBlack Base64 source not found: ${NUKE_UPSTREAM_BASE64_SOURCE}")
+  endif()
+
+  add_executable(nuke-upstream-base64-test
+    "${NUKE_UPSTREAM_BASE64_SOURCE}"
+    tests/upstream_base64.cpp)
+  target_include_directories(nuke-upstream-base64-test PRIVATE
+    "${NUKE_UPSTREAM_SOURCE_DIR}/src/universal")
+
+  if(BUILD_TESTING AND NOT CMAKE_CROSSCOMPILING)
+    add_test(NAME upstream-base64-roundtrip
+      COMMAND nuke-upstream-base64-test)
+  endif()
+endif()
+
 if(BUILD_TESTING)
   find_package(Threads REQUIRED)
   add_executable(nuke-atomic-test tests/atomic_compat.cpp)
