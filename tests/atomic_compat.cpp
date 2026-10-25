@@ -20,6 +20,10 @@ int main() {
     check(_InterlockedCompareExchange64(&wide, 0x300000004LL, 0x100000002LL) == 0x100000002LL);
     check(wide == 0x300000004LL);
     check(InterlockedIncrement(&value) == 5);
+    check(_InterlockedDecrement(&value) == 4);
+    check(value == 4);
+    check(_InterlockedDecrement(&value) == 3);
+    check(value == 3);
 
     volatile LONG exchange_add = 7;
     check(_InterlockedExchangeAdd(&exchange_add, 3) == 7);
