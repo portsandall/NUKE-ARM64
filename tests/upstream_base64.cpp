@@ -36,6 +36,21 @@ int main() {
     if (two_byte_decoded_size != two_byte_input.size() ||
         std::memcmp(two_byte_decoded.data(), two_byte_input.data(), two_byte_input.size()) != 0) return 6;
 
+    // Exercise the one-byte remainder path and its double '=' padding.
+    constexpr std::array<unsigned char, 1> one_byte_input{{0xff}};
+    std::array<unsigned char, 5> one_byte_encoded{};
+    const unsigned int one_byte_encoded_size =
+        b64_encode(one_byte_input.data(), static_cast<unsigned int>(one_byte_input.size()),
+                   one_byte_encoded.data());
+    if (b64e_size(static_cast<unsigned int>(one_byte_input.size())) != 4 ||
+        one_byte_encoded_size != 4 ||
+        std::strcmp(reinterpret_cast<const char*>(one_byte_encoded.data()), "/w==") != 0) return 7;
+    std::array<unsigned char, 1> one_byte_decoded{};
+    const unsigned int one_byte_decoded_size =
+        b64_decode(one_byte_encoded.data(), one_byte_encoded_size, one_byte_decoded.data());
+    if (one_byte_decoded_size != one_byte_input.size() ||
+        std::memcmp(one_byte_decoded.data(), one_byte_input.data(), one_byte_input.size()) != 0) return 8;
+
     std::array<unsigned char, 1> empty{};
     if (b64e_size(0) != 0 || b64_encode(nullptr, 0, empty.data()) != 0 || empty[0] != 0) return 4;
     return 0;
