@@ -137,6 +137,39 @@ jobs:
             *"Machine:"*"AArch64"*) ;;
             *) echo "Expected patched threading test to be AArch64" >&2; exit 1 ;;
           esac
+      - name: Compile and run upstream Base64 regression
+        run: |
+          c++ -std=c++17 \
+            -I "$GITHUB_WORKSPACE/build/upstream/src/universal" \
+            "$GITHUB_WORKSPACE/build/upstream/src/universal/base64.cpp" \
+            "$GITHUB_WORKSPACE/tests/upstream_base64.cpp" \
+            -o build/upstream-base64-host
+          ./build/upstream-base64-host
+          "$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android26-clang++" \
+            -std=c++17 \
+            -I "$GITHUB_WORKSPACE/build/upstream/src/universal" \
+            "$GITHUB_WORKSPACE/build/upstream/src/universal/base64.cpp" \
+            "$GITHUB_WORKSPACE/tests/upstream_base64.cpp" \
+            -o build/upstream-base64-android
+          header="$("$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-readelf" -h build/upstream-base64-android)"
+          printf '%s\n' "$header" | grep -E 'Class:|Machine:'
+          case "$header" in
+            *"Class:"*"ELF64"*) ;;
+            *) echo "Expected upstream Base64 regression to be ELF64" >&2; exit 1 ;;
+          esac
+          case "$header" in
+            *"Machine:"*"AArch64"*) ;;
+            *) echo "Expected upstream Base64 regression to be AArch64" >&2; exit 1 ;;
+          esac
+      - name: Upload upstream Android regression binaries
+        uses: actions/upload-artifact@v6
+        with:
+          name: nuke-upstream-regression-arm64
+          path: |
+            build/upstream-bitarray-android
+            build/upstream-atomic-android
+            build/upstream-thread-android
+            build/upstream-base64-android
   host-tests:
     runs-on: ubuntu-latest
     steps:
