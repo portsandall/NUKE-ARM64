@@ -17,7 +17,7 @@ if(BUILD_TESTING)
   target_link_libraries(nuke-atomic-test PRIVATE Threads::Threads)
   if(NOT CMAKE_CROSSCOMPILING)
     add_test(NAME physics-atomic-compat COMMAND nuke-atomic-test)
-    add_test(NAME nuketown-only COMMAND nuke-platform-probe mp_nuked)
+    add_test(NAME probe-accepts-mp-nuked-scope COMMAND nuke-platform-probe mp_nuked)
     add_test(NAME reject-other-map
       COMMAND ${CMAKE_COMMAND}
         "-DPROBE=$<TARGET_FILE:nuke-platform-probe>"
