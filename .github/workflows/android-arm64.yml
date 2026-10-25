@@ -60,6 +60,7 @@ jobs:
           grep -q 'inline LONG _InterlockedExchangeAdd' build/upstream/src/nuke/win_atomic_compat.h
           grep -q 'inline LONGLONG _InterlockedCompareExchange64' build/upstream/src/nuke/win_atomic_compat.h
           grep -q 'inline LONG _InterlockedDecrement' build/upstream/src/nuke/win_atomic_compat.h
+          grep -q 'inline LONG InterlockedExchange(' build/upstream/src/nuke/win_atomic_compat.h
       - name: Compile and run patched bitarray regression
         run: |
           c++ -std=c++17 -Wall -Wextra -Werror \

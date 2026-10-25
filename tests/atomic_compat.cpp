@@ -25,6 +25,12 @@ int main() {
     check(_InterlockedDecrement(&value) == 3);
     check(value == 3);
 
+    volatile LONG exchanged = 11;
+    check(InterlockedExchange(&exchanged, -7) == 11);
+    check(exchanged == -7);
+    check(InterlockedExchange(&exchanged, 0) == -7);
+    check(exchanged == 0);
+
     volatile LONG exchange_add = 7;
     check(_InterlockedExchangeAdd(&exchange_add, 3) == 7);
     check(exchange_add == 10);
