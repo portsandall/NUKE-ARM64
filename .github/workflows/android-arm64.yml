@@ -137,6 +137,14 @@ jobs:
             *"Machine:"*"AArch64"*) ;;
             *) echo "Expected patched threading test to be AArch64" >&2; exit 1 ;;
           esac
+      - name: Upload upstream Android regression binaries
+        uses: actions/upload-artifact@v6
+        with:
+          name: nuke-upstream-regression-arm64
+          path: |
+            build/upstream-bitarray-android
+            build/upstream-atomic-android
+            build/upstream-thread-android
   host-tests:
     runs-on: ubuntu-latest
     steps:
