@@ -13,6 +13,12 @@ int main() {
     check(value == 1);
     check(_InterlockedCompareExchange(&value, 4, 1) == 1);
     check(value == 4);
+
+    volatile long long wide = 0x100000002LL;
+    check(_InterlockedCompareExchange64(&wide, 0x300000004LL, 0x100000001LL) == 0x100000002LL);
+    check(wide == 0x100000002LL);
+    check(_InterlockedCompareExchange64(&wide, 0x300000004LL, 0x100000002LL) == 0x100000002LL);
+    check(wide == 0x300000004LL);
     check(InterlockedIncrement(&value) == 5);
 
     volatile LONG exchange_add = 7;
