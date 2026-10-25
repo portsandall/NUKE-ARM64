@@ -40,7 +40,7 @@ diff --git a/tl/base/tl_thread.h b/tl/base/tl_thread.h
  {                                       // XREF: .data:tlAtomicReadWriteMutex g_auto_rigid_body_map_mutex/r
                                          // broad_phase_memory/r
 -    volatile unsigned __int64 WriteThreadId;
-+    volatile unsigned long long WriteThreadId;
++    volatile LONGLONG WriteThreadId;
                                          // XREF: _dynamic_initializer_for__g_auto_rigid_body_map_mutex__+3/w
                                          // _dynamic_initializer_for__g_auto_rigid_body_map_mutex__+D/w
      volatile unsigned int ReadLockCount;         // XREF: _dynamic_initializer_for__g_auto_rigid_body_map_mutex__+17/w

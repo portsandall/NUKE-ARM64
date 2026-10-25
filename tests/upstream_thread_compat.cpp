@@ -3,6 +3,7 @@
 #include <cstdint>
 #include <thread>
 #include <vector>
+#include <type_traits>
 
 static void check(bool condition) {
     if (!condition) std::abort();
@@ -13,6 +14,8 @@ int main() {
                   "thread mutex layout must remain 24 bytes");
     static_assert(alignof(tlAtomicReadWriteMutex) >= 8,
                   "thread mutex must retain 8-byte alignment");
+    static_assert(std::is_same_v<decltype(tlAtomicReadWriteMutex::WriteThreadId), volatile LONGLONG>,
+                  "atomic field type must match compare-exchange primitive");
 
     tlAtomicReadWriteMutex mutex;
     constexpr int thread_count = 8;
