@@ -21,6 +21,21 @@ int main() {
     if (decoded_size != input_size ||
         std::memcmp(decoded.data(), input.data(), input.size()) != 0) return 3;
 
+    // Exercise the two-byte remainder path and its single '=' padding.
+    constexpr std::array<unsigned char, 2> two_byte_input{{0xff, 0x10}};
+    std::array<unsigned char, 5> two_byte_encoded{};
+    const unsigned int two_byte_encoded_size =
+        b64_encode(two_byte_input.data(), static_cast<unsigned int>(two_byte_input.size()),
+                   two_byte_encoded.data());
+    if (b64e_size(static_cast<unsigned int>(two_byte_input.size())) != 4 ||
+        two_byte_encoded_size != 4 ||
+        std::strcmp(reinterpret_cast<const char*>(two_byte_encoded.data()), "/xA=") != 0) return 5;
+    std::array<unsigned char, 2> two_byte_decoded{};
+    const unsigned int two_byte_decoded_size =
+        b64_decode(two_byte_encoded.data(), two_byte_encoded_size, two_byte_decoded.data());
+    if (two_byte_decoded_size != two_byte_input.size() ||
+        std::memcmp(two_byte_decoded.data(), two_byte_input.data(), two_byte_input.size()) != 0) return 6;
+
     std::array<unsigned char, 1> empty{};
     if (b64e_size(0) != 0 || b64_encode(nullptr, 0, empty.data()) != 0 || empty[0] != 0) return 4;
     return 0;
