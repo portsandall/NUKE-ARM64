@@ -171,4 +171,6 @@ diff --git a/tl/base/tl_thread.h b/tl/base/tl_thread.h
              while (v1 != CurThread);
          }
      }
- };
+-};
+\ No newline at end of file
++};
