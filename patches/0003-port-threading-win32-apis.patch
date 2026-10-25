@@ -76,7 +76,7 @@ diff --git a/tl/base/tl_thread.h b/tl/base/tl_thread.h
          tlAtomicReadWriteMutex *v6; // [esp+40h] [ebp-14h]
          tlAtomicReadWriteMutex *ThisPtr; // [esp+48h] [ebp-Ch]
 -        unsigned __int64 CurThread; // [esp+4Ch] [ebp-8h]
-+        unsigned long long CurThread; // [esp+4Ch] [ebp-8h]
++        LONGLONG CurThread; // [esp+4Ch] [ebp-8h]
  
          CurThread = GetCurrentThreadId();
          ThisPtr = this->ThisPtr;
@@ -119,7 +119,7 @@ diff --git a/tl/base/tl_thread.h b/tl/base/tl_thread.h
 +        volatile std::uint32_t *p_ReadLockCount; // [esp+40h] [ebp-10h]
          tlAtomicReadWriteMutex *ThisPtr; // [esp+44h] [ebp-Ch]
 -        unsigned __int64 CurThread; // [esp+48h] [ebp-8h]
-+        unsigned long long CurThread; // [esp+48h] [ebp-8h]
++        LONGLONG CurThread; // [esp+48h] [ebp-8h]
  
          CurThread = GetCurrentThreadId();
          ThisPtr = this->ThisPtr;
@@ -157,7 +157,7 @@ diff --git a/tl/base/tl_thread.h b/tl/base/tl_thread.h
 -        volatile unsigned __int32 *p_WriteLockCount; // [esp+20h] [ebp-Ch]
 -        unsigned __int64 CurThread; // [esp+24h] [ebp-8h]
 +        volatile std::uint32_t *p_WriteLockCount; // [esp+20h] [ebp-Ch]
-+        unsigned long long CurThread; // [esp+24h] [ebp-8h]
++        LONGLONG CurThread; // [esp+24h] [ebp-8h]
  
          CurThread = GetCurrentThreadId();
          p_WriteLockCount = &this->ThisPtr->WriteLockCount;
