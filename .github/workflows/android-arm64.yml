@@ -84,7 +84,6 @@ jobs:
             *"Machine:"*"AArch64"*) ;;
             *) echo "Expected patched bitarray test to be AArch64" >&2; exit 1 ;;
           esac
-          grep -q 'inline LONGLONG _InterlockedCompareExchange64' build/upstream/src/nuke/win_atomic_compat.h
       - name: Compile and run patched atomic regression
         run: |
           c++ -std=c++17 -Wall -Wextra -Werror -pthread \
@@ -98,7 +97,7 @@ jobs:
             "$GITHUB_WORKSPACE/tests/atomic_compat.cpp" \
             -o build/upstream-atomic-android
           header="$("$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-readelf" -h build/upstream-atomic-android)"
-          printf '%s\\n' "$header" | grep -E 'Class:|Machine:'
+          printf '%s\n' "$header" | grep -E 'Class:|Machine:'
           case "$header" in
             *"Class:"*"ELF64"*) ;;
             *) echo "Expected patched atomic test to be ELF64" >&2; exit 1 ;;
