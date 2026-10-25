@@ -55,6 +55,12 @@ jobs:
           git -C build/upstream apply "$GITHUB_WORKSPACE/patches/0001-fix-aarch64-bitarray-varargs.patch"
           git -C build/upstream apply --check "$GITHUB_WORKSPACE/patches/0002-port-physics-win32-atomics.patch"
           git -C build/upstream apply "$GITHUB_WORKSPACE/patches/0002-port-physics-win32-atomics.patch"
+          git -C build/upstream apply --check "$GITHUB_WORKSPACE/patches/0003-port-threading-win32-apis.patch"
+          git -C build/upstream apply "$GITHUB_WORKSPACE/patches/0003-port-threading-win32-apis.patch"
+          test -f build/upstream/src/nuke/win_thread_compat.h
+          grep -q '#include <nuke/win_thread_compat.h>' build/upstream/tl/base/tl_thread.h
+          grep -q 'inline std::uint32_t GetCurrentThreadId' build/upstream/src/nuke/win_thread_compat.h
+          grep -q 'inline int SwitchToThread' build/upstream/src/nuke/win_thread_compat.h
           test -f build/upstream/src/nuke/win_atomic_compat.h
           grep -q '#include <nuke/win_atomic_compat.h>' build/upstream/src/physics/phys_local.h
           grep -q 'inline LONG _InterlockedExchangeAdd' build/upstream/src/nuke/win_atomic_compat.h
@@ -106,6 +112,30 @@ jobs:
           case "$header" in
             *"Machine:"*"AArch64"*) ;;
             *) echo "Expected patched atomic test to be AArch64" >&2; exit 1 ;;
+          esac
+      - name: Compile and run patched threading regression
+        run: |
+          c++ -std=c++17 -Wall -Wextra -Werror -pthread \
+            -I "$GITHUB_WORKSPACE/build/upstream" \
+            -I "$GITHUB_WORKSPACE/build/upstream/src" \
+            "$GITHUB_WORKSPACE/tests/upstream_thread_compat.cpp" \
+            -o build/upstream-thread-host
+          ./build/upstream-thread-host
+          "$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android26-clang++" \
+            -std=c++17 -Wall -Wextra -Werror -pthread \
+            -I "$GITHUB_WORKSPACE/build/upstream" \
+            -I "$GITHUB_WORKSPACE/build/upstream/src" \
+            "$GITHUB_WORKSPACE/tests/upstream_thread_compat.cpp" \
+            -o build/upstream-thread-android
+          header="$("$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-readelf" -h build/upstream-thread-android)"
+          printf '%s\n' "$header" | grep -E 'Class:|Machine:'
+          case "$header" in
+            *"Class:"*"ELF64"*) ;;
+            *) echo "Expected patched threading test to be ELF64" >&2; exit 1 ;;
+          esac
+          case "$header" in
+            *"Machine:"*"AArch64"*) ;;
+            *) echo "Expected patched threading test to be AArch64" >&2; exit 1 ;;
           esac
   host-tests:
     runs-on: ubuntu-latest
