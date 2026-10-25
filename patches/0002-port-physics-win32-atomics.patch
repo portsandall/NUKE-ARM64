@@ -17,7 +17,7 @@ diff --git a/src/nuke/win_atomic_compat.h b/src/nuke/win_atomic_compat.h
 new file mode 100644
 --- /dev/null
 +++ b/src/nuke/win_atomic_compat.h
-@@ -0,0 +1,45 @@
+@@ -0,0 +1,48 @@
 +#pragma once
 +
 +// Minimal non-Windows compatibility layer for KisakBlack physics atomics.
@@ -46,6 +46,9 @@ new file mode 100644
 +}
 +inline LONG InterlockedIncrement(volatile LONG* p) noexcept {
 +    return __atomic_add_fetch(p, LONG{1}, __ATOMIC_SEQ_CST);
++}
++inline LONG InterlockedExchange(volatile LONG* p, LONG value) noexcept {
++    return __atomic_exchange_n(p, value, __ATOMIC_SEQ_CST);
 +}
 +inline LONG _InterlockedDecrement(volatile LONG* p) noexcept {
 +    return __atomic_sub_fetch(p, LONG{1}, __ATOMIC_SEQ_CST);
