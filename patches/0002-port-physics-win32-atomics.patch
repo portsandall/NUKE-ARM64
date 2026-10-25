@@ -17,7 +17,7 @@ diff --git a/src/nuke/win_atomic_compat.h b/src/nuke/win_atomic_compat.h
 new file mode 100644
 --- /dev/null
 +++ b/src/nuke/win_atomic_compat.h
-@@ -0,0 +1,33 @@
+@@ -0,0 +1,41 @@
 +#pragma once
 +
 +// Minimal non-Windows compatibility layer for KisakBlack physics atomics.
@@ -27,8 +27,16 @@ new file mode 100644
 +#endif
 +
 +using LONG = __INT32_TYPE__;
++using LONGLONG = long long;
 +using PVOID = void*;
 +static_assert(sizeof(LONG) == 4, "Windows LONG must be 32-bit");
++
++inline LONGLONG _InterlockedCompareExchange64(volatile LONGLONG* p, LONGLONG exchange, LONGLONG comparand) noexcept {
++    LONGLONG previous = comparand;
++    __atomic_compare_exchange_n(p, &previous, exchange, false,
++                                __ATOMIC_SEQ_CST, __ATOMIC_SEQ_CST);
++    return previous;
++}
 +
 +inline LONG _InterlockedCompareExchange(volatile LONG* p, LONG next, LONG expected) noexcept {
 +    LONG previous = expected;
