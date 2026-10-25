@@ -137,22 +137,29 @@ jobs:
             *"Machine:"*"AArch64"*) ;;
             *) echo "Expected patched threading test to be AArch64" >&2; exit 1 ;;
           esac
-      - name: Compile and run upstream Base64 regression
+      - name: Configure upstream Base64 host target
         run: |
-          c++ -std=c++17 \
-            -I "$GITHUB_WORKSPACE/build/upstream/src/universal" \
-            "$GITHUB_WORKSPACE/build/upstream/src/universal/base64.cpp" \
-            "$GITHUB_WORKSPACE/tests/upstream_base64.cpp" \
-            -o build/upstream-base64-host
-          ./build/upstream-base64-host
-          "$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android26-clang++" \
-            -std=c++17 \
-            -I "$GITHUB_WORKSPACE/build/upstream/src/universal" \
-            "$GITHUB_WORKSPACE/build/upstream/src/universal/base64.cpp" \
-            "$GITHUB_WORKSPACE/tests/upstream_base64.cpp" \
-            -o build/upstream-base64-android
-          header="$("$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-readelf" -h build/upstream-base64-android)"
-          printf '%s\n' "$header" | grep -E 'Class:|Machine:'
+          cmake -S "$GITHUB_WORKSPACE" -B build/upstream-base64-host -G Ninja \
+            -DNUKE_BUILD_UPSTREAM_BASE64_TEST=ON \
+            -DNUKE_UPSTREAM_SOURCE_DIR="$GITHUB_WORKSPACE/build/upstream" \
+            -DBUILD_TESTING=ON -DCMAKE_BUILD_TYPE=Release
+      - name: Build and run upstream Base64 host target
+        run: |
+          cmake --build build/upstream-base64-host --target nuke-upstream-base64-test
+          ctest --test-dir build/upstream-base64-host -R '^upstream-base64-roundtrip$' --output-on-failure
+      - name: Configure upstream Base64 Android target
+        run: |
+          cmake -S "$GITHUB_WORKSPACE" -B build/upstream-base64-android-cmake -G Ninja \
+            -DCMAKE_TOOLCHAIN_FILE="$ANDROID_NDK_HOME/build/cmake/android.toolchain.cmake" \
+            -DANDROID_ABI=arm64-v8a -DANDROID_PLATFORM=android-26 \
+            -DNUKE_BUILD_UPSTREAM_BASE64_TEST=ON \
+            -DNUKE_UPSTREAM_SOURCE_DIR="$GITHUB_WORKSPACE/build/upstream" \
+            -DBUILD_TESTING=OFF -DCMAKE_BUILD_TYPE=Release
+      - name: Build and verify upstream Base64 Android target
+        run: |
+          cmake --build build/upstream-base64-android-cmake --target nuke-upstream-base64-test
+          header="$("$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-readelf" -h build/upstream-base64-android-cmake/nuke-upstream-base64-test)"
+          printf '%s\\n' "$header" | grep -E 'Class:|Machine:'
           case "$header" in
             *"Class:"*"ELF64"*) ;;
             *) echo "Expected upstream Base64 regression to be ELF64" >&2; exit 1 ;;
@@ -169,7 +176,7 @@ jobs:
             build/upstream-bitarray-android
             build/upstream-atomic-android
             build/upstream-thread-android
-            build/upstream-base64-android
+            build/upstream-base64-android-cmake/nuke-upstream-base64-test
   host-tests:
     runs-on: ubuntu-latest
     steps:
