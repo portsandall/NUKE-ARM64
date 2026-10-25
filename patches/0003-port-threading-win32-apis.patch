@@ -26,7 +26,7 @@ diff --git a/tl/base/tl_thread.h b/tl/base/tl_thread.h
 --- a/tl/base/tl_thread.h
 +++ b/tl/base/tl_thread.h
 @@ -1,123 +1,128 @@
--#pragma once
+ #pragma once
 -
 -#include <Windows.h>
 -
@@ -149,7 +149,6 @@ diff --git a/tl/base/tl_thread.h b/tl/base/tl_thread.h
 -        }
 -    }
 -};
-+#pragma once
 +
 +#include <cstdint>
 +#if defined(_WIN32)
