@@ -4,6 +4,10 @@
 #include <stdlib.h>
 #include <string.h>
 
+/* Black Ops portability target is Android/Linux LP64, not Windows LLP64. */
+_Static_assert(sizeof(void *) == 8, "NUKE-ARM64 requires 64-bit pointers");
+_Static_assert(sizeof(long) == 8, "NUKE-ARM64 requires the LP64 data model");
+
 #if defined(__aarch64__)
 #define NUKE_ARCH "aarch64"
 #elif defined(__x86_64__)
