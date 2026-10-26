@@ -89,5 +89,30 @@ int main()
         }
     }
 
+    // QuatToAxis must preserve the identity orientation.
+    const float identity_quat[4] = {0.0f, 0.0f, 0.0f, 1.0f};
+    float quat_axis[3][3] = {};
+    QuatToAxis(identity_quat, quat_axis);
+    for (int row = 0; row < 3; ++row) {
+        for (int col = 0; col < 3; ++col) {
+            const float expected = row == col ? 1.0f : 0.0f;
+            if (!near(quat_axis[row][col], expected))
+                return 10;
+        }
+    }
+
+    // A +90-degree yaw quaternion must match the engine's angle basis.
+    const float half_sqrt = 0.70710678118f;
+    const float yaw_90_quat[4] = {0.0f, 0.0f, half_sqrt, half_sqrt};
+    float yaw_axis[3][3] = {};
+    QuatToAxis(yaw_90_quat, yaw_axis);
+    AnglesToAxis(yaw_90, axis);
+    for (int row = 0; row < 3; ++row) {
+        for (int col = 0; col < 3; ++col) {
+            if (!near(yaw_axis[row][col], axis[row][col]))
+                return 11;
+        }
+    }
+
     return 0;
 }
