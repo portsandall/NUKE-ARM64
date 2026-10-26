@@ -59,6 +59,8 @@ jobs:
           git -C build/upstream apply "$GITHUB_WORKSPACE/patches/0003-port-threading-win32-apis.patch"
           git -C build/upstream apply --check "$GITHUB_WORKSPACE/patches/0004-posix-random-name.patch"
           git -C build/upstream apply "$GITHUB_WORKSPACE/patches/0004-posix-random-name.patch"
+          git -C build/upstream apply --check "$GITHUB_WORKSPACE/patches/0005-fix-angle-axis-row-index.patch"
+          git -C build/upstream apply "$GITHUB_WORKSPACE/patches/0005-fix-angle-axis-row-index.patch"
           test -f build/upstream/src/nuke/win_thread_compat.h
           grep -q '#include <nuke/win_thread_compat.h>' build/upstream/tl/base/tl_thread.h
           grep -q 'inline std::uint32_t GetCurrentThreadId' build/upstream/src/nuke/win_thread_compat.h
@@ -71,6 +73,9 @@ jobs:
           grep -q 'inline LONG InterlockedExchange(' build/upstream/src/nuke/win_atomic_compat.h
           grep -q 'double __cdecl Com_Random();' build/upstream/src/universal/com_math.h
           grep -q '#define random Com_Random' build/upstream/src/universal/com_math.h
+          grep -Fq 'right[0] = axis[1][0];' build/upstream/src/universal/com_math_anglevectors.cpp
+          grep -Fq 'right[1] = axis[1][1];' build/upstream/src/universal/com_math_anglevectors.cpp
+          grep -Fq 'right[2] = axis[1][2];' build/upstream/src/universal/com_math_anglevectors.cpp
       - name: Compile and run patched bitarray regression
         run: |
           c++ -std=c++17 -Wall -Wextra -Werror \
