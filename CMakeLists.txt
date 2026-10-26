@@ -73,6 +73,24 @@ if(NUKE_BUILD_UPSTREAM_ANGLE_VECTORS)
     "${NUKE_UPSTREAM_SOURCE_DIR}/src"
     "${NUKE_UPSTREAM_SOURCE_DIR}/src/universal")
   target_compile_options(nuke-upstream-angle-vectors PRIVATE -fms-extensions)
+
+  # Exercise the patched row indexing at runtime. UBSan catches a regression
+  # to (*axis)[3..5], which crosses the three-float row boundary.
+  if(BUILD_TESTING AND NOT CMAKE_CROSSCOMPILING)
+    add_executable(nuke-upstream-angle-vectors-test
+      "${NUKE_UPSTREAM_ANGLE_VECTORS_SOURCE}"
+      tests/upstream_angle_vectors.cpp)
+    target_include_directories(nuke-upstream-angle-vectors-test PRIVATE
+      "${NUKE_UPSTREAM_SOURCE_DIR}/src"
+      "${NUKE_UPSTREAM_SOURCE_DIR}/src/universal")
+    target_compile_options(nuke-upstream-angle-vectors-test PRIVATE
+      -fms-extensions -fsanitize=address,undefined
+      -fno-sanitize-recover=all -fno-omit-frame-pointer)
+    target_link_options(nuke-upstream-angle-vectors-test PRIVATE
+      -fsanitize=address,undefined -fno-sanitize-recover=all)
+    add_test(NAME upstream-angle-vectors-roundtrip
+      COMMAND nuke-upstream-angle-vectors-test)
+  endif()
 endif()
 
 if(BUILD_TESTING)
