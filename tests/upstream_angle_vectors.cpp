@@ -2,16 +2,6 @@
 
 #include <cmath>
 
-// The translation unit also defines AnglesToQuat, which references this
-// unrelated upstream helper. The regression below does not call that path.
-void __cdecl AxisToQuat(const float (*)[3], float *quat)
-{
-    quat[0] = 0.0f;
-    quat[1] = 0.0f;
-    quat[2] = 0.0f;
-    quat[3] = 1.0f;
-}
-
 static bool near(float actual, float expected)
 {
     return std::fabs(actual - expected) <= 0.001f;
@@ -111,6 +101,36 @@ int main()
         for (int col = 0; col < 3; ++col) {
             if (!near(yaw_axis[row][col], axis[row][col]))
                 return 11;
+        }
+    }
+
+    // Exercise the real upstream AxisToQuat through AnglesToQuat.
+    float identity_from_angles[4] = {};
+    AnglesToQuat(zero_angles, identity_from_angles);
+    if (!near(identity_from_angles[0], 0.0f) ||
+        !near(identity_from_angles[1], 0.0f) ||
+        !near(identity_from_angles[2], 0.0f) ||
+        !near(identity_from_angles[3], 1.0f))
+        return 12;
+
+    float yaw_from_angles[4] = {};
+    AnglesToQuat(yaw_90, yaw_from_angles);
+    if (!near(yaw_from_angles[0], 0.0f) ||
+        !near(yaw_from_angles[1], 0.0f) ||
+        !near(yaw_from_angles[2], half_sqrt) ||
+        !near(yaw_from_angles[3], half_sqrt))
+        return 13;
+
+    // A mixed rotation must survive angle -> quaternion -> axis conversion.
+    float mixed_quat[4] = {};
+    AnglesToQuat(mixed_angles, mixed_quat);
+    float mixed_quat_axis[3][3] = {};
+    QuatToAxis(mixed_quat, mixed_quat_axis);
+    AnglesToAxis(mixed_angles, axis);
+    for (int row = 0; row < 3; ++row) {
+        for (int col = 0; col < 3; ++col) {
+            if (!near(mixed_quat_axis[row][col], axis[row][col]))
+                return 14;
         }
     }
 
