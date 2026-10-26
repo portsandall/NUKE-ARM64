@@ -45,6 +45,25 @@ class MatrixIndexValidationTests(unittest.TestCase):
         with self.assertRaisesRegex(SystemExit, r"mat\[0\]\[-1\]"):
             EXTRACTOR.validate_matrix_indexing(function, "AxisToQuat")
 
+    def test_rejects_parenthesized_out_of_range_row(self):
+        function = "void AxisToQuat() { float x = mat[(3)][0]; }"
+        with self.assertRaisesRegex(SystemExit, r"mat\[\(3\)\]\[0\]"):
+            EXTRACTOR.validate_matrix_indexing(function, "AxisToQuat")
+
+    def test_rejects_parenthesized_out_of_range_column(self):
+        function = "void AxisToQuat() { float x = mat[0][(3)]; }"
+        with self.assertRaisesRegex(SystemExit, r"mat\[0\]\[\(3\)\]"):
+            EXTRACTOR.validate_matrix_indexing(function, "AxisToQuat")
+
+    def test_rejects_computed_matrix_index(self):
+        function = "void AxisToQuat() { float x = mat[1 + 2][0]; }"
+        with self.assertRaisesRegex(SystemExit, "non-literal matrix index"):
+            EXTRACTOR.validate_matrix_indexing(function, "AxisToQuat")
+
+    def test_accepts_parenthesized_valid_matrix_coordinates(self):
+        function = "void AxisToQuat() { float x = mat[((2))][(1)]; }"
+        EXTRACTOR.validate_matrix_indexing(function, "AxisToQuat")
+
     def test_accepts_valid_matrix_coordinates(self):
         function = "void AxisToQuat() { float x = mat[2][2]; }"
         EXTRACTOR.validate_matrix_indexing(function, "AxisToQuat")
