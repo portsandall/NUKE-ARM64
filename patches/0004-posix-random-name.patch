@@ -1,0 +1,23 @@
+diff --git a/src/universal/com_math.h b/src/universal/com_math.h
+--- a/src/universal/com_math.h
++++ b/src/universal/com_math.h
+@@ -1,5 +1,8 @@
+ #pragma once
++#if !defined(_WIN32) && !defined(WIN32)
++#include <stdlib.h>
++#endif
+ #include "assertive.h"
+ 
+ #include <math.h>
+ #include "com_pack.h"
+@@ -97,2 +100,9 @@
+-double __cdecl random();
++#if defined(_WIN32) || defined(WIN32)
++double __cdecl random();
++#else
++double __cdecl Com_Random();
++#endif
++#if !defined(_WIN32) && !defined(WIN32)
++#define random Com_Random
++#endif
+ double __cdecl crandom();
