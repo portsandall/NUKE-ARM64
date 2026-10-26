@@ -10,12 +10,10 @@ diff --git a/src/universal/com_math.h b/src/universal/com_math.h
  
  #include <math.h>
  #include "com_pack.h"
-@@ -94,7 +97,14 @@ struct orientation_t // sizeof=0x30
-     float axis[3][3];                                     // XREF: Weapon_DrawAxisOrigin(orientation_t,float)+EB/r
- };
- 
+@@ -97,2 +100,9 @@
+-double __cdecl random();
 +#if defined(_WIN32) || defined(WIN32)
- double __cdecl random();
++double __cdecl random();
 +#else
 +double __cdecl Com_Random();
 +#endif
@@ -23,5 +21,3 @@ diff --git a/src/universal/com_math.h b/src/universal/com_math.h
 +#define random Com_Random
 +#endif
  double __cdecl crandom();
- void __cdecl GaussianRandom(float *f0, float *f1);
- unsigned int __cdecl RandWithSeed(int *seed);
