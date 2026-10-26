@@ -56,6 +56,21 @@ def parse_cpp_integer_literal(token: str) -> int:
     return sign * value
 
 
+def read_bracket_expression(text: str, open_index: int, name: str):
+    """Read one balanced C++ bracket expression, including nested brackets."""
+    if open_index >= len(text) or text[open_index] != "[":
+        raise SystemExit(f"{name} contains malformed matrix indexing")
+    depth = 0
+    for index in range(open_index, len(text)):
+        if text[index] == "[":
+            depth += 1
+        elif text[index] == "]":
+            depth -= 1
+            if depth == 0:
+                return text[open_index + 1:index], index
+    raise SystemExit(f"{name} contains an unterminated matrix index")
+
+
 def validate_matrix_indexing(function: str, name: str) -> None:
     brace = function.find("{")
     if brace < 0:
@@ -65,15 +80,28 @@ def validate_matrix_indexing(function: str, name: str) -> None:
     # Keep the converters explicit about the 3x3 row layout. Reject every
     # flattened (*mat)[N] expression, including indexes above the old [0..8]
     # range, so a future edit cannot evade this portability guard.
-    if re.search(r"\(\s*\*\s*mat\s*\)\s*\[[^\]]+\]", body):
+    if re.search(r"\(\s*\*\s*mat\s*\)\s*\[", body):
         raise SystemExit(f"{name} still contains flattened matrix indexing")
 
-    # These converters only need constant row/column indexes. Require a
-    # literal (optionally parenthesized) so arithmetic or macro expressions
-    # cannot bypass the bounds check.
-    integer = r"[+-]?(?:0[xX][0-9a-fA-F]+|0[bB][01]+|0[0-7]*|[1-9][0-9]*)(?:[uUlL]*)"
-    matrix_access = r"\bmat\s*\[\s*([^\]]+?)\s*\]\s*\[\s*([^\]]+?)\s*\]"
-    for row, column in re.findall(matrix_access, body):
+    # Walk bracket expressions instead of using [^]] regex groups: nested
+    # expressions such as mat[indices[3]][0] must be recognized and rejected
+    # as non-literal, not silently skipped by the validator.
+    access = re.compile(r"\bmat\s*\[")
+    position = 0
+    while match := access.search(body, position):
+        row_open = body.find("[", match.start(), match.end())
+        row, row_close = read_bracket_expression(body, row_open, name)
+        column_open = row_close + 1
+        while column_open < len(body) and body[column_open].isspace():
+            column_open += 1
+        if column_open >= len(body) or body[column_open] != "[":
+            raise SystemExit(f"{name} contains non-2D matrix access mat[{row}]")
+        column, column_close = read_bracket_expression(body, column_open, name)
+
+        # These converters only need constant row/column indexes. Require a
+        # literal (optionally parenthesized) so computed expressions cannot
+        # bypass the bounds check.
+        integer = r"[+-]?(?:0[xX][0-9a-fA-F]+|0[bB][01]+|0[0-7]*|[1-9][0-9]*)(?:[uUlL]*)"
         row_literal = strip_outer_parentheses(row)
         column_literal = strip_outer_parentheses(column)
         if not re.fullmatch(integer, row_literal) or not re.fullmatch(integer, column_literal):
@@ -86,6 +114,7 @@ def validate_matrix_indexing(function: str, name: str) -> None:
             raise SystemExit(
                 f"{name} contains out-of-range matrix index mat[{row}][{column}]"
             )
+        position = column_close + 1
 
     if "__PAIR64__" in function or "LODWORD" in function:
         raise SystemExit(f"{name} still contains architecture-specific packed assignments")
