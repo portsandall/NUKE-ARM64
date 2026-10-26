@@ -1,0 +1,10 @@
+diff --git a/src/universal/com_math_anglevectors.cpp b/src/universal/com_math_anglevectors.cpp
+--- a/src/universal/com_math_anglevectors.cpp
++++ b/src/universal/com_math_anglevectors.cpp
+@@ -157,3 +157,3 @@ void __cdecl AxisToSignedAngles(const float (*axis)[3], float *angles)
+-    right[0] = (*axis)[3];
+-    right[1] = (*axis)[4];
+-    right[2] = (*axis)[5];
++    right[0] = axis[1][0];
++    right[1] = axis[1][1];
++    right[2] = axis[1][2];
