@@ -61,6 +61,8 @@ jobs:
           git -C build/upstream apply "$GITHUB_WORKSPACE/patches/0004-posix-random-name.patch"
           git -C build/upstream apply --check "$GITHUB_WORKSPACE/patches/0005-fix-angle-axis-row-index.patch"
           git -C build/upstream apply "$GITHUB_WORKSPACE/patches/0005-fix-angle-axis-row-index.patch"
+          git -C build/upstream apply --check "$GITHUB_WORKSPACE/patches/0006-fix-axis-to-quat-row-index.patch"
+          git -C build/upstream apply "$GITHUB_WORKSPACE/patches/0006-fix-axis-to-quat-row-index.patch"
           test -f build/upstream/src/nuke/win_thread_compat.h
           grep -q '#include <nuke/win_thread_compat.h>' build/upstream/tl/base/tl_thread.h
           grep -q 'inline std::uint32_t GetCurrentThreadId' build/upstream/src/nuke/win_thread_compat.h
@@ -76,6 +78,8 @@ jobs:
           grep -Fq 'right[0] = axis[1][0];' build/upstream/src/universal/com_math_anglevectors.cpp
           grep -Fq 'right[1] = axis[1][1];' build/upstream/src/universal/com_math_anglevectors.cpp
           grep -Fq 'right[2] = axis[1][2];' build/upstream/src/universal/com_math_anglevectors.cpp
+          grep -Fq 'test[0][0] = (float)mat[1][2]' build/upstream/src/universal/com_math.cpp
+          grep -Fq 'test[0][0] = (float)mat[1][2]' build/upstream/src/ik/ik_math.cpp
       - name: Compile and run patched bitarray regression
         run: |
           c++ -std=c++17 -Wall -Wextra -Werror \
