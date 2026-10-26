@@ -30,6 +30,21 @@ class MatrixIndexValidationTests(unittest.TestCase):
         with self.assertRaisesRegex(SystemExit, r"mat\[0\]\[3\]"):
             EXTRACTOR.validate_matrix_indexing(function, "AxisToQuat")
 
+    def test_rejects_hex_flattened_matrix_index(self):
+        function = "void AxisToQuat() { float x = (*mat)[0xC]; }"
+        with self.assertRaisesRegex(SystemExit, "flattened matrix indexing"):
+            EXTRACTOR.validate_matrix_indexing(function, "AxisToQuat")
+
+    def test_rejects_hex_out_of_range_row_with_suffix(self):
+        function = "void AxisToQuat() { float x = mat[0x3u][0]; }"
+        with self.assertRaisesRegex(SystemExit, r"mat\[0x3u\]\[0\]"):
+            EXTRACTOR.validate_matrix_indexing(function, "AxisToQuat")
+
+    def test_rejects_negative_column_index(self):
+        function = "void AxisToQuat() { float x = mat[0][-1]; }"
+        with self.assertRaisesRegex(SystemExit, r"mat\[0\]\[-1\]"):
+            EXTRACTOR.validate_matrix_indexing(function, "AxisToQuat")
+
     def test_accepts_valid_matrix_coordinates(self):
         function = "void AxisToQuat() { float x = mat[2][2]; }"
         EXTRACTOR.validate_matrix_indexing(function, "AxisToQuat")

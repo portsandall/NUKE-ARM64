@@ -20,6 +20,21 @@ def extract(text: str, start_signature: str, end_signature: str) -> str:
     return text[start:end].strip()
 
 
+
+def parse_cpp_integer_literal(token: str) -> int:
+    """Parse a simple signed C/C++ integer literal, including base and suffix."""
+    token = re.sub(r"[uUlL]+$", "", token)
+    sign = -1 if token.startswith("-") else 1
+    if token[:1] in ("+", "-"):
+        token = token[1:]
+    if token.lower().startswith(("0x", "0b")):
+        value = int(token, 0)
+    elif len(token) > 1 and token.startswith("0"):
+        value = int(token, 8)
+    else:
+        value = int(token, 10)
+    return sign * value
+
 def validate_matrix_indexing(function: str, name: str) -> None:
     brace = function.find("{")
     if brace < 0:
@@ -29,14 +44,16 @@ def validate_matrix_indexing(function: str, name: str) -> None:
     # Keep the converters explicit about the 3x3 row layout. Reject every
     # flattened (*mat)[N] expression, including indexes above the old [0..8]
     # range, so a future edit cannot evade this portability guard.
-    if re.search(r"\(\s*\*\s*mat\s*\)\s*\[\s*\d+\s*\]", body):
+    if re.search(r"\(\s*\*\s*mat\s*\)\s*\[[^\]]+\]", body):
         raise SystemExit(f"{name} still contains flattened matrix indexing")
 
     # Also reject constant row/column indexes outside the 3x3 matrix.
-    for row, column in re.findall(
-        r"\bmat\s*\[\s*(\d+)\s*\]\s*\[\s*(\d+)\s*\]", body
-    ):
-        if int(row) >= 3 or int(column) >= 3:
+    integer = r"[+-]?(?:0[xX][0-9a-fA-F]+|0[bB][01]+|0[0-7]*|[1-9][0-9]*)(?:[uUlL]*)"
+    matrix_access = rf"\bmat\s*\[\s*({integer})\s*\]\s*\[\s*({integer})\s*\]"
+    for row, column in re.findall(matrix_access, body):
+        row_index = parse_cpp_integer_literal(row)
+        column_index = parse_cpp_integer_literal(column)
+        if not 0 <= row_index < 3 or not 0 <= column_index < 3:
             raise SystemExit(
                 f"{name} contains out-of-range matrix index mat[{row}][{column}]"
             )
