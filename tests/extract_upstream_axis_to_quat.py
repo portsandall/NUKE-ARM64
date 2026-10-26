@@ -20,9 +20,29 @@ def extract(text: str, start_signature: str, end_signature: str) -> str:
     return text[start:end].strip()
 
 
+def strip_outer_parentheses(token: str) -> str:
+    """Remove balanced parentheses that wrap the entire index expression."""
+    token = token.strip()
+    while len(token) >= 2 and token[0] == "(" and token[-1] == ")":
+        depth = 0
+        wraps_entire_expression = True
+        for index, char in enumerate(token):
+            if char == "(":
+                depth += 1
+            elif char == ")":
+                depth -= 1
+                if depth == 0 and index != len(token) - 1:
+                    wraps_entire_expression = False
+                    break
+        if not wraps_entire_expression or depth != 0:
+            break
+        token = token[1:-1].strip()
+    return token
+
 
 def parse_cpp_integer_literal(token: str) -> int:
     """Parse a simple signed C/C++ integer literal, including base and suffix."""
+    token = strip_outer_parentheses(token)
     token = re.sub(r"[uUlL]+$", "", token)
     sign = -1 if token.startswith("-") else 1
     if token[:1] in ("+", "-"):
@@ -34,6 +54,7 @@ def parse_cpp_integer_literal(token: str) -> int:
     else:
         value = int(token, 10)
     return sign * value
+
 
 def validate_matrix_indexing(function: str, name: str) -> None:
     brace = function.find("{")
@@ -47,12 +68,20 @@ def validate_matrix_indexing(function: str, name: str) -> None:
     if re.search(r"\(\s*\*\s*mat\s*\)\s*\[[^\]]+\]", body):
         raise SystemExit(f"{name} still contains flattened matrix indexing")
 
-    # Also reject constant row/column indexes outside the 3x3 matrix.
+    # These converters only need constant row/column indexes. Require a
+    # literal (optionally parenthesized) so arithmetic or macro expressions
+    # cannot bypass the bounds check.
     integer = r"[+-]?(?:0[xX][0-9a-fA-F]+|0[bB][01]+|0[0-7]*|[1-9][0-9]*)(?:[uUlL]*)"
-    matrix_access = rf"\bmat\s*\[\s*({integer})\s*\]\s*\[\s*({integer})\s*\]"
+    matrix_access = r"\bmat\s*\[\s*([^\]]+?)\s*\]\s*\[\s*([^\]]+?)\s*\]"
     for row, column in re.findall(matrix_access, body):
-        row_index = parse_cpp_integer_literal(row)
-        column_index = parse_cpp_integer_literal(column)
+        row_literal = strip_outer_parentheses(row)
+        column_literal = strip_outer_parentheses(column)
+        if not re.fullmatch(integer, row_literal) or not re.fullmatch(integer, column_literal):
+            raise SystemExit(
+                f"{name} contains non-literal matrix index mat[{row}][{column}]"
+            )
+        row_index = parse_cpp_integer_literal(row_literal)
+        column_index = parse_cpp_integer_literal(column_literal)
         if not 0 <= row_index < 3 or not 0 <= column_index < 3:
             raise SystemExit(
                 f"{name} contains out-of-range matrix index mat[{row}][{column}]"
