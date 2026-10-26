@@ -88,6 +88,7 @@ if(NUKE_BUILD_UPSTREAM_ANGLE_VECTORS)
     DEPENDS
       tests/extract_upstream_axis_to_quat.py
       "${NUKE_UPSTREAM_SOURCE_DIR}/src/universal/com_math.cpp"
+      "${NUKE_UPSTREAM_SOURCE_DIR}/src/ik/ik_math.cpp"
     VERBATIM)
   add_library(nuke-upstream-axis-to-quat OBJECT
     "${NUKE_UPSTREAM_AXIS_TO_QUAT_SOURCE}")
