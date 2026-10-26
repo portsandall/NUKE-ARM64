@@ -1,0 +1,39 @@
+name: Angle vector runtime regression
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+jobs:
+  host-angle-regression:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - name: Checkout pinned KisakBlack source
+        uses: actions/checkout@v5
+        with:
+          repository: SwagSoftware/KisakBlack
+          ref: 306bb14a8e052a6244bd1df4e4df7d8504c04ef4
+          path: build/upstream
+          persist-credentials: false
+      - name: Apply Android portability patches
+        run: |
+          for patch in \
+            patches/0001-fix-aarch64-bitarray-varargs.patch \
+            patches/0002-port-physics-win32-atomics.patch \
+            patches/0003-port-threading-win32-apis.patch \
+            patches/0004-posix-random-name.patch \
+            patches/0005-fix-angle-axis-row-index.patch; do
+            git -C build/upstream apply --check "$GITHUB_WORKSPACE/$patch"
+            git -C build/upstream apply "$GITHUB_WORKSPACE/$patch"
+          done
+      - name: Configure sanitized host regression
+        run: |
+          cmake -S . -B build/angle-host -G Ninja \
+            -DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++ \
+            -DNUKE_BUILD_UPSTREAM_ANGLE_VECTORS=ON \
+            -DNUKE_UPSTREAM_SOURCE_DIR="$GITHUB_WORKSPACE/build/upstream" \
+            -DBUILD_TESTING=ON -DCMAKE_BUILD_TYPE=Release
+      - name: Build and run angle-vector regression
+        run: |
+          cmake --build build/angle-host --target nuke-upstream-angle-vectors-test --verbose
+          ctest --test-dir build/angle-host -R upstream-angle-vectors-roundtrip --output-on-failure
