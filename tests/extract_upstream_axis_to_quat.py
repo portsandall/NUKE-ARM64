@@ -37,7 +37,8 @@ axis_to_quat = extract(
 
 # The source parameter is a pointer to rows of three floats. Reject the old
 # flattened accesses rather than silently testing the unpatched implementation.
-if re.search(r"\(\*mat\)\s*\[\s*[3-8]\s*\]", axis_to_quat):
+axis_to_quat_body = axis_to_quat[axis_to_quat.find("{") + 1:]
+if re.search(r"\(\*mat\)\s*\[\s*[3-8]\s*\]", axis_to_quat_body):
     raise SystemExit("AxisToQuat still contains an out-of-row matrix index")
 if "__PAIR64__" in axis_to_quat or "LODWORD" in axis_to_quat:
     raise SystemExit("AxisToQuat still contains architecture-specific packed assignments")
