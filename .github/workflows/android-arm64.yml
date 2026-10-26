@@ -188,8 +188,8 @@ jobs:
             -DNUKE_BUILD_UPSTREAM_ANGLE_VECTORS=ON \
             -DNUKE_UPSTREAM_SOURCE_DIR="$GITHUB_WORKSPACE/build/upstream" \
             -DBUILD_TESTING=OFF -DCMAKE_BUILD_TYPE=Release
-      - name: Compile upstream angle/vector host object
-        run: cmake --build build/upstream-angle-host --target nuke-upstream-angle-vectors --verbose
+      - name: Compile upstream angle/vector and quaternion host objects
+        run: cmake --build build/upstream-angle-host --target nuke-upstream-angle-vectors nuke-upstream-axis-to-quat --verbose
       - name: Configure upstream angle/vector Android target
         run: |
           cmake -S "$GITHUB_WORKSPACE" -B build/upstream-angle-android -G Ninja \
@@ -200,20 +200,23 @@ jobs:
             -DBUILD_TESTING=OFF -DCMAKE_BUILD_TYPE=Release
       - name: Compile and verify upstream angle/vector Android object
         run: |
-          cmake --build build/upstream-angle-android --target nuke-upstream-angle-vectors --verbose
-          object="$(find build/upstream-angle-android/CMakeFiles/nuke-upstream-angle-vectors.dir -name '*.o' -print -quit)"
-          test -n "$object"
-          cp "$object" build/upstream-angle-vectors-android.o
-          header="$("$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-readelf" -h build/upstream-angle-vectors-android.o)"
-          printf '%s\\n' "$header" | grep -E 'Class:|Machine:'
-          case "$header" in
-            *"Class:"*"ELF64"*) ;;
-            *) echo "Expected angle/vector object to be ELF64" >&2; exit 1 ;;
-          esac
-          case "$header" in
-            *"Machine:"*"AArch64"*) ;;
-            *) echo "Expected angle/vector object to be AArch64" >&2; exit 1 ;;
-          esac
+          cmake --build build/upstream-angle-android --target nuke-upstream-angle-vectors nuke-upstream-axis-to-quat --verbose
+          for target in nuke-upstream-angle-vectors nuke-upstream-axis-to-quat; do
+            object="$(find "build/upstream-angle-android/CMakeFiles/$target.dir" -name '*.o' -print -quit)"
+            test -n "$object"
+            output="build/$target-android.o"
+            cp "$object" "$output"
+            header="$("$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-readelf" -h "$output")"
+            printf '%s\\n' "$header" | grep -E 'Class:|Machine:'
+            case "$header" in
+              *"Class:"*"ELF64"*) ;;
+              *) echo "Expected $target object to be ELF64" >&2; exit 1 ;;
+            esac
+            case "$header" in
+              *"Machine:"*"AArch64"*) ;;
+              *) echo "Expected $target object to be AArch64" >&2; exit 1 ;;
+            esac
+          done
       - name: Upload upstream Android regression binaries
         uses: actions/upload-artifact@v6
         with:
@@ -223,7 +226,8 @@ jobs:
             build/upstream-atomic-android
             build/upstream-thread-android
             build/upstream-base64-android-cmake/nuke-upstream-base64-test
-            build/upstream-angle-vectors-android.o
+            build/nuke-upstream-angle-vectors-android.o
+            build/nuke-upstream-axis-to-quat-android.o
   host-tests:
     runs-on: ubuntu-latest
     steps:
