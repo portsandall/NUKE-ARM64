@@ -11,7 +11,9 @@ import sys
 
 source_path = Path(sys.argv[1])
 output_path = Path(sys.argv[2])
-source = source_path.read_text(encoding="utf-8")
+# Upstream contains legacy Windows-1252 comments; latin-1 preserves bytes
+# while the extracted ASCII function bodies remain lossless.
+source = source_path.read_text(encoding="latin-1")
 
 
 def extract(start_signature: str, end_signature: str) -> str:
