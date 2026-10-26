@@ -74,23 +74,27 @@ if(NUKE_BUILD_UPSTREAM_ANGLE_VECTORS)
     "${NUKE_UPSTREAM_SOURCE_DIR}/src/universal")
   target_compile_options(nuke-upstream-angle-vectors PRIVATE -fms-extensions)
 
-  # Exercise the patched row indexing at runtime. UBSan catches a regression
-  # to (*axis)[3..5], which crosses the three-float row boundary.
-  if(BUILD_TESTING AND NOT CMAKE_CROSSCOMPILING)
-    find_package(Python3 COMPONENTS Interpreter REQUIRED)
-    set(NUKE_UPSTREAM_AXIS_TO_QUAT_SOURCE
-      "${CMAKE_CURRENT_BINARY_DIR}/upstream_axis_to_quat_extracted.cpp")
-    add_custom_command(
-      OUTPUT "${NUKE_UPSTREAM_AXIS_TO_QUAT_SOURCE}"
-      COMMAND "${Python3_EXECUTABLE}"
-        "${CMAKE_CURRENT_SOURCE_DIR}/tests/extract_upstream_axis_to_quat.py"
-        "${NUKE_UPSTREAM_SOURCE_DIR}/src/universal/com_math.cpp"
-        "${NUKE_UPSTREAM_AXIS_TO_QUAT_SOURCE}"
-      DEPENDS
-        tests/extract_upstream_axis_to_quat.py
-        "${NUKE_UPSTREAM_SOURCE_DIR}/src/universal/com_math.cpp"
-      VERBATIM)
+  # Extract only the patched quaternion converter and its tiny vector helper.
+  # The full com_math.cpp translation unit depends on engine-wide services.
+  find_package(Python3 COMPONENTS Interpreter REQUIRED)
+  set(NUKE_UPSTREAM_AXIS_TO_QUAT_SOURCE
+    "${CMAKE_CURRENT_BINARY_DIR}/upstream_axis_to_quat_extracted.cpp")
+  add_custom_command(
+    OUTPUT "${NUKE_UPSTREAM_AXIS_TO_QUAT_SOURCE}"
+    COMMAND "${Python3_EXECUTABLE}"
+      "${CMAKE_CURRENT_SOURCE_DIR}/tests/extract_upstream_axis_to_quat.py"
+      "${NUKE_UPSTREAM_SOURCE_DIR}/src/universal/com_math.cpp"
+      "${NUKE_UPSTREAM_AXIS_TO_QUAT_SOURCE}"
+    DEPENDS
+      tests/extract_upstream_axis_to_quat.py
+      "${NUKE_UPSTREAM_SOURCE_DIR}/src/universal/com_math.cpp"
+    VERBATIM)
+  add_library(nuke-upstream-axis-to-quat OBJECT
+    "${NUKE_UPSTREAM_AXIS_TO_QUAT_SOURCE}")
+  target_compile_options(nuke-upstream-axis-to-quat PRIVATE -fms-extensions)
 
+  # Exercise the patched row indexing at runtime under ASan/UBSan on the host.
+  if(BUILD_TESTING AND NOT CMAKE_CROSSCOMPILING)
     add_executable(nuke-upstream-angle-vectors-test
       "${NUKE_UPSTREAM_ANGLE_VECTORS_SOURCE}"
       "${NUKE_UPSTREAM_AXIS_TO_QUAT_SOURCE}"
