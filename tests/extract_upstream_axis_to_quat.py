@@ -9,15 +9,6 @@ from pathlib import Path
 import re
 import sys
 
-source_path = Path(sys.argv[1])
-output_path = Path(sys.argv[2])
-upstream_root = source_path.parents[2]
-ik_source_path = upstream_root / "src" / "ik" / "ik_math.cpp"
-
-# Upstream contains legacy Windows-1252 comments; latin-1 preserves bytes.
-source = source_path.read_text(encoding="latin-1")
-ik_source = ik_source_path.read_text(encoding="latin-1")
-
 
 def extract(text: str, start_signature: str, end_signature: str) -> str:
     start = text.find(start_signature)
@@ -34,34 +25,61 @@ def validate_matrix_indexing(function: str, name: str) -> None:
     if brace < 0:
         raise SystemExit(f"missing function body: {name}")
     body = function[brace + 1:]
-    # The parameter is a pointer to three-float rows. Any (*mat)[0..8]
-    # access is flattened indexing and can cross a row boundary.
-    if re.search(r"\(\*mat\)\s*\[\s*[0-8]\s*\]", body):
+
+    # Keep the converters explicit about the 3x3 row layout. Reject every
+    # flattened (*mat)[N] expression, including indexes above the old [0..8]
+    # range, so a future edit cannot evade this portability guard.
+    if re.search(r"\(\s*\*\s*mat\s*\)\s*\[\s*\d+\s*\]", body):
         raise SystemExit(f"{name} still contains flattened matrix indexing")
+
+    # Also reject constant row/column indexes outside the 3x3 matrix.
+    for row, column in re.findall(
+        r"\bmat\s*\[\s*(\d+)\s*\]\s*\[\s*(\d+)\s*\]", body
+    ):
+        if int(row) >= 3 or int(column) >= 3:
+            raise SystemExit(
+                f"{name} contains out-of-range matrix index mat[{row}][{column}]"
+            )
+
     if "__PAIR64__" in function or "LODWORD" in function:
         raise SystemExit(f"{name} still contains architecture-specific packed assignments")
 
 
-vec4_length_sq = extract(
-    source,
-    "float __cdecl Vec4LengthSq(",
-    "\nbool __cdecl Vec4IsNormalized(",
-)
-axis_to_quat = extract(
-    source,
-    "void __cdecl AxisToQuat(",
-    "\nvoid __cdecl QuatLerp(",
-)
-ik_axis_to_quat = extract(
-    ik_source,
-    "void __cdecl ikAxisToQuat(",
-    "\nvoid __cdecl ikMat44Set(",
-)
+def main(argv=None) -> None:
+    if argv is None:
+        argv = sys.argv[1:]
+    if len(argv) != 2:
+        raise SystemExit("usage: extract_upstream_axis_to_quat.py <com_math.cpp> <output.cpp>")
 
-validate_matrix_indexing(axis_to_quat, "AxisToQuat")
-validate_matrix_indexing(ik_axis_to_quat, "ikAxisToQuat")
+    source_path = Path(argv[0])
+    output_path = Path(argv[1])
+    upstream_root = source_path.parents[2]
+    ik_source_path = upstream_root / "src" / "ik" / "ik_math.cpp"
 
-prefix = """#include <math.h>
+    # Upstream contains legacy Windows-1252 comments; latin-1 preserves bytes.
+    source = source_path.read_text(encoding="latin-1")
+    ik_source = ik_source_path.read_text(encoding="latin-1")
+
+    vec4_length_sq = extract(
+        source,
+        "float __cdecl Vec4LengthSq(",
+        "\nbool __cdecl Vec4IsNormalized(",
+    )
+    axis_to_quat = extract(
+        source,
+        "void __cdecl AxisToQuat(",
+        "\nvoid __cdecl QuatLerp(",
+    )
+    ik_axis_to_quat = extract(
+        ik_source,
+        "void __cdecl ikAxisToQuat(",
+        "\nvoid __cdecl ikMat44Set(",
+    )
+
+    validate_matrix_indexing(axis_to_quat, "AxisToQuat")
+    validate_matrix_indexing(ik_axis_to_quat, "ikAxisToQuat")
+
+    prefix = """#include <math.h>
 #ifndef __cdecl
 #define __cdecl
 #endif
@@ -70,9 +88,13 @@ bool __cdecl Assert_MyHandler(const char *, int, int, const char *, ...) {
     return true;
 }
 """
-output_path.parent.mkdir(parents=True, exist_ok=True)
-output_path.write_text(
-    prefix + vec4_length_sq + "\n\n" + axis_to_quat + "\n\n" + ik_axis_to_quat + "\n",
-    encoding="utf-8",
-)
-print(f"extracted patched AxisToQuat and ikAxisToQuat to {output_path}")
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    output_path.write_text(
+        prefix + vec4_length_sq + "\n\n" + axis_to_quat + "\n\n" + ik_axis_to_quat + "\n",
+        encoding="utf-8",
+    )
+    print(f"extracted patched AxisToQuat and ikAxisToQuat to {output_path}")
+
+
+if __name__ == "__main__":
+    main()

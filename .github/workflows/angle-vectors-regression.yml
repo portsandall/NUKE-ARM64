@@ -8,6 +8,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
+      - name: Test quaternion extractor matrix bounds guard
+        run: python3 -m unittest discover -s tests -p 'test_extract_upstream_axis_to_quat.py'
       - name: Checkout pinned KisakBlack source
         uses: actions/checkout@v5
         with:
