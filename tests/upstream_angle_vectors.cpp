@@ -55,5 +55,39 @@ int main()
         !near(recovered[2], 0.0f))
         return 4;
 
+    // Exercise a mixed pitch/yaw/roll basis, not only identity and pure yaw.
+    const float mixed_angles[3] = {23.0f, 41.0f, -17.0f};
+    float mixed_forward[3] = {};
+    float mixed_right[3] = {};
+    float mixed_up[3] = {};
+    AngleVectors(mixed_angles, mixed_forward, mixed_right, mixed_up);
+    AnglesToAxis(mixed_angles, axis);
+
+    for (int i = 0; i < 3; ++i) {
+        if (!near(mixed_forward[i], axis[0][i]))
+            return 5;
+        if (!near(mixed_right[i], -axis[1][i]))
+            return 6;
+        if (!near(mixed_up[i], axis[2][i]))
+            return 7;
+    }
+
+    // Each row must be unit length and pairwise perpendicular.
+    for (int row = 0; row < 3; ++row) {
+        float length_squared = 0.0f;
+        for (int col = 0; col < 3; ++col)
+            length_squared += axis[row][col] * axis[row][col];
+        if (!near(length_squared, 1.0f))
+            return 8;
+
+        for (int other = row + 1; other < 3; ++other) {
+            float dot = 0.0f;
+            for (int col = 0; col < 3; ++col)
+                dot += axis[row][col] * axis[other][col];
+            if (!near(dot, 0.0f))
+                return 9;
+        }
+    }
+
     return 0;
 }
