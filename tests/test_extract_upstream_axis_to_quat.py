@@ -60,6 +60,21 @@ class MatrixIndexValidationTests(unittest.TestCase):
         with self.assertRaisesRegex(SystemExit, "non-literal matrix index"):
             EXTRACTOR.validate_matrix_indexing(function, "AxisToQuat")
 
+    def test_rejects_nested_computed_row_index(self):
+        function = "void AxisToQuat() { float x = mat[indices[3]][0]; }"
+        with self.assertRaisesRegex(SystemExit, "non-literal matrix index"):
+            EXTRACTOR.validate_matrix_indexing(function, "AxisToQuat")
+
+    def test_rejects_nested_computed_column_index(self):
+        function = "void AxisToQuat() { float x = mat[0][indices[3]]; }"
+        with self.assertRaisesRegex(SystemExit, "non-literal matrix index"):
+            EXTRACTOR.validate_matrix_indexing(function, "AxisToQuat")
+
+    def test_rejects_single_dimension_matrix_access(self):
+        function = "void AxisToQuat() { float x = mat[0]; }"
+        with self.assertRaisesRegex(SystemExit, "non-2D matrix access"):
+            EXTRACTOR.validate_matrix_indexing(function, "AxisToQuat")
+
     def test_accepts_parenthesized_valid_matrix_coordinates(self):
         function = "void AxisToQuat() { float x = mat[((2))][(1)]; }"
         EXTRACTOR.validate_matrix_indexing(function, "AxisToQuat")
