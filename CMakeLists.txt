@@ -43,6 +43,38 @@ if(NUKE_BUILD_UPSTREAM_BASE64_TEST)
   endif()
 endif()
 
+
+# Compile-only gate for a second real engine translation unit. This intentionally
+# stops before linking because the full engine dependency graph is not ported yet.
+option(NUKE_BUILD_UPSTREAM_ANGLE_VECTORS
+  "Compile the pinned KisakBlack angle/vector translation unit" OFF)
+
+if(NUKE_BUILD_UPSTREAM_ANGLE_VECTORS)
+  if(NOT IS_DIRECTORY "${NUKE_UPSTREAM_SOURCE_DIR}")
+    message(FATAL_ERROR
+      "NUKE_BUILD_UPSTREAM_ANGLE_VECTORS requires NUKE_UPSTREAM_SOURCE_DIR to point to KisakBlack")
+  endif()
+
+  set(NUKE_UPSTREAM_ANGLE_VECTORS_SOURCE
+    "${NUKE_UPSTREAM_SOURCE_DIR}/src/universal/com_math_anglevectors.cpp")
+  if(NOT EXISTS "${NUKE_UPSTREAM_ANGLE_VECTORS_SOURCE}")
+    message(FATAL_ERROR
+      "KisakBlack angle/vector source not found: ${NUKE_UPSTREAM_ANGLE_VECTORS_SOURCE}")
+  endif()
+
+  if(NOT CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+    message(FATAL_ERROR
+      "The upstream angle/vector translation unit currently requires Clang Microsoft-compatibility extensions")
+  endif()
+
+  add_library(nuke-upstream-angle-vectors OBJECT
+    "${NUKE_UPSTREAM_ANGLE_VECTORS_SOURCE}")
+  target_include_directories(nuke-upstream-angle-vectors PRIVATE
+    "${NUKE_UPSTREAM_SOURCE_DIR}/src"
+    "${NUKE_UPSTREAM_SOURCE_DIR}/src/universal")
+  target_compile_options(nuke-upstream-angle-vectors PRIVATE -fms-extensions)
+endif()
+
 if(BUILD_TESTING)
   find_package(Threads REQUIRED)
   add_executable(nuke-atomic-test tests/atomic_compat.cpp)
