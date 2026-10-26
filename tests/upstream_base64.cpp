@@ -51,6 +51,22 @@ int main() {
     if (one_byte_decoded_size != one_byte_input.size() ||
         std::memcmp(one_byte_decoded.data(), one_byte_input.data(), one_byte_input.size()) != 0) return 8;
 
+    // Exercise every possible byte value, including embedded NULs, through the upstream API.
+    std::array<unsigned char, 256> all_bytes{};
+    for (std::size_t i = 0; i < all_bytes.size(); ++i)
+        all_bytes[i] = static_cast<unsigned char>(i);
+    std::array<unsigned char, 345> all_encoded{}; // 344 Base64 characters + trailing NUL.
+    const unsigned int all_encoded_size =
+        b64_encode(all_bytes.data(), static_cast<unsigned int>(all_bytes.size()), all_encoded.data());
+    if (b64e_size(static_cast<unsigned int>(all_bytes.size())) != 344 || all_encoded_size != 344)
+        return 9;
+    std::array<unsigned char, 256> all_decoded{};
+    const unsigned int all_decoded_size =
+        b64_decode(all_encoded.data(), all_encoded_size, all_decoded.data());
+    if (all_decoded_size != all_bytes.size() ||
+        std::memcmp(all_decoded.data(), all_bytes.data(), all_bytes.size()) != 0)
+        return 10;
+
     std::array<unsigned char, 1> empty{};
     if (b64e_size(0) != 0 || b64_encode(nullptr, 0, empty.data()) != 0 || empty[0] != 0) return 4;
     return 0;
