@@ -2,6 +2,8 @@
 
 #include <cmath>
 
+void ikAxisToQuat(const float (*mat)[3], float *out);
+
 static bool near(float actual, float expected)
 {
     return std::fabs(actual - expected) <= 0.001f;
@@ -131,6 +133,35 @@ int main()
         for (int col = 0; col < 3; ++col) {
             if (!near(mixed_quat_axis[row][col], axis[row][col]))
                 return 14;
+        }
+    }
+
+    // Test the duplicate IK converter through all nontrivial diagonal branches.
+    const float half_turns[3][3] = {
+        {180.0f, 0.0f, 0.0f},
+        {0.0f, 180.0f, 0.0f},
+        {0.0f, 0.0f, 180.0f},
+    };
+    for (int turn = 0; turn < 3; ++turn) {
+        float turn_axis[3][3] = {};
+        float engine_quat[4] = {};
+        float ik_quat[4] = {};
+        float rebuilt_axis[3][3] = {};
+        AnglesToAxis(half_turns[turn], turn_axis);
+        AnglesToQuat(half_turns[turn], engine_quat);
+        ikAxisToQuat(turn_axis, ik_quat);
+
+        for (int component = 0; component < 4; ++component) {
+            if (!near(ik_quat[component], engine_quat[component]))
+                return 15;
+        }
+
+        QuatToAxis(ik_quat, rebuilt_axis);
+        for (int row = 0; row < 3; ++row) {
+            for (int col = 0; col < 3; ++col) {
+                if (!near(rebuilt_axis[row][col], turn_axis[row][col]))
+                    return 16;
+            }
         }
     }
 
