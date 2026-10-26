@@ -189,7 +189,7 @@ jobs:
       - name: Build and run sanitized upstream angle/vector regression
         run: |
           cmake --build build/upstream-angle-host --target nuke-upstream-angle-vectors-test --verbose
-          ctest --test-dir build/upstream-angle-host -R '^upstream-angle-vectors-roundtrip
+          ctest --test-dir build/upstream-angle-host -R upstream-angle-vectors-roundtrip --output-on-failure
       - name: Configure upstream angle/vector Android target
         run: |
           cmake -S "$GITHUB_WORKSPACE" -B build/upstream-angle-android -G Ninja \
