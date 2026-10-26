@@ -77,8 +77,23 @@ if(NUKE_BUILD_UPSTREAM_ANGLE_VECTORS)
   # Exercise the patched row indexing at runtime. UBSan catches a regression
   # to (*axis)[3..5], which crosses the three-float row boundary.
   if(BUILD_TESTING AND NOT CMAKE_CROSSCOMPILING)
+    find_package(Python3 COMPONENTS Interpreter REQUIRED)
+    set(NUKE_UPSTREAM_AXIS_TO_QUAT_SOURCE
+      "${CMAKE_CURRENT_BINARY_DIR}/upstream_axis_to_quat_extracted.cpp")
+    add_custom_command(
+      OUTPUT "${NUKE_UPSTREAM_AXIS_TO_QUAT_SOURCE}"
+      COMMAND "${Python3_EXECUTABLE}"
+        "${CMAKE_CURRENT_SOURCE_DIR}/tests/extract_upstream_axis_to_quat.py"
+        "${NUKE_UPSTREAM_SOURCE_DIR}/src/universal/com_math.cpp"
+        "${NUKE_UPSTREAM_AXIS_TO_QUAT_SOURCE}"
+      DEPENDS
+        tests/extract_upstream_axis_to_quat.py
+        "${NUKE_UPSTREAM_SOURCE_DIR}/src/universal/com_math.cpp"
+      VERBATIM)
+
     add_executable(nuke-upstream-angle-vectors-test
       "${NUKE_UPSTREAM_ANGLE_VECTORS_SOURCE}"
+      "${NUKE_UPSTREAM_AXIS_TO_QUAT_SOURCE}"
       tests/upstream_angle_vectors.cpp)
     target_include_directories(nuke-upstream-angle-vectors-test PRIVATE
       "${NUKE_UPSTREAM_SOURCE_DIR}/src"
