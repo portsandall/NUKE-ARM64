@@ -1,0 +1,29 @@
+diff --git a/src/universal/com_math.h b/src/universal/com_math.h
+--- a/src/universal/com_math.h
++++ b/src/universal/com_math.h
+@@ -1,5 +1,8 @@
+ #pragma once
++#if !defined(_WIN32) && !defined(WIN32)
++#include <stdlib.h>
++#endif
+ #include "assertive.h"
+ 
+ #include <math.h>
+@@ -94,7 +97,11 @@ struct orientation_t // sizeof=0x30
+     float axis[3][3];                                     // XREF: Weapon_DrawAxisOrigin(orientation_t,float)+EB/r
+ };
+ 
++#if defined(_WIN32) || defined(WIN32)
+ double __cdecl random();
++#else
++double __cdecl Com_Random();
++#endif
+ double __cdecl crandom();
+ void __cdecl GaussianRandom(float *f0, float *f1);
+ unsigned int __cdecl RandWithSeed(int *seed);
+@@ -164,3 +171,7 @@ void __cdecl MatrixMultiply(const float (*in1)[3], const float (*in2)[3], float (
+ void __cdecl MatrixVecMultiply(const float (*mulMat)[3], const float *mulVec, float *solution);
+ 
++#if !defined(_WIN32) && !defined(WIN32)
++#define random Com_Random
++#endif
