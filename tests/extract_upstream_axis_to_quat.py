@@ -88,6 +88,23 @@ def validate_matrix_indexing(function: str, name: str) -> None:
     if any(re.search(pattern, body) for pattern in flattened_index_patterns):
         raise SystemExit(f"{name} still contains flattened matrix indexing")
 
+    # Also catch a flat float pointer created from mat and indexed later. The
+    # direct-cast checks above do not see this equivalent two-statement form.
+    cast_to_flat_pointer = (
+        r"\\(\\s*(?:const\\s+)?float(?:\\s+const)?\\s*\\*+\\s*\\)\\s*mat\\b"
+        r"|(?:static_cast|reinterpret_cast|const_cast)\\s*<\\s*(?:const\\s+)?float(?:\\s+const)?\\s*\\*+\\s*>\\s*\\(\\s*mat\\s*\\)"
+    )
+    flat_pointer_alias = re.compile(
+        r"\\b(?:(?:const\\s+)?float(?:\\s+const)?\\s*\\*+\\s*|auto\\s+)"
+        rf"(?P<alias>[A-Za-z_]\\w*)\\s*=\\s*(?:{cast_to_flat_pointer})"
+    )
+    for alias_match in flat_pointer_alias.finditer(body):
+        alias = alias_match.group("alias")
+        if re.search(rf"\\b{re.escape(alias)}\\s*\\[", body[alias_match.end():]):
+            raise SystemExit(
+                f"{name} still contains flattened matrix indexing through alias {alias}"
+            )
+
     # Walk bracket expressions instead of using [^]] regex groups: nested
     # expressions such as mat[indices[3]][0] must be recognized and rejected
     # as non-literal, not silently skipped by the validator.
