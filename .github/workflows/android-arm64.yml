@@ -172,7 +172,7 @@ jobs:
         run: |
           cmake --build build/upstream-base64-android-cmake --target nuke-upstream-base64-test
           header="$("$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-readelf" -h build/upstream-base64-android-cmake/nuke-upstream-base64-test)"
-          printf '%s\\n' "$header" | grep -E 'Class:|Machine:'
+          printf '%s\n' "$header" | grep -E 'Class:|Machine:'
           case "$header" in
             *"Class:"*"ELF64"*) ;;
             *) echo "Expected upstream Base64 regression to be ELF64" >&2; exit 1 ;;
@@ -207,7 +207,7 @@ jobs:
             output="build/$target-android.o"
             cp "$object" "$output"
             header="$("$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-readelf" -h "$output")"
-            printf '%s\\n' "$header" | grep -E 'Class:|Machine:'
+            printf '%s\n' "$header" | grep -E 'Class:|Machine:'
             case "$header" in
               *"Class:"*"ELF64"*) ;;
               *) echo "Expected $target object to be ELF64" >&2; exit 1 ;;
