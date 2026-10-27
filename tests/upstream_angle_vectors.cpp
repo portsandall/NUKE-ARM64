@@ -165,5 +165,36 @@ int main()
         }
     }
 
+    // General rotations exercise the ordinary trace-positive path as well as
+    // the largest-diagonal branches covered by the half-turn cases above.
+    const float general_angles[][3] = {
+        {0.0f, 0.0f, 0.0f},
+        {13.0f, 29.0f, 7.0f},
+        {-37.0f, 82.0f, 21.0f},
+        {23.0f, 41.0f, -17.0f},
+    };
+    for (const auto &angles : general_angles) {
+        float general_axis[3][3] = {};
+        float expected_quat[4] = {};
+        float ik_quat[4] = {};
+        float rebuilt_axis[3][3] = {};
+        AnglesToAxis(angles, general_axis);
+        AnglesToQuat(angles, expected_quat);
+        ikAxisToQuat(general_axis, ik_quat);
+
+        for (int component = 0; component < 4; ++component) {
+            if (!near(ik_quat[component], expected_quat[component]))
+                return 17;
+        }
+
+        QuatToAxis(ik_quat, rebuilt_axis);
+        for (int row = 0; row < 3; ++row) {
+            for (int col = 0; col < 3; ++col) {
+                if (!near(rebuilt_axis[row][col], general_axis[row][col]))
+                    return 18;
+            }
+        }
+    }
+
     return 0;
 }
