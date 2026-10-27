@@ -93,6 +93,7 @@ def validate_matrix_indexing(function: str, name: str) -> None:
     cast_to_flat_pointer = (
         r"\(\s*(?:const\s+)?float(?:\s+const)?\s*\*+\s*\)\s*mat\b"
         r"|(?:static_cast|reinterpret_cast|const_cast)\s*<\s*(?:const\s+)?float(?:\s+const)?\s*\*+\s*>\s*\(\s*mat\s*\)"
+        r"|&\\s*mat\\s*\\[[^\\]]+\\]\\s*\\[[^\\]]+\\]"
     )
     flat_pointer_alias = re.compile(
         r"\b(?:(?:const\s+)?float(?:\s+const)?\s*\*+\s*|auto\s+)"
