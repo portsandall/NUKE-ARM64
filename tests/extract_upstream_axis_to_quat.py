@@ -82,8 +82,8 @@ def validate_matrix_indexing(function: str, name: str) -> None:
     # float pointer; otherwise a cast can bypass the row/column bounds checks.
     flattened_index_patterns = (
         r"\(\s*\*\s*mat\s*\)\s*\[",
-        r"\(\s*\(\s*(?:const\s+)?float\s*\*+\s*\)\s*mat\s*\)\s*\[",
-        r"\b(?:static_cast|reinterpret_cast|const_cast)\s*<\s*(?:const\s+)?float\s*\*+\s*>\s*\(\s*mat\s*\)\s*\[",
+        r"\(\s*\(\s*(?:const\s+)?float(?:\s+const)?\s*\*+\s*\)\s*mat\s*\)\s*\[",
+        r"\b(?:static_cast|reinterpret_cast|const_cast)\s*<\s*(?:const\s+)?float(?:\s+const)?\s*\*+\s*>\s*\(\s*mat\s*\)\s*\[",
     )
     if any(re.search(pattern, body) for pattern in flattened_index_patterns):
         raise SystemExit(f"{name} still contains flattened matrix indexing")
