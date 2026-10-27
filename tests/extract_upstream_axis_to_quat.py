@@ -77,10 +77,15 @@ def validate_matrix_indexing(function: str, name: str) -> None:
         raise SystemExit(f"missing function body: {name}")
     body = function[brace + 1:]
 
-    # Keep the converters explicit about the 3x3 row layout. Reject every
-    # flattened (*mat)[N] expression, including indexes above the old [0..8]
-    # range, so a future edit cannot evade this portability guard.
-    if re.search(r"\(\s*\*\s*mat\s*\)\s*\[", body):
+    # Keep the converters explicit about the 3x3 row layout. Reject direct
+    # flattened indexing and casts that turn the matrix pointer into a flat
+    # float pointer; otherwise a cast can bypass the row/column bounds checks.
+    flattened_index_patterns = (
+        r"\(\s*\*\s*mat\s*\)\s*\[",
+        r"\(\s*\(\s*(?:const\s+)?float\s*\*+\s*\)\s*mat\s*\)\s*\[",
+        r"\b(?:static_cast|reinterpret_cast|const_cast)\s*<\s*(?:const\s+)?float\s*\*+\s*>\s*\(\s*mat\s*\)\s*\[",
+    )
+    if any(re.search(pattern, body) for pattern in flattened_index_patterns):
         raise SystemExit(f"{name} still contains flattened matrix indexing")
 
     # Walk bracket expressions instead of using [^]] regex groups: nested
