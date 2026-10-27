@@ -95,6 +95,20 @@ class MatrixIndexValidationTests(unittest.TestCase):
         with self.assertRaisesRegex(SystemExit, "flattened matrix indexing"):
             EXTRACTOR.validate_matrix_indexing(function, "AxisToQuat")
 
+    def test_rejects_c_style_cast_alias_flattened_matrix_index(self):
+        function = "void AxisToQuat() { float *flat = (float *)mat; float x = flat[9]; }"
+        with self.assertRaisesRegex(SystemExit, "flattened matrix indexing through alias flat"):
+            EXTRACTOR.validate_matrix_indexing(function, "AxisToQuat")
+
+    def test_rejects_reinterpret_cast_alias_flattened_matrix_index(self):
+        function = "void AxisToQuat() { auto flat = reinterpret_cast<float *>(mat); float x = flat[9]; }"
+        with self.assertRaisesRegex(SystemExit, "flattened matrix indexing through alias flat"):
+            EXTRACTOR.validate_matrix_indexing(function, "AxisToQuat")
+
+    def test_accepts_flat_pointer_cast_alias_without_flat_indexing(self):
+        function = "void AxisToQuat() { float *flat = (float *)mat; consume(flat); }"
+        EXTRACTOR.validate_matrix_indexing(function, "AxisToQuat")
+
     def test_accepts_parenthesized_valid_matrix_coordinates(self):
         function = "void AxisToQuat() { float x = mat[((2))][(1)]; }"
         EXTRACTOR.validate_matrix_indexing(function, "AxisToQuat")
