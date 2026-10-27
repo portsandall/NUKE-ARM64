@@ -23,14 +23,8 @@ jobs:
             file "$path"
             header="$("$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-readelf" -h "$path")"
             printf '%s\n' "$header" | grep -E 'Class:|Machine:'
-            case "$header" in
-              *"Class:"*"ELF64"*) ;;
-              *) echo "Expected ELF64 output: $path" >&2; exit 1 ;;
-            esac
-            case "$header" in
-              *"Machine:"*"AArch64"*) ;;
-              *) echo "Expected AArch64 machine: $path" >&2; exit 1 ;;
-            esac
+            grep -Eq '^[[:space:]]*Class:[[:space:]]+ELF64[[:space:]]*$' <<< "$header" || { echo "Expected ELF64 output: $path" >&2; exit 1; }
+            grep -Eq '^[[:space:]]*Machine:[[:space:]]+AArch64[[:space:]]*$' <<< "$header" || { echo "Expected AArch64 machine: $path" >&2; exit 1; }
           done
       - uses: actions/upload-artifact@v6
         with:
@@ -96,14 +90,8 @@ jobs:
             -o build/upstream-bitarray-android
           header="$("$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-readelf" -h build/upstream-bitarray-android)"
           printf '%s\n' "$header" | grep -E 'Class:|Machine:'
-          case "$header" in
-            *"Class:"*"ELF64"*) ;;
-            *) echo "Expected patched bitarray test to be ELF64" >&2; exit 1 ;;
-          esac
-          case "$header" in
-            *"Machine:"*"AArch64"*) ;;
-            *) echo "Expected patched bitarray test to be AArch64" >&2; exit 1 ;;
-          esac
+          grep -Eq '^[[:space:]]*Class:[[:space:]]+ELF64[[:space:]]*$' <<< "$header" || { echo "Expected patched bitarray test to be ELF64" >&2; exit 1; }
+          grep -Eq '^[[:space:]]*Machine:[[:space:]]+AArch64[[:space:]]*$' <<< "$header" || { echo "Expected patched bitarray test to be AArch64" >&2; exit 1; }
       - name: Compile and run patched atomic regression
         run: |
           c++ -std=c++17 -Wall -Wextra -Werror -pthread \
@@ -118,14 +106,8 @@ jobs:
             -o build/upstream-atomic-android
           header="$("$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-readelf" -h build/upstream-atomic-android)"
           printf '%s\n' "$header" | grep -E 'Class:|Machine:'
-          case "$header" in
-            *"Class:"*"ELF64"*) ;;
-            *) echo "Expected patched atomic test to be ELF64" >&2; exit 1 ;;
-          esac
-          case "$header" in
-            *"Machine:"*"AArch64"*) ;;
-            *) echo "Expected patched atomic test to be AArch64" >&2; exit 1 ;;
-          esac
+          grep -Eq '^[[:space:]]*Class:[[:space:]]+ELF64[[:space:]]*$' <<< "$header" || { echo "Expected patched atomic test to be ELF64" >&2; exit 1; }
+          grep -Eq '^[[:space:]]*Machine:[[:space:]]+AArch64[[:space:]]*$' <<< "$header" || { echo "Expected patched atomic test to be AArch64" >&2; exit 1; }
       - name: Compile and run patched threading regression
         run: |
           c++ -std=c++17 -Wall -Wextra -Werror -pthread \
@@ -142,14 +124,8 @@ jobs:
             -o build/upstream-thread-android
           header="$("$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-readelf" -h build/upstream-thread-android)"
           printf '%s\n' "$header" | grep -E 'Class:|Machine:'
-          case "$header" in
-            *"Class:"*"ELF64"*) ;;
-            *) echo "Expected patched threading test to be ELF64" >&2; exit 1 ;;
-          esac
-          case "$header" in
-            *"Machine:"*"AArch64"*) ;;
-            *) echo "Expected patched threading test to be AArch64" >&2; exit 1 ;;
-          esac
+          grep -Eq '^[[:space:]]*Class:[[:space:]]+ELF64[[:space:]]*$' <<< "$header" || { echo "Expected patched threading test to be ELF64" >&2; exit 1; }
+          grep -Eq '^[[:space:]]*Machine:[[:space:]]+AArch64[[:space:]]*$' <<< "$header" || { echo "Expected patched threading test to be AArch64" >&2; exit 1; }
       - name: Configure upstream Base64 host target
         run: |
           cmake -S "$GITHUB_WORKSPACE" -B build/upstream-base64-host -G Ninja \
@@ -173,14 +149,8 @@ jobs:
           cmake --build build/upstream-base64-android-cmake --target nuke-upstream-base64-test
           header="$("$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-readelf" -h build/upstream-base64-android-cmake/nuke-upstream-base64-test)"
           printf '%s\n' "$header" | grep -E 'Class:|Machine:'
-          case "$header" in
-            *"Class:"*"ELF64"*) ;;
-            *) echo "Expected upstream Base64 regression to be ELF64" >&2; exit 1 ;;
-          esac
-          case "$header" in
-            *"Machine:"*"AArch64"*) ;;
-            *) echo "Expected upstream Base64 regression to be AArch64" >&2; exit 1 ;;
-          esac
+          grep -Eq '^[[:space:]]*Class:[[:space:]]+ELF64[[:space:]]*$' <<< "$header" || { echo "Expected upstream Base64 regression to be ELF64" >&2; exit 1; }
+          grep -Eq '^[[:space:]]*Machine:[[:space:]]+AArch64[[:space:]]*$' <<< "$header" || { echo "Expected upstream Base64 regression to be AArch64" >&2; exit 1; }
       - name: Configure upstream angle/vector host target
         run: |
           cmake -S "$GITHUB_WORKSPACE" -B build/upstream-angle-host -G Ninja \
@@ -208,14 +178,8 @@ jobs:
             cp "$object" "$output"
             header="$("$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-readelf" -h "$output")"
             printf '%s\n' "$header" | grep -E 'Class:|Machine:'
-            case "$header" in
-              *"Class:"*"ELF64"*) ;;
-              *) echo "Expected $target object to be ELF64" >&2; exit 1 ;;
-            esac
-            case "$header" in
-              *"Machine:"*"AArch64"*) ;;
-              *) echo "Expected $target object to be AArch64" >&2; exit 1 ;;
-            esac
+            grep -Eq '^[[:space:]]*Class:[[:space:]]+ELF64[[:space:]]*$' <<< "$header" || { echo "Expected $target object to be ELF64" >&2; exit 1; }
+            grep -Eq '^[[:space:]]*Machine:[[:space:]]+AArch64[[:space:]]*$' <<< "$header" || { echo "Expected $target object to be AArch64" >&2; exit 1; }
           done
       - name: Upload upstream Android regression binaries
         uses: actions/upload-artifact@v6
