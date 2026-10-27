@@ -91,16 +91,16 @@ def validate_matrix_indexing(function: str, name: str) -> None:
     # Also catch a flat float pointer created from mat and indexed later. The
     # direct-cast checks above do not see this equivalent two-statement form.
     cast_to_flat_pointer = (
-        r"\\(\\s*(?:const\\s+)?float(?:\\s+const)?\\s*\\*+\\s*\\)\\s*mat\\b"
-        r"|(?:static_cast|reinterpret_cast|const_cast)\\s*<\\s*(?:const\\s+)?float(?:\\s+const)?\\s*\\*+\\s*>\\s*\\(\\s*mat\\s*\\)"
+        r"\(\s*(?:const\s+)?float(?:\s+const)?\s*\*+\s*\)\s*mat\b"
+        r"|(?:static_cast|reinterpret_cast|const_cast)\s*<\s*(?:const\s+)?float(?:\s+const)?\s*\*+\s*>\s*\(\s*mat\s*\)"
     )
     flat_pointer_alias = re.compile(
-        r"\\b(?:(?:const\\s+)?float(?:\\s+const)?\\s*\\*+\\s*|auto\\s+)"
-        rf"(?P<alias>[A-Za-z_]\\w*)\\s*=\\s*(?:{cast_to_flat_pointer})"
+        r"\b(?:(?:const\s+)?float(?:\s+const)?\s*\*+\s*|auto\s+)"
+        rf"(?P<alias>[A-Za-z_]\w*)\s*=\s*(?:{cast_to_flat_pointer})"
     )
     for alias_match in flat_pointer_alias.finditer(body):
         alias = alias_match.group("alias")
-        if re.search(rf"\\b{re.escape(alias)}\\s*\\[", body[alias_match.end():]):
+        if re.search(rf"\b{re.escape(alias)}\s*\[", body[alias_match.end():]):
             raise SystemExit(
                 f"{name} still contains flattened matrix indexing through alias {alias}"
             )
