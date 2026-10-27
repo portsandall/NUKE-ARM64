@@ -85,6 +85,16 @@ class MatrixIndexValidationTests(unittest.TestCase):
         with self.assertRaisesRegex(SystemExit, "flattened matrix indexing"):
             EXTRACTOR.validate_matrix_indexing(function, "AxisToQuat")
 
+    def test_rejects_c_style_cast_flattened_matrix_index_trailing_const(self):
+        function = "void AxisToQuat() { float x = ((float const *)mat)[9]; }"
+        with self.assertRaisesRegex(SystemExit, "flattened matrix indexing"):
+            EXTRACTOR.validate_matrix_indexing(function, "AxisToQuat")
+
+    def test_rejects_reinterpret_cast_flattened_matrix_index_trailing_const(self):
+        function = "void AxisToQuat() { float x = reinterpret_cast<float const *>(mat)[9]; }"
+        with self.assertRaisesRegex(SystemExit, "flattened matrix indexing"):
+            EXTRACTOR.validate_matrix_indexing(function, "AxisToQuat")
+
     def test_accepts_parenthesized_valid_matrix_coordinates(self):
         function = "void AxisToQuat() { float x = mat[((2))][(1)]; }"
         EXTRACTOR.validate_matrix_indexing(function, "AxisToQuat")
