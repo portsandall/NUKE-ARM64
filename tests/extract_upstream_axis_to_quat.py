@@ -106,6 +106,26 @@ def validate_matrix_indexing(function: str, name: str) -> None:
                 f"{name} still contains flattened matrix indexing through alias {alias}"
             )
 
+    # Also catch a pointer declared first and assigned a flattened matrix
+    # address later; otherwise splitting initialization across statements
+    # bypasses the alias check above.
+    uninitialized_float_pointer = re.compile(
+        r"\b(?:(?:const\s+)?float(?:\s+const)?\s*\*+\s*)"
+        r"(?P<alias>[A-Za-z_]\w*)\s*;"
+    )
+    for declaration in uninitialized_float_pointer.finditer(body):
+        alias = declaration.group("alias")
+        assignment = re.search(
+            rf"\b{re.escape(alias)}\s*=\s*(?:{cast_to_flat_pointer})\s*;",
+            body[declaration.end():],
+        )
+        if assignment:
+            after_assignment = body[declaration.end() + assignment.end():]
+            if re.search(rf"\b{re.escape(alias)}\s*\[", after_assignment):
+                raise SystemExit(
+                    f"{name} still contains flattened matrix indexing through alias {alias}"
+                )
+
     # Walk bracket expressions instead of using [^]] regex groups: nested
     # expressions such as mat[indices[3]][0] must be recognized and rejected
     # as non-literal, not silently skipped by the validator.
