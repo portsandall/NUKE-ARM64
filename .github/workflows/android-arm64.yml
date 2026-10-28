@@ -178,7 +178,15 @@ jobs:
             cp "$object" "$output"
             header="$("$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-readelf" -h "$output")"
             printf '%s\n' "$header" | grep -E 'Class:|Machine:'
-            grep -Eq '^[[:space:]]*Class:[[:space:]]+ELF64[[:space:]]*
+            grep -Eq '^[[:space:]]*Class:[[:space:]]+ELF64[[:space:]]*$' <<< "$header" || { echo "Expected $target object to be ELF64" >&2; exit 1; }
+            grep -Eq '^[[:space:]]*Machine:[[:space:]]+AArch64[[:space:]]*$' <<< "$header" || { echo "Expected $target object to be AArch64" >&2; exit 1; }
+          done
+          executable="build/upstream-angle-android/nuke-upstream-angle-vectors-test"
+          test -x "$executable"
+          header="$("$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-readelf" -h "$executable")"
+          printf '%s\n' "$header" | grep -E 'Class:|Machine:'
+          grep -Eq '^[[:space:]]*Class:[[:space:]]+ELF64[[:space:]]*$' <<< "$header" || { echo "Expected linked angle/vector smoke test to be ELF64" >&2; exit 1; }
+          grep -Eq '^[[:space:]]*Machine:[[:space:]]+AArch64[[:space:]]*$' <<< "$header" || { echo "Expected linked angle/vector smoke test to be AArch64" >&2; exit 1; }
       - name: Upload upstream Android regression binaries
         uses: actions/upload-artifact@v6
         with:
@@ -191,90 +199,6 @@ jobs:
             build/nuke-upstream-angle-vectors-android.o
             build/nuke-upstream-axis-to-quat-android.o
             build/upstream-angle-android/nuke-upstream-angle-vectors-test
-  host-tests:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v5
-      - run: cmake -S . -B build/host -G Ninja -DCMAKE_BUILD_TYPE=Debug
-      - run: cmake --build build/host
-      - run: ctest --test-dir build/host --output-on-failure
- <<< "$header" || { echo "Expected $target object to be ELF64" >&2; exit 1; }
-            grep -Eq '^[[:space:]]*Machine:[[:space:]]+AArch64[[:space:]]*
-      - name: Upload upstream Android regression binaries
-        uses: actions/upload-artifact@v6
-        with:
-          name: nuke-upstream-regression-arm64
-          path: |
-            build/upstream-bitarray-android
-            build/upstream-atomic-android
-            build/upstream-thread-android
-            build/upstream-base64-android-cmake/nuke-upstream-base64-test
-            build/nuke-upstream-angle-vectors-android.o
-            build/nuke-upstream-axis-to-quat-android.o
-  host-tests:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v5
-      - run: cmake -S . -B build/host -G Ninja -DCMAKE_BUILD_TYPE=Debug
-      - run: cmake --build build/host
-      - run: ctest --test-dir build/host --output-on-failure
- <<< "$header" || { echo "Expected $target object to be AArch64" >&2; exit 1; }
-          done
-          executable="build/upstream-angle-android/nuke-upstream-angle-vectors-test"
-          test -x "$executable"
-          header="$("$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-readelf" -h "$executable")"
-          printf '%s\n' "$header" | grep -E 'Class:|Machine:'
-          grep -Eq '^[[:space:]]*Class:[[:space:]]+ELF64[[:space:]]*
-      - name: Upload upstream Android regression binaries
-        uses: actions/upload-artifact@v6
-        with:
-          name: nuke-upstream-regression-arm64
-          path: |
-            build/upstream-bitarray-android
-            build/upstream-atomic-android
-            build/upstream-thread-android
-            build/upstream-base64-android-cmake/nuke-upstream-base64-test
-            build/nuke-upstream-angle-vectors-android.o
-            build/nuke-upstream-axis-to-quat-android.o
-  host-tests:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v5
-      - run: cmake -S . -B build/host -G Ninja -DCMAKE_BUILD_TYPE=Debug
-      - run: cmake --build build/host
-      - run: ctest --test-dir build/host --output-on-failure
- <<< "$header" || { echo "Expected linked angle/vector smoke test to be ELF64" >&2; exit 1; }
-          grep -Eq '^[[:space:]]*Machine:[[:space:]]+AArch64[[:space:]]*
-      - name: Upload upstream Android regression binaries
-        uses: actions/upload-artifact@v6
-        with:
-          name: nuke-upstream-regression-arm64
-          path: |
-            build/upstream-bitarray-android
-            build/upstream-atomic-android
-            build/upstream-thread-android
-            build/upstream-base64-android-cmake/nuke-upstream-base64-test
-            build/nuke-upstream-angle-vectors-android.o
-            build/nuke-upstream-axis-to-quat-android.o
-  host-tests:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v5
-      - run: cmake -S . -B build/host -G Ninja -DCMAKE_BUILD_TYPE=Debug
-      - run: cmake --build build/host
-      - run: ctest --test-dir build/host --output-on-failure
- <<< "$header" || { echo "Expected linked angle/vector smoke test to be AArch64" >&2; exit 1; }
-      - name: Upload upstream Android regression binaries
-        uses: actions/upload-artifact@v6
-        with:
-          name: nuke-upstream-regression-arm64
-          path: |
-            build/upstream-bitarray-android
-            build/upstream-atomic-android
-            build/upstream-thread-android
-            build/upstream-base64-android-cmake/nuke-upstream-base64-test
-            build/nuke-upstream-angle-vectors-android.o
-            build/nuke-upstream-axis-to-quat-android.o
   host-tests:
     runs-on: ubuntu-latest
     steps:
