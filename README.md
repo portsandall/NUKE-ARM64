@@ -5,8 +5,8 @@ Nuketown-only Call of Duty: Black Ops (2010) multiplayer porting project targeti
 ## Actual status
 
 - Repository and native 64-bit platform probe implemented, with host tests and an installed Android NDK workflow at `.github/workflows/android-arm64.yml`.
-- The default-branch workflow cross-compiles `nuke-platform-probe` and `nuke-atomic-test` for Android `arm64-v8a`, verifies both as ELF64/AArch64, and runs host regression tests. It also separately compiles two pinned KisakBlack translation units (`base64.cpp` and `com_math_anglevectors.cpp`) in CI; the angle/vector functions have a host-only sanitizer regression. These checks do **not** build a game APK.
-- The default CMake build still does not link the engine. There is no integrated renderer, Nuketown map loading, gameplay, or networking, and no APK on `main`.
+- The default-branch workflow cross-compiles `nuke-platform-probe` and `nuke-atomic-test` for Android `arm64-v8a` and verifies both as ELF64/AArch64. CI also compiles pinned KisakBlack portability components (including `base64.cpp` and `com_math_anglevectors.cpp`) and links a focused Android AArch64 regression executable containing the angle/vector source, an extracted quaternion-conversion subset from `com_math.cpp`, and `tests/upstream_angle_vectors.cpp`. The linked executable is architecture-checked; its host counterpart runs under AddressSanitizer and UndefinedBehaviorSanitizer, alongside the quaternion-source validator tests. These checks validate only selected components and do **not** build a game APK.
+- The default CMake build still does not link the full engine. There is no integrated renderer, Nuketown map loading, gameplay, or networking, and no APK on `main`.
 - `mp_nuked` is the only allowed map identifier in the current probe. This is a scope assertion, not proof of map support.
 
 ## Candidate engine
