@@ -88,15 +88,22 @@ def validate_matrix_indexing(function: str, name: str) -> None:
     if any(re.search(pattern, body) for pattern in flattened_index_patterns):
         raise SystemExit(f"{name} still contains flattened matrix indexing")
 
+    # Match the source expressions which create a flat pointer to the matrix.
+    cast_to_flat_pointer = (
+        r"\(\s*(?:const\s+)?float(?:\s+const)?\s*\*+\s*\)\s*mat\b"
+        r"|(?:static_cast|reinterpret_cast|const_cast)\s*<\s*(?:const\s+)?float(?:\s+const)?\s*\*+\s*>\s*\(\s*mat\s*\)"
+        r"|&\s*mat\s*\[[^\]]+\]\s*\[[^\]]+\]"
+    )
+
     # Track assignments to flattened matrix addresses independent of the C++
     # declarator spelling (float*, const auto*, float * const, or a pointer
     # declared earlier). This avoids maintaining a whitelist of pointer types.
     flat_pointer_assignment = re.compile(
-        rf"\\b(?P<alias>[A-Za-z_]\\w*)\\s*=\\s*(?:{cast_to_flat_pointer})\\s*;"
+        rf"\b(?P<alias>[A-Za-z_]\w*)\s*=\s*(?:{cast_to_flat_pointer})\s*;"
     )
     for alias_match in flat_pointer_assignment.finditer(body):
         alias = alias_match.group("alias")
-        if re.search(rf"\\b{re.escape(alias)}\\s*\\[", body[alias_match.end():]):
+        if re.search(rf"\b{re.escape(alias)}\s*\[", body[alias_match.end():]):
             raise SystemExit(
                 f"{name} still contains flattened matrix indexing through alias {alias}"
             )
