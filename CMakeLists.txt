@@ -44,8 +44,9 @@ if(NUKE_BUILD_UPSTREAM_BASE64_TEST)
 endif()
 
 
-# Compile-only gate for a second real engine translation unit. This intentionally
-# stops before linking because the full engine dependency graph is not ported yet.
+# Optional integration gate for real upstream angle/vector and quaternion code.
+# The test target links this limited subset; the full engine dependency graph is
+# still not ported or linked.
 option(NUKE_BUILD_UPSTREAM_ANGLE_VECTORS
   "Compile the pinned KisakBlack angle/vector translation unit" OFF)
 
