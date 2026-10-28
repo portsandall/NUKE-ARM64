@@ -88,43 +88,25 @@ def validate_matrix_indexing(function: str, name: str) -> None:
     if any(re.search(pattern, body) for pattern in flattened_index_patterns):
         raise SystemExit(f"{name} still contains flattened matrix indexing")
 
-    # Also catch a flat float pointer created from mat and indexed later. The
-    # direct-cast checks above do not see this equivalent two-statement form.
+    # Match the source expressions which create a flat pointer to the matrix.
     cast_to_flat_pointer = (
         r"\(\s*(?:const\s+)?float(?:\s+const)?\s*\*+\s*\)\s*mat\b"
         r"|(?:static_cast|reinterpret_cast|const_cast)\s*<\s*(?:const\s+)?float(?:\s+const)?\s*\*+\s*>\s*\(\s*mat\s*\)"
         r"|&\s*mat\s*\[[^\]]+\]\s*\[[^\]]+\]"
     )
-    flat_pointer_alias = re.compile(
-        r"\b(?:(?:const\s+)?float(?:\s+const)?\s*\*+\s*|auto(?:\s+const)?\s*\*+\s*|auto\s+)"
-        rf"(?P<alias>[A-Za-z_]\w*)\s*=\s*(?:{cast_to_flat_pointer})"
+
+    # Track assignments to flattened matrix addresses independent of the C++
+    # declarator spelling (float*, const auto*, float * const, or a pointer
+    # declared earlier). This avoids maintaining a whitelist of pointer types.
+    flat_pointer_assignment = re.compile(
+        rf"\b(?P<alias>[A-Za-z_]\w*)\s*=\s*(?:{cast_to_flat_pointer})\s*;"
     )
-    for alias_match in flat_pointer_alias.finditer(body):
+    for alias_match in flat_pointer_assignment.finditer(body):
         alias = alias_match.group("alias")
         if re.search(rf"\b{re.escape(alias)}\s*\[", body[alias_match.end():]):
             raise SystemExit(
                 f"{name} still contains flattened matrix indexing through alias {alias}"
             )
-
-    # Also catch a pointer declared first and assigned a flattened matrix
-    # address later; otherwise splitting initialization across statements
-    # bypasses the alias check above.
-    float_pointer_declaration = re.compile(
-        r"\b(?:(?:const\s+)?float(?:\s+const)?\s*\*+\s*)"
-        r"(?P<alias>[A-Za-z_]\w*)\s*(?:=\s*[^;]+)?;"
-    )
-    for declaration in float_pointer_declaration.finditer(body):
-        alias = declaration.group("alias")
-        assignment = re.search(
-            rf"\b{re.escape(alias)}\s*=\s*(?:{cast_to_flat_pointer})\s*;",
-            body[declaration.end():],
-        )
-        if assignment:
-            after_assignment = body[declaration.end() + assignment.end():]
-            if re.search(rf"\b{re.escape(alias)}\s*\[", after_assignment):
-                raise SystemExit(
-                    f"{name} still contains flattened matrix indexing through alias {alias}"
-                )
 
     # Walk bracket expressions instead of using [^]] regex groups: nested
     # expressions such as mat[indices[3]][0] must be recognized and rejected
