@@ -99,9 +99,14 @@ def validate_matrix_indexing(function: str, name: str) -> None:
     # declarator spelling (float*, const auto*, float * const, or a pointer
     # declared earlier). This avoids maintaining a whitelist of pointer types.
     flat_pointer_assignment = re.compile(
-        rf"\b(?P<alias>[A-Za-z_]\w*)\s*=\s*(?:{cast_to_flat_pointer})\s*;"
+        r"\b(?P<alias>[A-Za-z_]\w*)\s*=\s*(?P<rhs>[^;]+);"
     )
     for alias_match in flat_pointer_assignment.finditer(body):
+        # Parenthesized RHS expressions are valid C++ too, e.g.
+        # flat = (&mat[0][0]) or flat = ((float *)mat).
+        rhs = strip_outer_parentheses(alias_match.group("rhs"))
+        if not re.search(cast_to_flat_pointer, rhs):
+            continue
         alias = alias_match.group("alias")
         if re.search(rf"\b{re.escape(alias)}\s*\[", body[alias_match.end():]):
             raise SystemExit(
