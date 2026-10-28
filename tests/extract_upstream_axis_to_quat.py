@@ -109,11 +109,11 @@ def validate_matrix_indexing(function: str, name: str) -> None:
     # Also catch a pointer declared first and assigned a flattened matrix
     # address later; otherwise splitting initialization across statements
     # bypasses the alias check above.
-    uninitialized_float_pointer = re.compile(
+    float_pointer_declaration = re.compile(
         r"\b(?:(?:const\s+)?float(?:\s+const)?\s*\*+\s*)"
-        r"(?P<alias>[A-Za-z_]\w*)\s*;"
+        r"(?P<alias>[A-Za-z_]\w*)\s*(?:=\s*[^;]+)?;"
     )
-    for declaration in uninitialized_float_pointer.finditer(body):
+    for declaration in float_pointer_declaration.finditer(body):
         alias = declaration.group("alias")
         assignment = re.search(
             rf"\b{re.escape(alias)}\s*=\s*(?:{cast_to_flat_pointer})\s*;",
