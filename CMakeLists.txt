@@ -94,18 +94,21 @@ if(NUKE_BUILD_UPSTREAM_ANGLE_VECTORS)
     "${NUKE_UPSTREAM_AXIS_TO_QUAT_SOURCE}")
   target_compile_options(nuke-upstream-axis-to-quat PRIVATE -fms-extensions)
 
-  # Exercise the patched row indexing at runtime under ASan/UBSan on the host.
+  # Link the real upstream angle/vector and quaternion subset on both host and Android.
+  # Host tests use sanitizers; Android CI links the same sources to catch unresolved
+  # platform dependencies before the full engine target exists.
+  add_executable(nuke-upstream-angle-vectors-test
+    "${NUKE_UPSTREAM_ANGLE_VECTORS_SOURCE}"
+    "${NUKE_UPSTREAM_AXIS_TO_QUAT_SOURCE}"
+    tests/upstream_angle_vectors.cpp)
+  target_include_directories(nuke-upstream-angle-vectors-test PRIVATE
+    "${NUKE_UPSTREAM_SOURCE_DIR}/src"
+    "${NUKE_UPSTREAM_SOURCE_DIR}/src/universal")
+  target_compile_options(nuke-upstream-angle-vectors-test PRIVATE -fms-extensions)
   if(BUILD_TESTING AND NOT CMAKE_CROSSCOMPILING)
-    add_executable(nuke-upstream-angle-vectors-test
-      "${NUKE_UPSTREAM_ANGLE_VECTORS_SOURCE}"
-      "${NUKE_UPSTREAM_AXIS_TO_QUAT_SOURCE}"
-      tests/upstream_angle_vectors.cpp)
-    target_include_directories(nuke-upstream-angle-vectors-test PRIVATE
-      "${NUKE_UPSTREAM_SOURCE_DIR}/src"
-      "${NUKE_UPSTREAM_SOURCE_DIR}/src/universal")
     target_compile_options(nuke-upstream-angle-vectors-test PRIVATE
-      -fms-extensions -fsanitize=address,undefined
-      -fno-sanitize-recover=all -fno-omit-frame-pointer)
+      -fsanitize=address,undefined -fno-sanitize-recover=all
+      -fno-omit-frame-pointer)
     target_link_options(nuke-upstream-angle-vectors-test PRIVATE
       -fsanitize=address,undefined -fno-sanitize-recover=all)
     add_test(NAME upstream-angle-vectors-roundtrip
