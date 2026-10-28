@@ -96,7 +96,7 @@ def validate_matrix_indexing(function: str, name: str) -> None:
         r"|&\s*mat\s*\[[^\]]+\]\s*\[[^\]]+\]"
     )
     flat_pointer_alias = re.compile(
-        r"\b(?:(?:const\s+)?float(?:\s+const)?\s*\*+\s*|auto\s+)"
+        r"\b(?:(?:const\s+)?float(?:\s+const)?\s*\*+\s*|auto(?:\s+const)?\s*\*+\s*|auto\s+)"
         rf"(?P<alias>[A-Za-z_]\w*)\s*=\s*(?:{cast_to_flat_pointer})"
     )
     for alias_match in flat_pointer_alias.finditer(body):
