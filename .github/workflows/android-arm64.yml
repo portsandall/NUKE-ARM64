@@ -69,6 +69,8 @@ jobs:
           git -C build/upstream apply --ignore-whitespace "$GITHUB_WORKSPACE/patches/0011-gate-win32-only-cmake-defines.patch"
           git -C build/upstream apply --ignore-whitespace --check "$GITHUB_WORKSPACE/patches/0012-gate-directx-sdk-paths.patch"
           git -C build/upstream apply --ignore-whitespace "$GITHUB_WORKSPACE/patches/0012-gate-directx-sdk-paths.patch"
+          echo "Diagnostic: upstream CMake vendor/link lines after patches 0001-0012"
+          grep -n -E 'src/libs/libvpx-1.5.0"|src/steam/redistributable_bin|src/binklib|src/nvapi|# ----- Links -----|steam_api\\.lib|d3dx9' build/upstream/CMakeLists.txt
           git -C build/upstream apply --ignore-whitespace --check "$GITHUB_WORKSPACE/patches/0013-gate-windows-link-libraries.patch"
           git -C build/upstream apply --ignore-whitespace "$GITHUB_WORKSPACE/patches/0013-gate-windows-link-libraries.patch"
           grep -B1 -F 'WIN32_EXECUTABLE TRUE' build/upstream/CMakeLists.txt | grep -Fq 'if(WIN32)'
