@@ -1,34 +1,24 @@
 diff --git a/CMakeLists.txt b/CMakeLists.txt
 --- a/CMakeLists.txt
 +++ b/CMakeLists.txt
-@@ -15,6 +15,8 @@
- # phys_gjk.cpp specific flag (experimental)
--set_source_files_properties(
--    "${SRC_DIR}/physics/phys_gjk.cpp"
--    PROPERTIES
--    COMPILE_OPTIONS "/arch:IA32"
--)
+@@ -16,5 +16,7 @@
 +if(MSVC AND WIN32 AND CMAKE_SIZEOF_VOID_P EQUAL 4)
-+    set_source_files_properties(
-+        "${SRC_DIR}/physics/phys_gjk.cpp"
-+        PROPERTIES
-+        COMPILE_OPTIONS "/arch:IA32"
-+    )
+ set_source_files_properties(
+     "${SRC_DIR}/physics/phys_gjk.cpp"
+     PROPERTIES
+     COMPILE_OPTIONS "/arch:IA32"
+ )
 +endif()
-@@ -45,2 +47,4 @@
--set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} /MT  /O2 /MP /W3 ${MSVC_WARNING_DISABLES} /permissive")
--set(CMAKE_CXX_FLAGS_DEBUG   "${CMAKE_CXX_FLAGS_DEBUG} /MTd /Od /MP /W3 ${MSVC_WARNING_DISABLES} /permissive")
+@@ -56,2 +58,4 @@
 +if(MSVC)
-+    set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} /MT  /O2 /MP /W3 ${MSVC_WARNING_DISABLES} /permissive")
-+    set(CMAKE_CXX_FLAGS_DEBUG   "${CMAKE_CXX_FLAGS_DEBUG} /MTd /Od /MP /W3 ${MSVC_WARNING_DISABLES} /permissive")
+ set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} /MT  /O2 /MP /W3 ${MSVC_WARNING_DISABLES} /permissive")
+ set(CMAKE_CXX_FLAGS_DEBUG   "${CMAKE_CXX_FLAGS_DEBUG} /MTd /Od /MP /W3 ${MSVC_WARNING_DISABLES} /permissive")
 +endif()
-@@ -76,1 +80,3 @@
--target_link_options(KisakBlack PRIVATE /machine:x86)
+@@ -91,1 +95,3 @@
 +if(MSVC AND WIN32 AND CMAKE_SIZEOF_VOID_P EQUAL 4)
-+    target_link_options(KisakBlack PRIVATE /machine:x86)
+ target_link_options(KisakBlack PRIVATE /machine:x86)
 +endif()
-@@ -81,1 +87,3 @@
--target_link_options(KisakBlack PRIVATE /DYNAMICBASE:NO /LARGEADDRESSAWARE /DEBUG)
+@@ -97,1 +103,3 @@
 +if(MSVC AND WIN32)
-+    target_link_options(KisakBlack PRIVATE /DYNAMICBASE:NO /LARGEADDRESSAWARE /DEBUG)
+ target_link_options(KisakBlack PRIVATE /DYNAMICBASE:NO /LARGEADDRESSAWARE /DEBUG)
 +endif()
