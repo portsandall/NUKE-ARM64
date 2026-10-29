@@ -79,11 +79,11 @@ jobs:
           text = Path("build/upstream/CMakeLists.txt").read_text()
           block = text.split("# ----- Preprocessor Defines -----", 1)[1].split("# Debug-only", 1)[0]
           assert re.search(
-              r"target_compile_definitions\\(KisakBlack PUBLIC\\s+KISAK_MP\\s*\\)",
+              r"target_compile_definitions\(KisakBlack PUBLIC\s+KISAK_MP\s*\)",
               block,
           ), "KISAK_MP must remain a common definition"
           assert re.search(
-              r"if\\(WIN32\\)\\s*target_compile_definitions\\(KisakBlack PUBLIC\\s+WIN32\\s+_CONSOLE\\s+_CRT_SECURE_NO_WARNINGS\\s+_WINSOCK_NO_DEPRECATED_NO_WARNINGS\\s*\\)\\s*endif\\(\\)",
+              r"if\(WIN32\)\s*target_compile_definitions\(KisakBlack PUBLIC\s+WIN32\s+_CONSOLE\s+_CRT_SECURE_NO_WARNINGS\s+_WINSOCK_NO_DEPRECATED_NO_WARNINGS\s*\)\s*endif\(\)",
               block,
               re.S,
           ), "Windows-only compile definitions must be gated by if(WIN32)"
