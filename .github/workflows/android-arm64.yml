@@ -67,6 +67,8 @@ jobs:
           git -C build/upstream apply --ignore-whitespace "$GITHUB_WORKSPACE/patches/0010-gate-win32-only-cmake-properties.patch"
           git -C build/upstream apply --ignore-whitespace --check "$GITHUB_WORKSPACE/patches/0011-gate-win32-only-cmake-defines.patch"
           git -C build/upstream apply --ignore-whitespace "$GITHUB_WORKSPACE/patches/0011-gate-win32-only-cmake-defines.patch"
+          git -C build/upstream apply --ignore-whitespace --check "$GITHUB_WORKSPACE/patches/0012-gate-directx-sdk-paths.patch"
+          git -C build/upstream apply --ignore-whitespace "$GITHUB_WORKSPACE/patches/0012-gate-directx-sdk-paths.patch"
           grep -B1 -F 'WIN32_EXECUTABLE TRUE' build/upstream/CMakeLists.txt | grep -Fq 'if(WIN32)'
           grep -B3 -F 'VS_DEBUGGER_WORKING_DIRECTORY' build/upstream/CMakeLists.txt | grep -Fq 'if(MSVC AND WIN32)'
           grep -Fq 'if(MSVC)' build/upstream/CMakeLists.txt
@@ -88,6 +90,20 @@ jobs:
               re.S,
           ), "Windows-only compile definitions must be gated by if(WIN32)"
           print("Verified KISAK_MP remains common and Windows-only definitions are guarded")
+          PY
+          python3 - <<'PY'
+          from pathlib import Path
+
+          lines = Path("build/upstream/CMakeLists.txt").read_text().splitlines()
+          dx_paths = [
+              i for i, line in enumerate(lines)
+              if "Microsoft DirectX SDK (June 2010)" in line
+          ]
+          assert len(dx_paths) == 2, f"expected two DirectX SDK paths, found {len(dx_paths)}"
+          for i in dx_paths:
+              assert lines[i - 1].strip() == "if(WIN32)", f"DirectX SDK path is not Windows-gated at line {i + 1}"
+              assert lines[i + 1].strip() == "endif()", f"DirectX SDK path guard is malformed at line {i + 1}"
+          print("Verified DirectX SDK include and x86 library paths are Windows-only")
           PY
           test -f build/upstream/src/nuke/win_thread_compat.h
           grep -q '#include <nuke/win_thread_compat.h>' build/upstream/tl/base/tl_thread.h
