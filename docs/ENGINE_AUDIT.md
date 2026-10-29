@@ -5,12 +5,16 @@ Pinned upstream: [SwagSoftware/KisakBlack](https://github.com/SwagSoftware/Kisak
 
 ## Verified build boundary
 
-Latest verified `main` commit: `02f8a855d5957581226004e387e3ef8ad6e5bbe0` ([file-access portability fix](https://github.com/portsandall/NUKE-ARM64/commit/02f8a855d5957581226004e387e3ef8ad6e5bbe0)).
+Latest verified `main` commit: `bffdacb0a6adee4764cf71808e4350107be3c157` ([native engine audit refresh](https://github.com/portsandall/NUKE-ARM64/commit/bffdacb0a6adee4764cf71808e4350107be3c157), 2026-10-29 02:12:56 UTC).
 
-- [ARM64 bootstrap run 443](https://github.com/portsandall/NUKE-ARM64/actions/runs/40797169303): all three jobs passed. Host CTest passed 3/3; Android NDK smoke binaries passed ELF64/AArch64 checks; upstream portability patches applied and the selected integration targets compiled.
-- [Angle/vector regression run 173](https://github.com/portsandall/NUKE-ARM64/actions/runs/40797169289): both CTest cases passed.
-- The upstream-patch job compiles and tests the actual `tl/base/tl_thread.h` read/write mutex on the host (8 threads × 2,000 write-lock increments), cross-compiles the same test for Android AArch64, and checks the Android ELF header.
-- The CI also builds the real upstream `src/universal/base64.cpp`, `src/universal/com_math_anglevectors.cpp`, a limited extracted `AxisToQuat`/`ikAxisToQuat` subset, and `src/universal/com_fileaccess.cpp`. The file-access harness tests failed-open reporting and a successful open on the host; its Android executable is cross-compiled and architecture-checked, not run on-device.
+- [ARM64 bootstrap run 446 / ID 40805028089](https://github.com/portsandall/NUKE-ARM64/actions/runs/40805028089): all three jobs passed — host tests `123221799223`, upstream patch/component checks `123221799451`, and Android AArch64 smoke build `123221799455`. Host CTest passed 3/3.
+- [Angle/vector + file-access regression run 176 / ID 40805028305](https://github.com/portsandall/NUKE-ARM64/actions/runs/40805028305), job `123221801162`: CTest passed 2/2 (`upstream-angle-vectors-roundtrip`, `upstream-fileaccess-open`).
+- Logs at 2026-10-29 02:13 UTC confirm the actual upstream `src/universal/com_fileaccess.cpp` and focused harness were compiled and linked with Android NDK Clang for AArch64 using `-Wl,--no-undefined`; `llvm-readelf` confirmed ELF64/AArch64. The host file-access and angle/vector regression cases passed. The same bootstrap also ran the patched bitarray, atomic, threading, and Base64 portability checks.
+- Artifacts from run 446: [upstream regression bundle, artifact `12868185568`](https://github.com/portsandall/NUKE-ARM64/actions/runs/40805028089/artifacts/12868185568), 148,305 bytes, SHA-256 `f02c67f825a03cd14a2ba6df45b33aaad5644ca12b1c715f39c31a489a7945cd`; [Android smoke binaries, artifact `12868026562`](https://github.com/portsandall/NUKE-ARM64/actions/runs/40805028089/artifacts/12868026562), 145,934 bytes, SHA-256 `77d582e599aa954d44e408659ec5bdefa1c6c23ed161d76ec37d3e7b862fe3f1`.
+
+The upstream-patch job compiles and tests the actual `tl/base/tl_thread.h` read/write mutex on the host (8 threads × 2,000 write-lock increments), cross-compiles the same test for Android AArch64, and checks the Android ELF header.
+
+The CI also builds the real upstream `src/universal/base64.cpp`, `src/universal/com_math_anglevectors.cpp`, a limited extracted `AxisToQuat`/`ikAxisToQuat` subset, and `src/universal/com_fileaccess.cpp`. The file-access harness tests failed-open reporting and a successful open on the host; its Android executable is cross-compiled and architecture-checked, not run on-device.
 
 These are useful portability gates, but they do **not** compile a Black Ops multiplayer/gameplay translation unit, link the complete engine, integrate an Android renderer, or produce a playable APK. The extracted quaternion subset is not the full `com_math.cpp` translation unit. Host runtime tests do not prove Android runtime behavior.
 
