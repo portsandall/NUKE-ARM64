@@ -1,7 +1,7 @@
 diff --git a/CMakeLists.txt b/CMakeLists.txt
 --- a/CMakeLists.txt
 +++ b/CMakeLists.txt
-@@ -85,24 +85,26 @@
+@@ -85,23 +85,25 @@
  # ----- Links -----
 +if(WIN32)
  target_link_libraries(KisakBlack PUBLIC
