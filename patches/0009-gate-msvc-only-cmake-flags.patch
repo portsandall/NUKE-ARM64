@@ -33,13 +33,17 @@ diff --git a/CMakeLists.txt b/CMakeLists.txt
  
  if (MSVC AND WIN32 AND NOT MSVC_VERSION VERSION_LESS 142)
      target_link_options(KisakBlack PRIVATE $<$<CONFIG:Debug>:/INCREMENTAL>)
-@@ -94,1 +98,3 @@
+@@ -93,3 +97,5 @@
+ target_link_libraries(KisakBlack PUBLIC $<$<CONFIG:Release>:d3dx9.lib>)
 -target_link_options(KisakBlack PRIVATE /machine:x86)
 +if(MSVC AND WIN32 AND CMAKE_SIZEOF_VOID_P EQUAL 4)
 +    target_link_options(KisakBlack PRIVATE /machine:x86)
 +endif()
-@@ -100,1 +106,3 @@
+ 
+@@ -100,3 +106,5 @@
 -target_link_options(KisakBlack PRIVATE /DYNAMICBASE:NO /LARGEADDRESSAWARE /DEBUG)
 +if(MSVC AND WIN32)
 +    target_link_options(KisakBlack PRIVATE /DYNAMICBASE:NO /LARGEADDRESSAWARE /DEBUG)
 +endif()
+ 
+ set_target_properties(KisakBlack PROPERTIES WIN32_EXECUTABLE TRUE)
