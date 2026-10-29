@@ -43,8 +43,10 @@ int main() {
 
     // KisakBlack call sites release ReadLock by atomically decrementing
     // ReadLockCount directly, so exercise that exact protocol under contention.
-    std::atomic<std::uint64_t> shared_value{0};
-    std::atomic<std::uint64_t> shared_inverse{~std::uint64_t{0}};
+    // Keep protected data non-atomic: the host ThreadSanitizer run must rely
+    // on tlAtomicReadWriteMutex for reader/writer synchronization.
+    std::uint64_t shared_value = 0;
+    std::uint64_t shared_inverse = ~std::uint64_t{0};
     std::atomic<int> active_readers{0};
     std::atomic<bool> writer_active{false};
     std::atomic<bool> failed{false};
@@ -63,12 +65,12 @@ int main() {
                 if (active_readers.load(std::memory_order_relaxed) != 0)
                     failed.store(true, std::memory_order_relaxed);
 
-                const auto next = shared_value.load(std::memory_order_relaxed) + 1;
-                shared_value.store(next, std::memory_order_relaxed);
+                const auto next = shared_value + 1;
+                shared_value = next;
                 // Widen the consistency window so a reader that slips past
                 // the writer lock is more likely to be detected.
                 std::this_thread::yield();
-                shared_inverse.store(~next, std::memory_order_relaxed);
+                shared_inverse = ~next;
                 writer_active.store(false, std::memory_order_relaxed);
                 mutex.WriteUnlock();
             }
@@ -83,8 +85,8 @@ int main() {
                 if (writer_active.load(std::memory_order_relaxed))
                     failed.store(true, std::memory_order_relaxed);
 
-                const auto value = shared_value.load(std::memory_order_relaxed);
-                const auto inverse = shared_inverse.load(std::memory_order_relaxed);
+                const auto value = shared_value;
+                const auto inverse = shared_inverse;
                 std::this_thread::yield();
 
                 if (inverse != ~value)
@@ -101,10 +103,9 @@ int main() {
 
     for (auto &worker : workers) worker.join();
     check(!failed.load(std::memory_order_relaxed));
-    check(shared_value.load(std::memory_order_relaxed) ==
+    check(shared_value ==
           static_cast<std::uint64_t>(writer_count * write_iterations));
-    check(shared_inverse.load(std::memory_order_relaxed) ==
-          ~shared_value.load(std::memory_order_relaxed));
+    check(shared_inverse == ~shared_value);
     check(mutex.WriteLockCount == 0);
     check(mutex.ReadLockCount == 0);
     check(mutex.WriteThreadId == 0);

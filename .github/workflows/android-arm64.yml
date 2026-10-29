@@ -115,11 +115,12 @@ jobs:
       - name: Compile and run patched threading regression
         run: |
           c++ -std=c++17 -Wall -Wextra -Werror -pthread \
+            -g -O1 -fsanitize=thread -fno-omit-frame-pointer \
             -I "$GITHUB_WORKSPACE/build/upstream" \
             -I "$GITHUB_WORKSPACE/build/upstream/src" \
             "$GITHUB_WORKSPACE/tests/upstream_thread_compat.cpp" \
             -o build/upstream-thread-host
-          ./build/upstream-thread-host
+          timeout 60s ./build/upstream-thread-host
           "$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android26-clang++" \
             -std=c++17 -Wall -Wextra -Werror -pthread \
             -I "$GITHUB_WORKSPACE/build/upstream" \
