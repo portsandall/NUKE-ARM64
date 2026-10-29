@@ -35,7 +35,8 @@ char *va(const char *format, ...)
 int main()
 {
     // /dev/null is not a directory, so this path must fail with ENOTDIR.
-    FILE *missing = FileWrapper_Open("/dev/null/NUKE-ARM64-missing", "rb");
+    const char *missing_path = "/dev/null/NUKE-ARM64-missing";
+    FILE *missing = FileWrapper_Open(missing_path, "rb");
     if (missing != nullptr)
     {
         std::fclose(missing);
@@ -45,6 +46,15 @@ int main()
         return 2;
     if (std::strstr(lastAssertion, "Couldn't open file:") == nullptr)
         return 3;
+
+    // Verify the diagnostic includes both the failed path and a non-empty
+    // errno-derived reason; do not depend on locale-specific strerror text.
+    const char *path_in_message = std::strstr(lastAssertion, missing_path);
+    if (path_in_message == nullptr)
+        return 6;
+    const char *reason = path_in_message + std::strlen(missing_path);
+    if (*reason != ' ' || reason[1] == '\0')
+        return 7;
 
     FILE *existing = FileWrapper_Open("/dev/null", "rb");
     if (existing == nullptr)
