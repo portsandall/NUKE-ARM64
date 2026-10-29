@@ -65,11 +65,30 @@ jobs:
           git -C build/upstream apply --ignore-whitespace "$GITHUB_WORKSPACE/patches/0009-gate-msvc-only-cmake-flags.patch"
           git -C build/upstream apply --ignore-whitespace --check "$GITHUB_WORKSPACE/patches/0010-gate-win32-only-cmake-properties.patch"
           git -C build/upstream apply --ignore-whitespace "$GITHUB_WORKSPACE/patches/0010-gate-win32-only-cmake-properties.patch"
+          git -C build/upstream apply --ignore-whitespace --check "$GITHUB_WORKSPACE/patches/0011-gate-win32-only-cmake-defines.patch"
+          git -C build/upstream apply --ignore-whitespace "$GITHUB_WORKSPACE/patches/0011-gate-win32-only-cmake-defines.patch"
           grep -B1 -F 'WIN32_EXECUTABLE TRUE' build/upstream/CMakeLists.txt | grep -Fq 'if(WIN32)'
           grep -B3 -F 'VS_DEBUGGER_WORKING_DIRECTORY' build/upstream/CMakeLists.txt | grep -Fq 'if(MSVC AND WIN32)'
           grep -Fq 'if(MSVC)' build/upstream/CMakeLists.txt
           grep -Fq 'if(MSVC AND WIN32 AND CMAKE_SIZEOF_VOID_P EQUAL 4)' build/upstream/CMakeLists.txt
           grep -Fq 'if(MSVC AND WIN32)' build/upstream/CMakeLists.txt
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+
+          text = Path("build/upstream/CMakeLists.txt").read_text()
+          block = text.split("# ----- Preprocessor Defines -----", 1)[1].split("# Debug-only", 1)[0]
+          assert re.search(
+              r"target_compile_definitions\(KisakBlack PUBLIC\s+KISAK_MP\s*\)",
+              block,
+          ), "KISAK_MP must remain a common definition"
+          assert re.search(
+              r"if\(WIN32\)\s*target_compile_definitions\(KisakBlack PUBLIC\s+WIN32\s+_CONSOLE\s+_CRT_SECURE_NO_WARNINGS\s+_WINSOCK_NO_DEPRECATED_NO_WARNINGS\s*\)\s*endif\(\)",
+              block,
+              re.S,
+          ), "Windows-only compile definitions must be gated by if(WIN32)"
+          print("Verified KISAK_MP remains common and Windows-only definitions are guarded")
+          PY
           test -f build/upstream/src/nuke/win_thread_compat.h
           grep -q '#include <nuke/win_thread_compat.h>' build/upstream/tl/base/tl_thread.h
           grep -q 'inline std::uint32_t GetCurrentThreadId' build/upstream/src/nuke/win_thread_compat.h
