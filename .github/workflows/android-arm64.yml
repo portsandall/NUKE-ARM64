@@ -74,6 +74,8 @@ jobs:
           grep -n -E 'src/libs/libvpx-1.5.0"|src/steam/redistributable_bin|src/binklib|src/nvapi|# ----- Links -----|steam_api\\.lib|d3dx9' build/upstream/CMakeLists.txt
           git -C build/upstream apply --ignore-whitespace --check "$GITHUB_WORKSPACE/patches/0013-gate-windows-link-libraries.patch"
           git -C build/upstream apply --ignore-whitespace "$GITHUB_WORKSPACE/patches/0013-gate-windows-link-libraries.patch"
+          git -C build/upstream apply --ignore-whitespace --check "$GITHUB_WORKSPACE/patches/0014-gate-windows-import-libraries.patch"
+          git -C build/upstream apply --ignore-whitespace "$GITHUB_WORKSPACE/patches/0014-gate-windows-import-libraries.patch"
           grep -B1 -F 'WIN32_EXECUTABLE TRUE' build/upstream/CMakeLists.txt | grep -Fq 'if(WIN32)'
           grep -B3 -F 'VS_DEBUGGER_WORKING_DIRECTORY' build/upstream/CMakeLists.txt | grep -Fq 'if(MSVC AND WIN32)'
           grep -Fq 'if(MSVC)' build/upstream/CMakeLists.txt
