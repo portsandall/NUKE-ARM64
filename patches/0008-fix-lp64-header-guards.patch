@@ -1,27 +1,12 @@
 diff --git a/src/gfx_d3d/r_font.h b/src/gfx_d3d/r_font.h
 --- a/src/gfx_d3d/r_font.h
 +++ b/src/gfx_d3d/r_font.h
-@@ -19,10 +19,10 @@
- struct Font_s // sizeof=0x18
- {                                       // XREF: XAssetPoolEntry<Font_s>/r
-     const char *fontName;
-     int pixelHeight;
-     int glyphCount;
-     struct Material *material;
-     struct Material *glowMaterial;
-     Glyph *glyphs;
- };
+@@ -28,1 +28,1 @@
 -static_assert(sizeof(Font_s) == 24);
 +static_assert(sizeof(Font_s) == (sizeof(void *) == 8 ? 40 : 24));
 diff --git a/src/ui/ui_shared.h b/src/ui/ui_shared.h
 --- a/src/ui/ui_shared.h
 +++ b/src/ui/ui_shared.h
-@@ -50,7 +50,7 @@
-     ITEMGROUP_FEATURE            = 0x15,
-     ITEMGROUP_DEATHSTREAK        = 0x16,
-     ITEMGROUP_GLOBAL_ITEMS_START = 0x17,
-     ITEMGROUP_KILLSTREAK         = 0x17,
-     ITEMGROUP_COUNT              = 0x18,
+@@ -55,1 +55,1 @@
 -    ITEMGROUP_INVALID            = 0xFFFFFFFF,
 +    ITEMGROUP_INVALID            = -1,
- };
