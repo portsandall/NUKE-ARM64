@@ -8,13 +8,14 @@ diff --git a/src/universal/com_fileaccess.cpp b/src/universal/com_fileaccess.cpp
 +#include <errno.h>
  #include "assertive.h"
  #include "q_shared.h"
-@@ -22,14 +23,12 @@ FILE *__cdecl FileWrapper_Open(const char *ospath, const char *mode)
+@@ -22,14 +23,12 @@
+ FILE *__cdecl FileWrapper_Open(const char *ospath, const char *mode)
  {
 -    int *v3; // eax
      const char *v4; // eax
      const char *v5; // eax
      FILE *file; // [esp+0h] [ebp-4h]
-
+ 
 -    *_errno() = 0;
 +    errno = 0;
      file = fopen(ospath, mode);
