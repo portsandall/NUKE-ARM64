@@ -51,4 +51,4 @@ diff --git a/CMakeLists.txt b/CMakeLists.txt
 +    target_link_options(KisakBlack PRIVATE /DYNAMICBASE:NO /LARGEADDRESSAWARE /DEBUG)
 +endif()
  
- set_target_properties(KisakBlack PROPERTIES WIN32_EXECUTABLE TRUE)
+ set_target_properties(KisakBlack PROPERTIES WIN32_EXECUTABLE TRUE) 
