@@ -1,12 +1,16 @@
 diff --git a/src/gfx_d3d/r_font.h b/src/gfx_d3d/r_font.h
 --- a/src/gfx_d3d/r_font.h
 +++ b/src/gfx_d3d/r_font.h
-@@ -28,1 +28,1 @@
+@@ -27,3 +27,3 @@
+ };
 -static_assert(sizeof(Font_s) == 24);
 +static_assert(sizeof(Font_s) == (sizeof(void *) == 8 ? 40 : 24));
+ 
 diff --git a/src/ui/ui_shared.h b/src/ui/ui_shared.h
 --- a/src/ui/ui_shared.h
 +++ b/src/ui/ui_shared.h
-@@ -55,1 +55,1 @@
+@@ -54,3 +54,3 @@
+     ITEMGROUP_COUNT              = 0x18,
 -    ITEMGROUP_INVALID            = 0xFFFFFFFF,
 +    ITEMGROUP_INVALID            = -1,
+};
