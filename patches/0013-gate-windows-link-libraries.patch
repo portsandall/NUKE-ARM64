@@ -1,13 +1,13 @@
 diff --git a/CMakeLists.txt b/CMakeLists.txt
 --- a/CMakeLists.txt
 +++ b/CMakeLists.txt
-@@ -54,3 +54,5 @@
+@@ -66,3 +66,5 @@
 +if(WIN32)
  target_link_directories(KisakBlack PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/src/steam/redistributable_bin")
  target_link_directories(KisakBlack PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/src/binklib")
  target_link_directories(KisakBlack PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/src/nvapi")
 +endif()
-@@ -71,23 +73,25 @@
+@@ -83,23 +85,25 @@
  # ----- Links -----
 +if(WIN32)
  target_link_libraries(KisakBlack PUBLIC
