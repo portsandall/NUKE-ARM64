@@ -1,0 +1,20 @@
+diff --git a/CMakeLists.txt b/CMakeLists.txt
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -53,4 +53,6 @@
+ target_link_directories(KisakBlack PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/src/libs/libvpx-1.5.0")
++if(WIN32)
+ target_link_directories(KisakBlack PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/src/steam/redistributable_bin")
+ target_link_directories(KisakBlack PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/src/binklib")
+ target_link_directories(KisakBlack PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/src/nvapi")
++endif()
+@@ -71,23 +73,25 @@
+ # ----- Links -----
++if(WIN32)
+ target_link_libraries(KisakBlack PUBLIC
+     steam_api.lib
+     binkw32.lib
+@@
+ # ----- Release Links -----
+ target_link_libraries(KisakBlack PUBLIC $<$<CONFIG:Release>:d3dx9.lib>)
++endif()
