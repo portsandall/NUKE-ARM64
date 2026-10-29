@@ -195,7 +195,7 @@ jobs:
           fileaccess="build/upstream-angle-android/nuke-upstream-fileaccess-test"
           test -x "$fileaccess"
           header="$("$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-readelf" -h "$fileaccess")"
-          printf '%s\\n' "$header" | grep -E 'Class:|Machine:'
+          printf '%s\n' "$header" | grep -E 'Class:|Machine:'
           grep -Eq '^[[:space:]]*Class:[[:space:]]+ELF64[[:space:]]*$' <<< "$header" || { echo "Expected upstream file-access executable to be ELF64" >&2; exit 1; }
           grep -Eq '^[[:space:]]*Machine:[[:space:]]+AArch64[[:space:]]*$' <<< "$header" || { echo "Expected upstream file-access executable to be AArch64" >&2; exit 1; }
       - name: Upload upstream Android regression binaries
