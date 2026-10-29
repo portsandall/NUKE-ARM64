@@ -126,30 +126,33 @@ jobs:
             *"Machine:"*"AArch64"*) ;;
             *) echo "Expected patched atomic test to be AArch64" >&2; exit 1 ;;
           esac
-      - name: Compile and run patched threading regression
+      - name: Configure upstream threading host target
         run: |
-          c++ -std=c++17 -Wall -Wextra -Werror -pthread \
-            -I "$GITHUB_WORKSPACE/build/upstream" \
-            -I "$GITHUB_WORKSPACE/build/upstream/src" \
-            "$GITHUB_WORKSPACE/tests/upstream_thread_compat.cpp" \
-            -o build/upstream-thread-host
-          ./build/upstream-thread-host
-          "$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android26-clang++" \
-            -std=c++17 -Wall -Wextra -Werror -pthread \
-            -I "$GITHUB_WORKSPACE/build/upstream" \
-            -I "$GITHUB_WORKSPACE/build/upstream/src" \
-            "$GITHUB_WORKSPACE/tests/upstream_thread_compat.cpp" \
-            -o build/upstream-thread-android
-          header="$("$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-readelf" -h build/upstream-thread-android)"
-          printf '%s\n' "$header" | grep -E 'Class:|Machine:'
-          case "$header" in
-            *"Class:"*"ELF64"*) ;;
-            *) echo "Expected patched threading test to be ELF64" >&2; exit 1 ;;
-          esac
-          case "$header" in
-            *"Machine:"*"AArch64"*) ;;
-            *) echo "Expected patched threading test to be AArch64" >&2; exit 1 ;;
-          esac
+          cmake -S "$GITHUB_WORKSPACE" -B build/upstream-thread-host-cmake -G Ninja \
+            -DNUKE_BUILD_UPSTREAM_THREAD_COMPAT_TEST=ON \
+            -DNUKE_UPSTREAM_SOURCE_DIR="$GITHUB_WORKSPACE/build/upstream" \
+            -DBUILD_TESTING=ON -DCMAKE_BUILD_TYPE=Release
+      - name: Build and run upstream threading host regression
+        run: |
+          cmake --build build/upstream-thread-host-cmake --target nuke-upstream-thread-compat-test --verbose
+          ctest --test-dir build/upstream-thread-host-cmake -R '^upstream-thread-compat$' --output-on-failure
+      - name: Configure upstream threading Android target
+        run: |
+          cmake -S "$GITHUB_WORKSPACE" -B build/upstream-thread-android-cmake -G Ninja \
+            -DCMAKE_TOOLCHAIN_FILE="$ANDROID_NDK_HOME/build/cmake/android.toolchain.cmake" \
+            -DANDROID_ABI=arm64-v8a -DANDROID_PLATFORM=android-26 \
+            -DNUKE_BUILD_UPSTREAM_THREAD_COMPAT_TEST=ON \
+            -DNUKE_UPSTREAM_SOURCE_DIR="$GITHUB_WORKSPACE/build/upstream" \
+            -DBUILD_TESTING=OFF -DCMAKE_BUILD_TYPE=Release
+      - name: Compile and verify upstream threading Android target
+        run: |
+          cmake --build build/upstream-thread-android-cmake --target nuke-upstream-thread-compat-test --verbose
+          path="build/upstream-thread-android-cmake/nuke-upstream-thread-compat-test"
+          test -x "$path"
+          header="$("$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-readelf" -h "$path")"
+          printf '%s\\n' "$header" | grep -E 'Class:|Machine:'
+          grep -Eq '^[[:space:]]*Class:[[:space:]]+ELF64[[:space:]]*$' <<< "$header" || { echo "Expected upstream threading regression to be ELF64" >&2; exit 1; }
+          grep -Eq '^[[:space:]]*Machine:[[:space:]]+AArch64[[:space:]]*$' <<< "$header" || { echo "Expected upstream threading regression to be AArch64" >&2; exit 1; }
       - name: Configure upstream Base64 host target
         run: |
           cmake -S "$GITHUB_WORKSPACE" -B build/upstream-base64-host -G Ninja \
@@ -224,7 +227,7 @@ jobs:
           path: |
             build/upstream-bitarray-android
             build/upstream-atomic-android
-            build/upstream-thread-android
+            build/upstream-thread-android-cmake/nuke-upstream-thread-compat-test
             build/upstream-base64-android-cmake/nuke-upstream-base64-test
             build/nuke-upstream-angle-vectors-android.o
             build/nuke-upstream-axis-to-quat-android.o

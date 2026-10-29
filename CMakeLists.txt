@@ -148,6 +148,45 @@ if(NUKE_BUILD_UPSTREAM_FILEACCESS_TEST)
   endif()
 endif()
 
+# Optional CMake integration target for the patched KisakBlack read/write mutex.
+# This is still a focused compatibility regression, not a complete engine target.
+option(NUKE_BUILD_UPSTREAM_THREAD_COMPAT_TEST
+  "Build KisakBlack's patched tlAtomicReadWriteMutex regression" OFF)
+
+if(NUKE_BUILD_UPSTREAM_THREAD_COMPAT_TEST)
+  if(NOT IS_DIRECTORY "${NUKE_UPSTREAM_SOURCE_DIR}")
+    message(FATAL_ERROR
+      "NUKE_BUILD_UPSTREAM_THREAD_COMPAT_TEST requires NUKE_UPSTREAM_SOURCE_DIR to point to KisakBlack")
+  endif()
+
+  set(NUKE_UPSTREAM_THREAD_HEADER
+    "${NUKE_UPSTREAM_SOURCE_DIR}/tl/base/tl_thread.h")
+  if(NOT EXISTS "${NUKE_UPSTREAM_THREAD_HEADER}")
+    message(FATAL_ERROR
+      "KisakBlack threading header not found: ${NUKE_UPSTREAM_THREAD_HEADER}")
+  endif()
+
+  find_package(Threads REQUIRED)
+  add_executable(nuke-upstream-thread-compat-test
+    tests/upstream_thread_compat.cpp)
+  target_include_directories(nuke-upstream-thread-compat-test PRIVATE
+    "${NUKE_UPSTREAM_SOURCE_DIR}"
+    "${NUKE_UPSTREAM_SOURCE_DIR}/src")
+  target_compile_options(nuke-upstream-thread-compat-test PRIVATE
+    -Wall -Wextra -Werror -pthread)
+  target_link_libraries(nuke-upstream-thread-compat-test PRIVATE Threads::Threads)
+  target_link_options(nuke-upstream-thread-compat-test PRIVATE -pthread)
+
+  if(BUILD_TESTING AND NOT CMAKE_CROSSCOMPILING)
+    target_compile_options(nuke-upstream-thread-compat-test PRIVATE
+      -g -O1 -fsanitize=thread -fno-omit-frame-pointer)
+    target_link_options(nuke-upstream-thread-compat-test PRIVATE -fsanitize=thread)
+    add_test(NAME upstream-thread-compat
+      COMMAND nuke-upstream-thread-compat-test)
+    set_tests_properties(upstream-thread-compat PROPERTIES TIMEOUT 60)
+  endif()
+endif()
+
 if(BUILD_TESTING)
   find_package(Threads REQUIRED)
   add_executable(nuke-atomic-test tests/atomic_compat.cpp)
