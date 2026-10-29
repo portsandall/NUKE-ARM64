@@ -5,25 +5,27 @@ Pinned upstream: [SwagSoftware/KisakBlack](https://github.com/SwagSoftware/Kisak
 
 ## Verified build boundary
 
-The default-branch CI is green at `8e752850a264bd4d8e895227ceddabd1cb992065`:
+Latest verified `main` commit: `02f8a855d5957581226004e387e3ef8ad6e5bbe0` ([file-access portability fix](https://github.com/portsandall/NUKE-ARM64/commit/02f8a855d5957581226004e387e3ef8ad6e5bbe0)).
 
-- [ARM64 bootstrap](https://github.com/portsandall/NUKE-ARM64/actions/runs/40787094166): host tests pass; Android NDK builds `nuke-platform-probe` and `nuke-atomic-test`, then checks ELF64/AArch64.
-- [Angle/vector regression](https://github.com/portsandall/NUKE-ARM64/actions/runs/40787094221): portability patches apply; bitarray, atomic and threading shim regressions compile for host and Android; the full `base64.cpp` and `com_math_anglevectors.cpp` translation units compile; a limited extracted `AxisToQuat`/`ikAxisToQuat` subset is compiled and linked for host and Android.
+- [ARM64 bootstrap run 443](https://github.com/portsandall/NUKE-ARM64/actions/runs/40797169303): all three jobs passed. Host CTest passed 3/3; Android NDK smoke binaries passed ELF64/AArch64 checks; upstream portability patches applied and the selected integration targets compiled.
+- [Angle/vector regression run 173](https://github.com/portsandall/NUKE-ARM64/actions/runs/40797169289): both CTest cases passed.
+- The upstream-patch job compiles and tests the actual `tl/base/tl_thread.h` read/write mutex on the host (8 threads × 2,000 write-lock increments), cross-compiles the same test for Android AArch64, and checks the Android ELF header.
+- The CI also builds the real upstream `src/universal/base64.cpp`, `src/universal/com_math_anglevectors.cpp`, a limited extracted `AxisToQuat`/`ikAxisToQuat` subset, and `src/universal/com_fileaccess.cpp`. The file-access harness tests failed-open reporting and a successful open on the host; its Android executable is cross-compiled and architecture-checked, not run on-device.
 
-These checks are useful portability evidence, but they do **not** compile a Black Ops multiplayer/gameplay translation unit, link the complete engine, or produce an APK. The extracted quaternion subset is a focused regression harness, not the full `com_math.cpp` translation unit. Host runtime tests do not prove Android runtime behavior.
+These are useful portability gates, but they do **not** compile a Black Ops multiplayer/gameplay translation unit, link the complete engine, integrate an Android renderer, or produce a playable APK. The extracted quaternion subset is not the full `com_math.cpp` translation unit. Host runtime tests do not prove Android runtime behavior.
 
 ## Remaining high-priority blockers
 
-1. **Compilability:** the full upstream engine is not a CMake target in this port. Existing checks compile probes, compatibility tests and selected math/utility code only.
-2. **Platform isolation:** upstream still depends on Windows entry points and services, WinSock/Windows SDK assumptions, DirectX-oriented build configuration and MSVC/x86 options. The portability shims are not a complete platform layer.
-3. **LP64:** Android outputs are checked as ELF64/AArch64 and the platform probe checks ABI properties. There is no engine-wide audit of pointer/integer conversions, structure layouts or Windows type assumptions.
-4. **Graphics bootstrap:** no native Android renderer is integrated into this native-engine branch.
-5. **Map loading:** `mp_nuked` is a scope guard in the platform probe, not implemented map support. Original map parsing, material/asset loading, collision and spawn validation remain absent.
-6. **Multiplayer:** no playable engine, host/join flow or network session is implemented.
-7. **Performance:** no gameplay-level frame-time, memory, GPU or network measurements exist yet.
+1. **Full engine integration:** there is no complete Android AArch64 engine target or dependency graph. Current targets are probes and focused upstream translation-unit/regression targets.
+2. **Platform isolation:** upstream still has Windows entry points/services, WinSock and Windows SDK assumptions, DirectX-oriented configuration, and MSVC/x86 options. The current shims are not a complete platform layer.
+3. **Physics portability:** the pinned `src/physics/phys_gjk.cpp` rejects non-x87 configurations. AArch64 has no x87; do not remove the guard without a numerically validated alternative and collision regression tests.
+4. **LP64 audit:** no engine-wide audit of pointer/integer conversions, structure layouts, or Windows type assumptions exists.
+5. **Graphics and map loading:** no native Android renderer or real `mp_nuked` map/asset-loading path is integrated. The platform probe's map name is only a scope guard.
+6. **Gameplay and multiplayer:** no playable engine, spawn/collision validation, host/join flow, or network session is implemented.
+7. **Performance:** no gameplay-level frame-time, memory, GPU, or network measurements exist.
 
 ## Next acceptance gate
 
-Compile at least one real, non-math KisakBlack gameplay or platform-service translation unit with Android Clang targeting `aarch64-linux-android26`. Keep its dependencies explicit, apply portability patches in CI, and verify the resulting object/ELF architecture. Prefer a small source unit with limited Win32/DirectX dependencies. Do not count a probe, a stub-only test, or an extracted helper as a gameplay-port milestone.
+Move beyond isolated utility/platform-service translation units: configure an Android NDK target for a dependency-complete physics or gameplay subsystem, with dependencies explicit and no stub replacing exercised behavior. First resolve the x87-dependent GJK numerical path with collision regression coverage, then link that subsystem and verify the resulting AArch64 object/ELF architecture. Do not count a probe, a stub-only test, or an extracted helper as a gameplay-port milestone.
 
-Before distributing any upstream-derived binaries or source, confirm the applicable license and redistribution rights. Do not replace authentic Black Ops behavior with generic FPS components while describing it as the original port.
+Before distributing upstream-derived binaries or source, confirm the applicable license and redistribution rights. Do not replace authentic Black Ops behavior with generic FPS components while describing it as the original port.
