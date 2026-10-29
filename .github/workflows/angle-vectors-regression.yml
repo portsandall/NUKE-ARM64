@@ -26,7 +26,8 @@ jobs:
             patches/0004-posix-random-name.patch \
             patches/0005-fix-angle-axis-row-index.patch \
             patches/0006-fix-axis-to-quat-row-index.patch \
-            patches/0007-port-com-fileaccess-errno.patch; do
+            patches/0007-port-com-fileaccess-errno.patch \
+            patches/0008-fix-lp64-header-guards.patch; do
             git -C build/upstream apply --check "$GITHUB_WORKSPACE/$patch"
             git -C build/upstream apply "$GITHUB_WORKSPACE/$patch"
           done
