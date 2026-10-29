@@ -63,6 +63,10 @@ jobs:
           git -C build/upstream apply "$GITHUB_WORKSPACE/patches/0008-fix-lp64-header-guards.patch"
           git -C build/upstream apply --ignore-whitespace --check "$GITHUB_WORKSPACE/patches/0009-gate-msvc-only-cmake-flags.patch"
           git -C build/upstream apply --ignore-whitespace "$GITHUB_WORKSPACE/patches/0009-gate-msvc-only-cmake-flags.patch"
+          git -C build/upstream apply --ignore-whitespace --check "$GITHUB_WORKSPACE/patches/0010-gate-win32-only-cmake-properties.patch"
+          git -C build/upstream apply --ignore-whitespace "$GITHUB_WORKSPACE/patches/0010-gate-win32-only-cmake-properties.patch"
+          grep -B1 -F 'WIN32_EXECUTABLE TRUE' build/upstream/CMakeLists.txt | grep -Fq 'if(WIN32)'
+          grep -B3 -F 'VS_DEBUGGER_WORKING_DIRECTORY' build/upstream/CMakeLists.txt | grep -Fq 'if(MSVC AND WIN32)'
           grep -Fq 'if(MSVC)' build/upstream/CMakeLists.txt
           grep -Fq 'if(MSVC AND WIN32 AND CMAKE_SIZEOF_VOID_P EQUAL 4)' build/upstream/CMakeLists.txt
           grep -Fq 'if(MSVC AND WIN32)' build/upstream/CMakeLists.txt

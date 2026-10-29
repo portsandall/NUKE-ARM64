@@ -1,0 +1,18 @@
+diff --git a/CMakeLists.txt b/CMakeLists.txt
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -102,6 +102,10 @@
+-set_target_properties(KisakBlack PROPERTIES WIN32_EXECUTABLE TRUE)
++if(WIN32)
++    set_target_properties(KisakBlack PROPERTIES WIN32_EXECUTABLE TRUE)
++endif()
+ 
+ # Set the VS debugger's working directory to the build-output dir for whichever config is active 
+-set_target_properties(KisakBlack PROPERTIES
+-    VS_DEBUGGER_WORKING_DIRECTORY "${CMAKE_BINARY_DIR}/$<CONFIG>"
+-)
++if(MSVC AND WIN32)
++    set_target_properties(KisakBlack PROPERTIES
++        VS_DEBUGGER_WORKING_DIRECTORY "${CMAKE_BINARY_DIR}/$<CONFIG>"
++    )
++endif()
