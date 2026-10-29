@@ -69,6 +69,8 @@ jobs:
           git -C build/upstream apply --ignore-whitespace "$GITHUB_WORKSPACE/patches/0011-gate-win32-only-cmake-defines.patch"
           git -C build/upstream apply --ignore-whitespace --check "$GITHUB_WORKSPACE/patches/0012-gate-directx-sdk-paths.patch"
           git -C build/upstream apply --ignore-whitespace "$GITHUB_WORKSPACE/patches/0012-gate-directx-sdk-paths.patch"
+          git -C build/upstream apply --ignore-whitespace --check "$GITHUB_WORKSPACE/patches/0013-gate-windows-link-libraries.patch"
+          git -C build/upstream apply --ignore-whitespace "$GITHUB_WORKSPACE/patches/0013-gate-windows-link-libraries.patch"
           grep -B1 -F 'WIN32_EXECUTABLE TRUE' build/upstream/CMakeLists.txt | grep -Fq 'if(WIN32)'
           grep -B3 -F 'VS_DEBUGGER_WORKING_DIRECTORY' build/upstream/CMakeLists.txt | grep -Fq 'if(MSVC AND WIN32)'
           grep -Fq 'if(MSVC)' build/upstream/CMakeLists.txt
@@ -104,6 +106,33 @@ jobs:
               assert lines[i - 1].strip() == "if(WIN32)", f"DirectX SDK path is not Windows-gated at line {i + 1}"
               assert lines[i + 1].strip() == "endif()", f"DirectX SDK path guard is malformed at line {i + 1}"
           print("Verified DirectX SDK include and x86 library paths are Windows-only")
+          PY
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+
+          text = Path("build/upstream/CMakeLists.txt").read_text()
+          dirs = text.split('target_link_directories(KisakBlack PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/src/libs/libvpx-1.5.0")', 1)[1].split("set(CMAKE_CXX_FLAGS_RELEASE", 1)[0]
+          assert re.search(
+              r'if\\(WIN32\\)\\s*target_link_directories\\(KisakBlack PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/src/steam/redistributable_bin"\\)\\s*target_link_directories\\(KisakBlack PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/src/binklib"\\)\\s*target_link_directories\\(KisakBlack PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/src/nvapi"\\)\\s*endif\\(\\)',
+              dirs,
+          ), "Steam, Bink and NVAPI binary library paths must be Windows-only"
+
+          links = text.split("# ----- Links -----", 1)[1].split(
+              "if(MSVC AND WIN32 AND CMAKE_SIZEOF_VOID_P EQUAL 4)", 1
+          )[0]
+          assert re.match(r"\\s*if\\(WIN32\\)\\s*target_link_libraries\\(KisakBlack PUBLIC", links), (
+              "Windows import libraries must be guarded by if(WIN32)"
+          )
+          assert links.rstrip().endswith("endif()"), "Windows library guard must close before compiler-specific link flags"
+          for library in (
+              "steam_api.lib", "binkw32.lib", "nvapi.lib", "d3d9.lib",
+              "ws2_32.lib", "dxguid.lib", "dsound.lib", "winmm.lib",
+              "xinput.lib", "xapobase.lib", "dxerr.lib", "libvpx.lib",
+              "legacy_stdio_definitions.lib", "d3dx9d.lib", "d3dx9.lib",
+          ):
+              assert library in links, f"Expected upstream library missing from guarded block: {library}"
+          print("Verified Windows vendor paths and import-library links are gated")
           PY
           test -f build/upstream/src/nuke/win_thread_compat.h
           grep -q '#include <nuke/win_thread_compat.h>' build/upstream/tl/base/tl_thread.h
