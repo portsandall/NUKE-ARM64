@@ -8,7 +8,7 @@ diff --git a/CMakeLists.txt b/CMakeLists.txt
  target_link_directories(KisakBlack PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/src/binklib")
  target_link_directories(KisakBlack PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/src/nvapi")
 +endif()
-@@ -83,23 +83,25 @@
+@@ -83,23 +85,25 @@
  # ----- Links -----
 +if(WIN32)
  target_link_libraries(KisakBlack PUBLIC
