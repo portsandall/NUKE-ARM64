@@ -57,6 +57,10 @@ jobs:
           git -C build/upstream apply "$GITHUB_WORKSPACE/patches/0005-fix-angle-axis-row-index.patch"
           git -C build/upstream apply --check "$GITHUB_WORKSPACE/patches/0006-fix-axis-to-quat-row-index.patch"
           git -C build/upstream apply "$GITHUB_WORKSPACE/patches/0006-fix-axis-to-quat-row-index.patch"
+          git -C build/upstream apply --check "$GITHUB_WORKSPACE/patches/0007-port-com-fileaccess-errno.patch"
+          git -C build/upstream apply "$GITHUB_WORKSPACE/patches/0007-port-com-fileaccess-errno.patch"
+          git -C build/upstream apply --check "$GITHUB_WORKSPACE/patches/0008-fix-lp64-header-guards.patch"
+          git -C build/upstream apply "$GITHUB_WORKSPACE/patches/0008-fix-lp64-header-guards.patch"
           test -f build/upstream/src/nuke/win_thread_compat.h
           grep -q '#include <nuke/win_thread_compat.h>' build/upstream/tl/base/tl_thread.h
           grep -q 'inline std::uint32_t GetCurrentThreadId' build/upstream/src/nuke/win_thread_compat.h
@@ -166,11 +170,12 @@ jobs:
             -DCMAKE_TOOLCHAIN_FILE="$ANDROID_NDK_HOME/build/cmake/android.toolchain.cmake" \
             -DANDROID_ABI=arm64-v8a -DANDROID_PLATFORM=android-26 \
             -DNUKE_BUILD_UPSTREAM_ANGLE_VECTORS=ON \
+            -DNUKE_BUILD_UPSTREAM_FILEACCESS_TEST=ON \
             -DNUKE_UPSTREAM_SOURCE_DIR="$GITHUB_WORKSPACE/build/upstream" \
             -DBUILD_TESTING=OFF -DCMAKE_BUILD_TYPE=Release
       - name: Compile and link upstream angle/vector Android smoke test
         run: |
-          cmake --build build/upstream-angle-android --target nuke-upstream-angle-vectors nuke-upstream-axis-to-quat nuke-upstream-angle-vectors-test --verbose
+          cmake --build build/upstream-angle-android --target nuke-upstream-angle-vectors nuke-upstream-axis-to-quat nuke-upstream-angle-vectors-test nuke-upstream-fileaccess-test --verbose
           for target in nuke-upstream-angle-vectors nuke-upstream-axis-to-quat; do
             object="$(find "build/upstream-angle-android/CMakeFiles/$target.dir" -name '*.o' -print -quit)"
             test -n "$object"
@@ -187,6 +192,12 @@ jobs:
           printf '%s\n' "$header" | grep -E 'Class:|Machine:'
           grep -Eq '^[[:space:]]*Class:[[:space:]]+ELF64[[:space:]]*$' <<< "$header" || { echo "Expected linked angle/vector smoke test to be ELF64" >&2; exit 1; }
           grep -Eq '^[[:space:]]*Machine:[[:space:]]+AArch64[[:space:]]*$' <<< "$header" || { echo "Expected linked angle/vector smoke test to be AArch64" >&2; exit 1; }
+          fileaccess="build/upstream-angle-android/nuke-upstream-fileaccess-test"
+          test -x "$fileaccess"
+          header="$("$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-readelf" -h "$fileaccess")"
+          printf '%s\\n' "$header" | grep -E 'Class:|Machine:'
+          grep -Eq '^[[:space:]]*Class:[[:space:]]+ELF64[[:space:]]*$' <<< "$header" || { echo "Expected upstream file-access executable to be ELF64" >&2; exit 1; }
+          grep -Eq '^[[:space:]]*Machine:[[:space:]]+AArch64[[:space:]]*$' <<< "$header" || { echo "Expected upstream file-access executable to be AArch64" >&2; exit 1; }
       - name: Upload upstream Android regression binaries
         uses: actions/upload-artifact@v6
         with:
@@ -199,6 +210,7 @@ jobs:
             build/nuke-upstream-angle-vectors-android.o
             build/nuke-upstream-axis-to-quat-android.o
             build/upstream-angle-android/nuke-upstream-angle-vectors-test
+            build/upstream-angle-android/nuke-upstream-fileaccess-test
   host-tests:
     runs-on: ubuntu-latest
     steps:

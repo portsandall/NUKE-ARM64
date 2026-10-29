@@ -117,6 +117,37 @@ if(NUKE_BUILD_UPSTREAM_ANGLE_VECTORS)
   endif()
 endif()
 
+
+option(NUKE_BUILD_UPSTREAM_FILEACCESS_TEST
+  "Build the pinned KisakBlack file-access translation unit and regression" OFF)
+if(NUKE_BUILD_UPSTREAM_FILEACCESS_TEST)
+  if(NOT IS_DIRECTORY "${NUKE_UPSTREAM_SOURCE_DIR}")
+    message(FATAL_ERROR
+      "NUKE_BUILD_UPSTREAM_FILEACCESS_TEST requires NUKE_UPSTREAM_SOURCE_DIR to point to KisakBlack")
+  endif()
+
+  set(NUKE_UPSTREAM_FILEACCESS_SOURCE
+    "${NUKE_UPSTREAM_SOURCE_DIR}/src/universal/com_fileaccess.cpp")
+  if(NOT EXISTS "${NUKE_UPSTREAM_FILEACCESS_SOURCE}")
+    message(FATAL_ERROR
+      "KisakBlack file-access source not found: ${NUKE_UPSTREAM_FILEACCESS_SOURCE}")
+  endif()
+
+  add_executable(nuke-upstream-fileaccess-test
+    "${NUKE_UPSTREAM_FILEACCESS_SOURCE}"
+    tests/upstream_com_fileaccess.cpp)
+  target_include_directories(nuke-upstream-fileaccess-test PRIVATE
+    "${NUKE_UPSTREAM_SOURCE_DIR}/src"
+    "${NUKE_UPSTREAM_SOURCE_DIR}/src/universal")
+  target_compile_options(nuke-upstream-fileaccess-test PRIVATE
+    -fms-extensions -ffunction-sections -fdata-sections)
+  target_link_options(nuke-upstream-fileaccess-test PRIVATE -Wl,--gc-sections)
+  if(BUILD_TESTING AND NOT CMAKE_CROSSCOMPILING)
+    add_test(NAME upstream-fileaccess-open
+      COMMAND nuke-upstream-fileaccess-test)
+  endif()
+endif()
+
 if(BUILD_TESTING)
   find_package(Threads REQUIRED)
   add_executable(nuke-atomic-test tests/atomic_compat.cpp)

@@ -25,7 +25,9 @@ jobs:
             patches/0003-port-threading-win32-apis.patch \
             patches/0004-posix-random-name.patch \
             patches/0005-fix-angle-axis-row-index.patch \
-            patches/0006-fix-axis-to-quat-row-index.patch; do
+            patches/0006-fix-axis-to-quat-row-index.patch \
+            patches/0007-port-com-fileaccess-errno.patch \
+            patches/0008-fix-lp64-header-guards.patch; do
             git -C build/upstream apply --check "$GITHUB_WORKSPACE/$patch"
             git -C build/upstream apply "$GITHUB_WORKSPACE/$patch"
           done
@@ -34,9 +36,10 @@ jobs:
           cmake -S . -B build/angle-host -G Ninja \
             -DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++ \
             -DNUKE_BUILD_UPSTREAM_ANGLE_VECTORS=ON \
+            -DNUKE_BUILD_UPSTREAM_FILEACCESS_TEST=ON \
             -DNUKE_UPSTREAM_SOURCE_DIR="$GITHUB_WORKSPACE/build/upstream" \
             -DBUILD_TESTING=ON -DCMAKE_BUILD_TYPE=Release
       - name: Build and run angle-vector regression
         run: |
-          cmake --build build/angle-host --target nuke-upstream-angle-vectors-test --verbose
-          ctest --test-dir build/angle-host -R upstream-angle-vectors-roundtrip --output-on-failure
+          cmake --build build/angle-host --target nuke-upstream-angle-vectors-test nuke-upstream-fileaccess-test --verbose
+          ctest --test-dir build/angle-host -R 'upstream-angle-vectors-roundtrip|upstream-fileaccess-open' --output-on-failure
