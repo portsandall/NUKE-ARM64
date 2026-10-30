@@ -73,8 +73,7 @@ jobs:
           git -C build/upstream apply --ignore-whitespace "$GITHUB_WORKSPACE/patches/0013-port-demonware-bdreference-android-atomics.patch"
           git -C build/upstream apply --ignore-whitespace --check "$GITHUB_WORKSPACE/patches/0014-fix-bdbytebuffer-lp64-pointer-arithmetic.patch"
           git -C build/upstream apply --ignore-whitespace "$GITHUB_WORKSPACE/patches/0014-fix-bdbytebuffer-lp64-pointer-arithmetic.patch"
-          git -C build/upstream apply --ignore-whitespace --check "$GITHUB_WORKSPACE/patches/0015-remove-unused-des3-done-stub.patch"
-          git -C build/upstream apply --ignore-whitespace "$GITHUB_WORKSPACE/patches/0015-remove-unused-des3-done-stub.patch"
+          python3 "$GITHUB_WORKSPACE/tests/port_bd_cypher3des.py" "$GITHUB_WORKSPACE/build/upstream/DemonWare/bdCore/bdCrypto/bdCypher3Des.cpp"
           ! grep -Fq 'static void des3_done' build/upstream/DemonWare/bdCore/bdCrypto/bdCypher3Des.cpp
           python3 "$GITHUB_WORKSPACE/tests/gate_upstream_windows_links.py" "$GITHUB_WORKSPACE/build/upstream/CMakeLists.txt"
           grep -B1 -F 'WIN32_EXECUTABLE TRUE' build/upstream/CMakeLists.txt | grep -Fq 'if(WIN32)'
