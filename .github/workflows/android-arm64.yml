@@ -75,6 +75,7 @@ jobs:
           git -C build/upstream apply --ignore-whitespace "$GITHUB_WORKSPACE/patches/0014-fix-bdbytebuffer-lp64-pointer-arithmetic.patch"
           python3 "$GITHUB_WORKSPACE/tests/port_bd_cypher3des.py" "$GITHUB_WORKSPACE/build/upstream/DemonWare/bdCore/bdCrypto/bdCypher3Des.cpp"
           ! grep -Fq 'static void des3_done' build/upstream/DemonWare/bdCore/bdCrypto/bdCypher3Des.cpp
+          python3 "$GITHUB_WORKSPACE/tests/port_bd_platform_mutex.py" "$GITHUB_WORKSPACE/build/upstream/DemonWare/bdPlatform/bdPlatformThread/bdPlatformMutex.cpp"
           python3 "$GITHUB_WORKSPACE/tests/gate_upstream_windows_links.py" "$GITHUB_WORKSPACE/build/upstream/CMakeLists.txt"
           grep -B1 -F 'WIN32_EXECUTABLE TRUE' build/upstream/CMakeLists.txt | grep -Fq 'if(WIN32)'
           grep -B3 -F 'VS_DEBUGGER_WORKING_DIRECTORY' build/upstream/CMakeLists.txt | grep -Fq 'if(MSVC AND WIN32)'
@@ -225,6 +226,21 @@ jobs:
           readelf="$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-readelf"
           "$readelf" -h build/upstream-bd-bytebuffer-length-android | grep -Eq 'Class:[[:space:]]+ELF64'
           "$readelf" -h build/upstream-bd-bytebuffer-length-android | grep -Eq 'Machine:[[:space:]]+AArch64'
+      - name: Compile and run POSIX DemonWare mutex regression
+        run: |
+          c++ -std=c++17 -Wall -Wextra -Werror -pthread -I build/upstream \
+            tests/upstream_bd_platform_mutex.cpp \
+            build/upstream/DemonWare/bdPlatform/bdPlatformThread/bdPlatformMutex.cpp \
+            -o build/upstream-bd-platform-mutex-host
+          ./build/upstream-bd-platform-mutex-host
+          "$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android26-clang++" \
+            -std=c++17 -Wall -Wextra -Werror -pthread -I build/upstream \
+            tests/upstream_bd_platform_mutex.cpp \
+            build/upstream/DemonWare/bdPlatform/bdPlatformThread/bdPlatformMutex.cpp \
+            -o build/upstream-bd-platform-mutex-android
+          readelf="$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-readelf"
+          "$readelf" -h build/upstream-bd-platform-mutex-android | grep -Eq 'Class:[[:space:]]+ELF64'
+          "$readelf" -h build/upstream-bd-platform-mutex-android | grep -Eq 'Machine:[[:space:]]+AArch64'
       - name: Configure upstream threading host target
         run: |
           cmake -S "$GITHUB_WORKSPACE" -B build/upstream-thread-host-cmake -G Ninja \
@@ -376,6 +392,8 @@ jobs:
             build/upstream-bitarray-android
             build/upstream-atomic-android
             build/upstream-bd-reference-android
+            build/upstream-bd-bytebuffer-length-android
+            build/upstream-bd-platform-mutex-android
             build/upstream-msvc-extensions-android.o
             build/upstream-thread-android-cmake/nuke-upstream-thread-compat-test
             build/upstream-base64-android-cmake/nuke-upstream-base64-test
