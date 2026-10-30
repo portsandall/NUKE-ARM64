@@ -88,6 +88,7 @@ jobs:
           python3 "$GITHUB_WORKSPACE/tests/add_phys_local_stddef_include.py" "$GITHUB_WORKSPACE/build/upstream/src/physics/phys_local.h"
           python3 "$GITHUB_WORKSPACE/tests/port_phys_memory_lp64.py" "$GITHUB_WORKSPACE/build/upstream"
           python3 "$GITHUB_WORKSPACE/tests/port_gjk_runtime_layouts_lp64.py" "$GITHUB_WORKSPACE/build/upstream/src/physics/phys_colgeom.h"
+          python3 "$GITHUB_WORKSPACE/tests/port_gjk_cache_lp64.py" "$GITHUB_WORKSPACE/build/upstream"
           python3 "$GITHUB_WORKSPACE/tests/port_snapfloat_rounding.py" "$GITHUB_WORKSPACE/build/upstream/src/qcommon/common.h"
           python3 "$GITHUB_WORKSPACE/tests/drop_unused_phys_traverse_d3d_include.py" "$GITHUB_WORKSPACE/build/upstream/src/physics/phys_traverse.h"
           python3 "$GITHUB_WORKSPACE/tests/add_cm_trace_string_include.py" "$GITHUB_WORKSPACE/build/upstream/src/qcommon/cm_trace.h"
