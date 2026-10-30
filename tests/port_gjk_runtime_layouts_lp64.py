@@ -28,9 +28,9 @@ LAYOUTS = (
 def transform(source: str, name: str, ia32_size: int, lp64_size: int) -> str:
     old = f"static_assert(sizeof({name}) == {ia32_size});"
     new = (
-        f"static_assert(sizeof({name}) == "
-        f"(sizeof(void *) == 8 ? {lp64_size} : {ia32_size}), "
-        f"\\"{name} uses native-pointer runtime storage\\");"
+        'static_assert(sizeof(' + name + ') == '
+        '(sizeof(void *) == 8 ? ' + str(lp64_size) + ' : ' + str(ia32_size) + '), '
+        '"' + name + ' uses native-pointer runtime storage");'
     )
     old_count = source.count(old)
     new_count = source.count(new)
@@ -58,9 +58,7 @@ def main() -> int:
         source = transform(source, name, ia32_size, lp64_size)
 
     for name, ia32_size, lp64_size in LAYOUTS:
-        expected = (
-            f"(sizeof(void *) == 8 ? {lp64_size} : {ia32_size})"
-        )
+        expected = f"(sizeof(void *) == 8 ? {lp64_size} : {ia32_size})"
         if expected not in source:
             raise RuntimeError(f"{name}: native pointer-size assertion missing")
 
