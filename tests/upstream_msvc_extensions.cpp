@@ -1,6 +1,7 @@
 #include <DemonWare/bdCore/bdContainers/bdBitBuffer.h>
 #include <DemonWare/bdCore/bdContainers/bdByteBuffer.h>
 #include <universal/dvar.h>
+#include <universal/q_shared.h>
 
 static_assert(sizeof(__int32) == 4, "__int32 must remain 32-bit");
 static_assert(sizeof(__int64) == 8, "__int64 must remain 64-bit");
