@@ -86,6 +86,7 @@ jobs:
           python3 "$GITHUB_WORKSPACE/tests/decouple_rope_material_header.py" "$GITHUB_WORKSPACE/build/upstream/src/physics/rope.h"
           python3 "$GITHUB_WORKSPACE/tests/remove_d3d9_include_from_xanim.py" "$GITHUB_WORKSPACE/build/upstream/src/xanim/xanim.h"
           python3 "$GITHUB_WORKSPACE/tests/decouple_flame_material_header.py" "$GITHUB_WORKSPACE/build/upstream/src/flame/flame_system.h"
+          python3 "$GITHUB_WORKSPACE/tests/add_database_header_to_com_memory.py" "$GITHUB_WORKSPACE/build/upstream/src/universal/com_memory.h" "$GITHUB_WORKSPACE/build/upstream/src/database/database.h"
           python3 "$GITHUB_WORKSPACE/tests/remove_unused_bdaddr_server_include.py" "$GITHUB_WORKSPACE/build/upstream/DemonWare/bdCore/bdSocket/bdAddr.h"
           python3 "$GITHUB_WORKSPACE/tests/fix_bd_addr_socket_and_array_new_headers.py" "$GITHUB_WORKSPACE/build/upstream/DemonWare/bdCore/bdSocket/bdAddr.h" "$GITHUB_WORKSPACE/build/upstream/DemonWare/bdCore/bdContainers/bdArray.h"
           python3 "$GITHUB_WORKSPACE/tests/fix_bd_array_lp64_returns.py" "$GITHUB_WORKSPACE/build/upstream/DemonWare/bdCore/bdContainers/bdArray.h"
