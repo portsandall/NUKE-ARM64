@@ -544,9 +544,9 @@ jobs:
           clang++ "${common[@]}" -c "$GITHUB_WORKSPACE/tests/upstream_sap_outer_layout.cpp" -o build/upstream-sap-outer-layout-host.o
           "$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android26-clang++" "${common[@]}" -c "$GITHUB_WORKSPACE/tests/upstream_sap_outer_layout.cpp" -o build/upstream-sap-outer-layout-android.o
           header="$("$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-readelf" -h build/upstream-sap-outer-layout-android.o)"
-          printf '%s\\n' "$header" | grep -E 'Class:|Machine:'
-          printf '%s\\n' "$header" | grep -Eq '^[[:space:]]*Class:[[:space:]]+ELF64[[:space:]]*$'
-          printf '%s\\n' "$header" | grep -Eq '^[[:space:]]*Machine:[[:space:]]+AArch64[[:space:]]*$'
+          printf '%s\n' "$header" | grep -E 'Class:|Machine:'
+          printf '%s\n' "$header" | grep -Eq '^[[:space:]]*Class:[[:space:]]+ELF64[[:space:]]*$'
+          printf '%s\n' "$header" | grep -Eq '^[[:space:]]*Machine:[[:space:]]+AArch64[[:space:]]*$'
 
       - name: Compile generic job-queue declarations on host and Android
         run: |
