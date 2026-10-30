@@ -4,7 +4,7 @@
 The public MutexHandle remains void* so this implementation preserves the
 existing handle-sized ABI. Windows retains the original Win32 implementation.
 This transform edits only the disposable pinned-source checkout used by CI.
-The source contains legacy non-UTF-8 comments, so it is handled as bytes.
+The file is matched as bytes and accepts either LF or CRLF source endings.
 """
 from __future__ import annotations
 
@@ -19,6 +19,9 @@ def main() -> int:
 
     path = Path(sys.argv[1])
     original = path.read_bytes()
+    newline = b"\r\n" if b"\r\n" in original else b"\n"
+    normalized = original.replace(b"\r\n", b"\n")
+
     expected = b'''#include "bdPlatformMutex.h"
 
 #include <Windows.h>
@@ -127,11 +130,11 @@ void bdPlatformMutex::destroy(MutexHandle &hand)
 }
 #endif
 '''
-    count = original.count(expected)
+    count = normalized.count(expected)
     if count != 1:
         raise RuntimeError(f"expected exactly one original Win32 mutex implementation; found {count}")
 
-    path.write_bytes(replacement)
+    path.write_bytes(replacement.replace(b"\n", newline))
     print(f"Applied recursive pthread mutex implementation to {path}")
     return 0
 
