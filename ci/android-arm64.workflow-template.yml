@@ -89,6 +89,7 @@ jobs:
           python3 "$GITHUB_WORKSPACE/tests/port_phys_memory_lp64.py" "$GITHUB_WORKSPACE/build/upstream"
           python3 "$GITHUB_WORKSPACE/tests/port_gjk_runtime_layouts_lp64.py" "$GITHUB_WORKSPACE/build/upstream/src/physics/phys_colgeom.h"
           python3 "$GITHUB_WORKSPACE/tests/port_destructible_auto_activate_lp64.py" "$GITHUB_WORKSPACE/build/upstream/src/physics/phys_gjk_collision_detection.h" "$GITHUB_WORKSPACE/build/upstream-auto-activate-layout-fixture.hpp"
+          python3 "$GITHUB_WORKSPACE/tests/port_phys_collision_pair_lp64.py" "$GITHUB_WORKSPACE/build/upstream/src/physics/rigid_body.h" "$GITHUB_WORKSPACE/build/upstream-phys-collision-pair-layout-fixture.hpp"
           python3 "$GITHUB_WORKSPACE/tests/port_gjk_cache_lp64.py" "$GITHUB_WORKSPACE/build/upstream"
           python3 "$GITHUB_WORKSPACE/tests/port_snapfloat_rounding.py" "$GITHUB_WORKSPACE/build/upstream/src/qcommon/common.h"
           python3 "$GITHUB_WORKSPACE/tests/drop_unused_phys_traverse_d3d_include.py" "$GITHUB_WORKSPACE/build/upstream/src/physics/phys_traverse.h"
@@ -479,6 +480,21 @@ jobs:
           printf '%s\n' "$header" | grep -E 'Class:|Machine:'
           printf '%s\n' "$header" | grep -Eq '^[[:space:]]*Class:[[:space:]]+ELF64[[:space:]]*$'
           printf '%s\n' "$header" | grep -Eq '^[[:space:]]*Machine:[[:space:]]+AArch64[[:space:]]*$'
+      - name: Compile and verify LP64 physics collision-pair layout on host and Android
+        run: |
+          common=(
+            -std=c++20 -fdeclspec -Wall -Wextra -Wno-ignored-attributes
+            -include "$GITHUB_WORKSPACE/tests/upstream_msvc_compat.h"
+            -I "$GITHUB_WORKSPACE/build"
+            -I "$GITHUB_WORKSPACE/build/upstream"
+            -I "$GITHUB_WORKSPACE/build/upstream/src"
+          )
+          clang++ "${common[@]}" -c tests/upstream_phys_collision_pair_layout.cpp -o build/upstream-phys-collision-pair-layout-host.o
+          "$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android26-clang++" "${common[@]}" -c tests/upstream_phys_collision_pair_layout.cpp -o build/upstream-phys-collision-pair-layout-android.o
+          header="$("$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-readelf" -h build/upstream-phys-collision-pair-layout-android.o)"
+          printf '%s\n' "$header" | grep -E 'Class:|Machine:'
+          printf '%s\n' "$header" | grep -Eq '^[[:space:]]*Class:[[:space:]]+ELF64[[:space:]]*$'
+          printf '%s\n' "$header" | grep -Eq '^[[:space:]]*Machine:[[:space:]]+AArch64[[:space:]]*$'
       - name: Compile LP64 GJK cache-node layout on host and Android
         run: |
           common=(
@@ -560,6 +576,7 @@ jobs:
             build/upstream-snapfloat-rounding-android
             build/upstream-msvc-extensions-android.o
             build/upstream-auto-activate-layout-android.o
+            build/upstream-phys-collision-pair-layout-android.o
             build/upstream-snd-dsp-types-android.o
             build/upstream-iassert-debug-android.o
             build/upstream-thread-android-cmake/nuke-upstream-thread-compat-test
