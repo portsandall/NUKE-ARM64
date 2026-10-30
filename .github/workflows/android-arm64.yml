@@ -387,6 +387,25 @@ jobs:
           readelf="$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-readelf"
           "$readelf" -h build/upstream-phys-buffer-allocator-android | grep -Eq 'Class:[[:space:]]+ELF64'
           "$readelf" -h build/upstream-phys-buffer-allocator-android | grep -Eq 'Machine:[[:space:]]+AArch64'
+      - name: Compile patched physics memory manager on host and Android
+        run: |
+          common=(
+            -std=c++20 -fdeclspec
+            -include "$GITHUB_WORKSPACE/tests/upstream_msvc_compat.h"
+            -I "$GITHUB_WORKSPACE/build/upstream"
+            -I "$GITHUB_WORKSPACE/build/upstream/src"
+          )
+          clang++ "${common[@]}" -Wall -Wextra -Wno-ignored-attributes \
+            -c "$GITHUB_WORKSPACE/build/upstream/src/physics/phys_mem_new.cpp" \
+            -o build/upstream-phys-mem-new-host.o
+          "$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android26-clang++" \
+            "${common[@]}" -Wall -Wextra -Wno-ignored-attributes \
+            -c "$GITHUB_WORKSPACE/build/upstream/src/physics/phys_mem_new.cpp" \
+            -o build/upstream-phys-mem-new-android.o
+          "$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-readelf" \
+            -h build/upstream-phys-mem-new-android.o | grep -Eq 'Class:[[:space:]]+ELF64'
+          "$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-readelf" \
+            -h build/upstream-phys-mem-new-android.o | grep -Eq 'Machine:[[:space:]]+AArch64'
       - name: Compile CubeMapGen bounding-box headers on host and Android
         run: |
           c++ -std=c++20 '-D__int64=long long' \
