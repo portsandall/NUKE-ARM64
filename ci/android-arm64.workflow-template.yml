@@ -80,6 +80,7 @@ jobs:
           python3 "$GITHUB_WORKSPACE/tests/split_xaudio2_dsp_types.py" "$GITHUB_WORKSPACE/build/upstream"
           python3 "$GITHUB_WORKSPACE/tests/port_variadic_iassert.py" "$GITHUB_WORKSPACE/build/upstream/src/universal/assertive.h"
           python3 "$GITHUB_WORKSPACE/tests/gate_upstream_android_d3d_sources.py" "$GITHUB_WORKSPACE/build/upstream/cmake_files.cmake"
+          python3 "$GITHUB_WORKSPACE/tests/decouple_fxprimitives_material_header.py" "$GITHUB_WORKSPACE/build/upstream/src/gfx_d3d/fxprimitives.h"
           python3 "$GITHUB_WORKSPACE/tests/remove_unused_bdaddr_server_include.py" "$GITHUB_WORKSPACE/build/upstream/DemonWare/bdCore/bdSocket/bdAddr.h"
           python3 "$GITHUB_WORKSPACE/tests/fix_bd_addr_socket_and_array_new_headers.py" "$GITHUB_WORKSPACE/build/upstream/DemonWare/bdCore/bdSocket/bdAddr.h" "$GITHUB_WORKSPACE/build/upstream/DemonWare/bdCore/bdContainers/bdArray.h"
           python3 "$GITHUB_WORKSPACE/tests/fix_bd_array_lp64_returns.py" "$GITHUB_WORKSPACE/build/upstream/DemonWare/bdCore/bdContainers/bdArray.h"
@@ -381,6 +382,19 @@ jobs:
             -c tests/upstream_snd_dsp_types.cpp \
             -o build/upstream-snd-dsp-types-android.o
           header="$("$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-readelf" -h build/upstream-snd-dsp-types-android.o)"
+          printf '%s\n' "$header" | grep -E 'Class:|Machine:'
+          printf '%s\n' "$header" | grep -Eq '^[[:space:]]*Class:[[:space:]]+ELF64[[:space:]]*$'
+          printf '%s\n' "$header" | grep -Eq '^[[:space:]]*Machine:[[:space:]]+AArch64[[:space:]]*$'
+      - name: Compile FX primitive declarations without D3D9 coupling
+        run: |
+          common=(
+            -std=c++20 -fdeclspec
+            -include "$GITHUB_WORKSPACE/tests/upstream_msvc_compat.h"
+            -I build/upstream -I build/upstream/src
+          )
+          clang++ "${common[@]}" -Wall -Wextra -Werror -Wno-ignored-attributes -c tests/upstream_fxprimitives_header.cpp -o build/upstream-fxprimitives-host.o
+          "$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android26-clang++" "${common[@]}" -Wall -Wextra -Werror -Wno-ignored-attributes -c tests/upstream_fxprimitives_header.cpp -o build/upstream-fxprimitives-android.o
+          header="$("$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-readelf" -h build/upstream-fxprimitives-android.o)"
           printf '%s\n' "$header" | grep -E 'Class:|Machine:'
           printf '%s\n' "$header" | grep -Eq '^[[:space:]]*Class:[[:space:]]+ELF64[[:space:]]*$'
           printf '%s\n' "$header" | grep -Eq '^[[:space:]]*Machine:[[:space:]]+AArch64[[:space:]]*$'
