@@ -21,31 +21,31 @@ NEW_HEADER = "#include <new>"
 
 
 def update_addr(path: Path) -> None:
-    source = path.read_text(encoding="utf-8")
+    source = path.read_bytes()
     if source.count(OLD_SOCKET_LINE) == 1:
-        source = source.replace(OLD_SOCKET_LINE, SOCKET_BLOCK, 1)
+        source = source.replace(OLD_SOCKET_LINE.encode("ascii"), SOCKET_BLOCK.encode("ascii"), 1)
     elif source.count(SOCKET_BLOCK) == 1:
         pass
     else:
         raise RuntimeError("bdAddr.h socket include does not match the expected upstream shape")
 
-    if source.count(SOCKET_BLOCK) != 1:
+    if source.count(SOCKET_BLOCK.encode("ascii")) != 1:
         raise RuntimeError("expected exactly one conditional socket header block")
-    if "#include <arpa/inet.h>" not in source or "#include <winsock2.h>" not in source:
+    if b"#include <arpa/inet.h>" not in source or b"#include <winsock2.h>" not in source:
         raise RuntimeError("conditional socket headers are incomplete")
-    path.write_text(source, encoding="utf-8")
+    path.write_bytes(source)
 
 
 def update_array(path: Path) -> None:
-    source = path.read_text(encoding="utf-8")
-    if source.count("#include <new>") == 0:
-        anchor = "#include <cstdint>"
+    source = path.read_bytes()
+    if source.count(b"#include <new>") == 0:
+        anchor = b"#include <cstdint>"
         if source.count(anchor) != 1:
             raise RuntimeError("bdArray.h no longer has one cstdint include anchor")
-        source = source.replace(anchor, anchor + "\n\n#include <new>", 1)
-    if source.count("#include <new>") != 1:
+        source = source.replace(anchor, anchor + b"\n\n#include <new>", 1)
+    if source.count(b"#include <new>") != 1:
         raise RuntimeError("expected exactly one explicit <new> include")
-    path.write_text(source, encoding="utf-8")
+    path.write_bytes(source)
 
 
 def main() -> int:
