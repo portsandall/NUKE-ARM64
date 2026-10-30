@@ -348,9 +348,16 @@ jobs:
           "$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-readelf" -h build/upstream-msvc-extensions-android.o
       - name: Compile CubeMapGen bounding-box headers on host and Android
         run: |
-          common=(-std=c++20 -fdeclspec -I build/upstream -I build/upstream/src -include "$GITHUB_WORKSPACE/tests/upstream_msvc_compat.h")
-          c++ "${common[@]}" -c tests/upstream_cubemap_headers.cpp -o build/upstream-cubemap-headers-host.o
-          "$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android26-clang++" "${common[@]}" -c tests/upstream_cubemap_headers.cpp -o build/upstream-cubemap-headers-android.o
+          c++ -std=c++20 '-D__int64=long long' \
+            -I build/upstream -I build/upstream/src \
+            -c tests/upstream_cubemap_headers.cpp \
+            -o build/upstream-cubemap-headers-host.o
+          "$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android26-clang++" \
+            -std=c++20 -fdeclspec \
+            -include "$GITHUB_WORKSPACE/tests/upstream_msvc_compat.h" \
+            -I build/upstream -I build/upstream/src \
+            -c tests/upstream_cubemap_headers.cpp \
+            -o build/upstream-cubemap-headers-android.o
           "$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-readelf" -h build/upstream-cubemap-headers-android.o | grep -Eq 'Class:[[:space:]]+ELF64'
           "$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-readelf" -h build/upstream-cubemap-headers-android.o | grep -Eq 'Machine:[[:space:]]+AArch64'
       - name: Diagnose complete KisakBlack Android target (non-blocking)
