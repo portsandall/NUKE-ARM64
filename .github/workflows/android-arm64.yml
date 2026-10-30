@@ -300,6 +300,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
+      - name: Verify workflow template parity
+        run: cmp --silent .github/workflows/android-arm64.yml ci/android-arm64.workflow-template.yml
       - run: cmake -S . -B build/host -G Ninja -DCMAKE_BUILD_TYPE=Debug
       - run: cmake --build build/host
       - run: ctest --test-dir build/host --output-on-failure
