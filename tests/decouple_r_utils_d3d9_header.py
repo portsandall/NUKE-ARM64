@@ -46,8 +46,9 @@ def main() -> int:
 
     if updated.count("#if defined(_WIN32)") != 2:
         raise RuntimeError("expected separate Windows guards around D3D include and COM helper")
-    if updated.count(D3D_INCLUDE) != 0:
-        raise RuntimeError("unguarded d3d9.h include remains")
+    guarded_include = "#if defined(_WIN32)\\n#include <d3d9.h>\\n#endif"
+    if updated.count(guarded_include) != 1:
+        raise RuntimeError("expected exactly one D3D9 include guarded by _WIN32")
     if not updated.endswith("#endif\n"):
         raise RuntimeError("D3D helper Windows guard was not closed")
 
