@@ -85,6 +85,7 @@ jobs:
           python3 "$GITHUB_WORKSPACE/tests/fix_bd_addr_socket_and_array_new_headers.py" "$GITHUB_WORKSPACE/build/upstream/DemonWare/bdCore/bdSocket/bdAddr.h" "$GITHUB_WORKSPACE/build/upstream/DemonWare/bdCore/bdContainers/bdArray.h"
           python3 "$GITHUB_WORKSPACE/tests/fix_bd_array_lp64_returns.py" "$GITHUB_WORKSPACE/build/upstream/DemonWare/bdCore/bdContainers/bdArray.h"
           python3 "$GITHUB_WORKSPACE/tests/port_chull_lp64.py" "$GITHUB_WORKSPACE/build/upstream/src/physics/phys_local.h" "$GITHUB_WORKSPACE/build/upstream/src/physics/phys_convex_hull.cpp"
+          python3 "$GITHUB_WORKSPACE/tests/port_snapfloat_rounding.py" "$GITHUB_WORKSPACE/build/upstream/src/qcommon/common.h"
           python3 "$GITHUB_WORKSPACE/tests/gate_upstream_windows_links.py" "$GITHUB_WORKSPACE/build/upstream/CMakeLists.txt"
           grep -B1 -F 'WIN32_EXECUTABLE TRUE' build/upstream/CMakeLists.txt | grep -Fq 'if(WIN32)'
           grep -B3 -F 'VS_DEBUGGER_WORKING_DIRECTORY' build/upstream/CMakeLists.txt | grep -Fq 'if(MSVC AND WIN32)'
@@ -250,6 +251,18 @@ jobs:
           readelf="$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-readelf"
           "$readelf" -h build/upstream-bd-platform-mutex-android | grep -Eq 'Class:[[:space:]]+ELF64'
           "$readelf" -h build/upstream-bd-platform-mutex-android | grep -Eq 'Machine:[[:space:]]+AArch64'
+      - name: Compile and run SnapFloat rounding regression on host and Android
+        run: |
+          common=(
+            -std=c++17 -frounding-math -Wall -Wextra -Werror
+            -I "$GITHUB_WORKSPACE/build/upstream/src"
+          )
+          c++ "${common[@]}" "$GITHUB_WORKSPACE/tests/upstream_snapfloat_rounding.cpp" -o build/upstream-snapfloat-rounding-host
+          ./build/upstream-snapfloat-rounding-host
+          "$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android26-clang++" "${common[@]}" "$GITHUB_WORKSPACE/tests/upstream_snapfloat_rounding.cpp" -o build/upstream-snapfloat-rounding-android
+          readelf="$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-readelf"
+          "$readelf" -h build/upstream-snapfloat-rounding-android | grep -Eq 'Class:[[:space:]]+ELF64'
+          "$readelf" -h build/upstream-snapfloat-rounding-android | grep -Eq 'Machine:[[:space:]]+AArch64'
       - name: Configure upstream threading host target
         run: |
           cmake -S "$GITHUB_WORKSPACE" -B build/upstream-thread-host-cmake -G Ninja \
@@ -463,6 +476,7 @@ jobs:
             build/upstream-bd-reference-android
             build/upstream-bd-bytebuffer-length-android
             build/upstream-bd-platform-mutex-android
+            build/upstream-snapfloat-rounding-android
             build/upstream-msvc-extensions-android.o
             build/upstream-snd-dsp-types-android.o
             build/upstream-iassert-debug-android.o
