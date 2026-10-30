@@ -466,6 +466,20 @@ jobs:
           printf '%s\n' "$header" | grep -E 'Class:|Machine:'
           printf '%s\n' "$header" | grep -Eq '^[[:space:]]*Class:[[:space:]]+ELF64[[:space:]]*$'
           printf '%s\n' "$header" | grep -Eq '^[[:space:]]*Machine:[[:space:]]+AArch64[[:space:]]*$'
+      - name: Compile LP64 GJK cache-node layout on host and Android
+        run: |
+          common=(
+            -std=c++20 -fdeclspec -Wall -Wextra -Wno-ignored-attributes
+            -include "$GITHUB_WORKSPACE/tests/upstream_msvc_compat.h"
+            -I "$GITHUB_WORKSPACE/build/upstream"
+            -I "$GITHUB_WORKSPACE/build/upstream/src"
+          )
+          clang++ "${common[@]}" -c "$GITHUB_WORKSPACE/tests/upstream_phys_gjk_cache_layout.cpp" -o build/upstream-phys-gjk-cache-layout-host.o
+          "$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android26-clang++" "${common[@]}" -c "$GITHUB_WORKSPACE/tests/upstream_phys_gjk_cache_layout.cpp" -o build/upstream-phys-gjk-cache-layout-android.o
+          header="$("$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-readelf" -h build/upstream-phys-gjk-cache-layout-android.o)"
+          printf '%s\\n' "$header" | grep -E 'Class:|Machine:'
+          printf '%s\\n' "$header" | grep -Eq '^[[:space:]]*Class:[[:space:]]+ELF64[[:space:]]*$'
+          printf '%s\\n' "$header" | grep -Eq '^[[:space:]]*Machine:[[:space:]]+AArch64[[:space:]]*$'
       - name: Compile variadic iassert compatibility in host and Android DEBUG/Release modes
         run: |
           common=(
