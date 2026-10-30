@@ -205,7 +205,7 @@ jobs:
             "$GITHUB_WORKSPACE/tests/upstream_bd_referencable.cpp" \
             -o build/upstream-bd-reference-android
           header="$("$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-readelf" -h build/upstream-bd-reference-android)"
-          printf '%s\n' "$header" | grep -E 'Class:|Machine:'
+          printf '%s\\n' "$header" | grep -E 'Class:|Machine:'
           grep -Eq '^[[:space:]]*Class:[[:space:]]+ELF64[[:space:]]*        run: |
           cmake -S "$GITHUB_WORKSPACE" -B build/upstream-thread-host-cmake -G Ninja \
             -DNUKE_BUILD_UPSTREAM_THREAD_COMPAT_TEST=ON \
