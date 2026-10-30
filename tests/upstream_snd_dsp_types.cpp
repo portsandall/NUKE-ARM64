@@ -1,5 +1,5 @@
 #include <cstddef>
-#include <sound/snd.h>
+#include <sound/snd_dsp_types.h>
 
 static_assert(sizeof(snd_dsp_master_params) == 0x60,
               "master DSP parameter layout changed");
