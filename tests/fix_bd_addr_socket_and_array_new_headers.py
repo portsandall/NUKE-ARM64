@@ -22,9 +22,9 @@ NEW_HEADER = "#include <new>"
 
 def update_addr(path: Path) -> None:
     source = path.read_bytes()
-    if source.count(OLD_SOCKET_LINE) == 1:
+    if source.count(OLD_SOCKET_LINE.encode("ascii")) == 1:
         source = source.replace(OLD_SOCKET_LINE.encode("ascii"), SOCKET_BLOCK.encode("ascii"), 1)
-    elif source.count(SOCKET_BLOCK) == 1:
+    elif source.count(SOCKET_BLOCK.encode("ascii")) == 1:
         pass
     else:
         raise RuntimeError("bdAddr.h socket include does not match the expected upstream shape")
