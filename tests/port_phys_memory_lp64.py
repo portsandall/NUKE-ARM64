@@ -61,6 +61,7 @@ def transform_source(path: Path) -> None:
 #include <limits>
 #include <new>
 #include <nuke/phys_buffer_allocator_compat.h>
+#include <nuke/phys_free_list_compat.h>
 #include <universal/q_shared.h>
 """,
         "platform headers",
@@ -237,6 +238,77 @@ def transform_source(path: Path) -> None:
 }
 """
     data = data[:first] + init_replacement + data[last + 1:]
+
+    data = replace_once(
+        data,
+        b"""    signed __int64 cur, next;
+
+    if (!slot && _tlAssert("source/phys_mem_new.cpp", 445, "slot", "no support for freeing NULL slots."))
+        __debugbreak();
+
+    this->extra_info_free(slot);
+
+    while (1)
+    {
+        cur = *(volatile signed __int64 *)&this->m_first_free_slot;
+        *(unsigned int *)slot = LODWORD(cur); // link slot->next = current head
+        next = __SPAIR64__(HIDWORD(cur) + 1, (unsigned int)slot);
+        if (_InterlockedCompareExchange64(
+            (volatile signed __int64 *)&this->m_first_free_slot,
+            next,
+            cur) == cur)
+            break;
+        // CAS failed, retry
+    }
+""",
+        b"""    if (!slot && _tlAssert("source/phys_mem_new.cpp", 445, "slot", "no support for freeing NULL slots."))
+        __debugbreak();
+
+    this->extra_info_free(slot);
+
+    auto *free_list = const_cast<tagged_void_pointer_t *>(&this->m_first_free_slot);
+    nuke_port::phys_free_list_push(&free_list->m_ptr, &free_list->m_tag, slot);
+""",
+        "LP64 free-slot native-pointer list insertion",
+    )
+
+    data = replace_once(
+        data,
+        b"""    signed __int64 cur, next;
+    char *v3;
+
+    while (1)
+    {
+        cur = *(volatile signed __int64 *)&this->m_first_free_slot;
+        v3 = (char *)LODWORD(cur);
+        if (!v3)
+            break; // free list empty, fall through to fresh alloc
+
+        next = __SPAIR64__(HIDWORD(cur) + 1, *(unsigned int *)v3);
+        if (_InterlockedCompareExchange64(
+            (volatile signed __int64 *)&this->m_first_free_slot,
+            next,
+            cur) == cur)
+        {
+            this->extra_info_allocate(v3);
+            return v3;
+        }
+        // CAS failed, retry
+    }
+
+""",
+        b"""    auto *free_list = const_cast<tagged_void_pointer_t *>(&this->m_first_free_slot);
+    char *v3 = static_cast<char *>(
+        nuke_port::phys_free_list_pop(&free_list->m_ptr, &free_list->m_tag));
+    if (v3)
+    {
+        this->extra_info_allocate(v3);
+        return v3;
+    }
+
+""",
+        "LP64 free-slot native-pointer list removal",
+    )
     path.write_bytes(data)
 
 
@@ -259,6 +331,13 @@ def main() -> int:
         raise RuntimeError("existing phys_buffer_allocator_compat.h differs from tested helper")
     helper_target.write_bytes(helper)
 
+    free_list_helper_source = Path(__file__).with_name("upstream_phys_free_list_compat.h")
+    free_list_helper_target = root / "src/nuke/phys_free_list_compat.h"
+    free_list_helper = free_list_helper_source.read_bytes()
+    if free_list_helper_target.exists() and free_list_helper_target.read_bytes() != free_list_helper:
+        raise RuntimeError("existing phys_free_list_compat.h differs from tested helper")
+    free_list_helper_target.write_bytes(free_list_helper)
+
     transform_header(header)
     transform_source(source)
 
@@ -278,6 +357,8 @@ def main() -> int:
         b"sizeof(phys_slot_pool), alignof(phys_slot_pool)",
         b"InterlockedCompareExchangePointer(",
         b"volatile unsigned int *)&this->m_allocated_slot_count",
+        b"nuke_port::phys_free_list_push(",
+        b"nuke_port::phys_free_list_pop(",
     ):
         if marker not in source_after:
             raise RuntimeError(f"transformed source missing {marker!r}")
@@ -285,6 +366,25 @@ def main() -> int:
         raise RuntimeError("both allocation-owner transitions must use pointer-width atomic compare/exchange")
     if b"(volatile long *)&this->m_allocated_slot_count" in source_after:
         raise RuntimeError("LP64 long width must not be used for the 32-bit slot counter")
+    free_start = source_after.index(b"void phys_slot_pool::free_slot(unsigned __int8 *slot)")
+    free_end = source_after.index(b"char * phys_slot_pool::allocate_slot()", free_start)
+    free_function = source_after[free_start:free_end]
+    free_active_start = free_function.index(b"#else")
+    free_active_end = free_function.index(b"#endif", free_active_start)
+    free_active = free_function[free_active_start:free_active_end]
+    if any(marker in free_active for marker in (
+        b"__SPAIR64__", b"LODWORD(cur)", b"(unsigned int)slot",
+        b"*(unsigned int *)slot",
+    )):
+        raise RuntimeError("LP64 free-slot path still packs pointers into 32-bit halves")
+
+    allocate_start = free_end
+    allocate_else = source_after.index(b"#else // aislop", allocate_start)
+    allocate_end = source_after.index(b"#endif", allocate_else)
+    allocate_active = source_after[allocate_else:allocate_end]
+    if b"__SPAIR64__" in allocate_active or b"LODWORD(cur)" in allocate_active:
+        raise RuntimeError("LP64 allocate-slot path still truncates free-list pointers")
+
     constructor = source_after[source_after.index(b"phys_memory_manager::phys_memory_manager"):]
     if b"0x100u" in constructor:
         raise RuntimeError("fixed-size hash-table clearing remains in constructor")
@@ -294,6 +394,7 @@ def main() -> int:
     print("Verified fallback allocations use sizeof/alignof(phys_slot_pool).")
     print("Verified the complete 64-bucket pointer hash table is initialized.")
     print("Verified memory-buffer alignment and bounds use uintptr_t.")
+    print("Replaced packed 32-bit free-list halves with locked native-pointer links.")
     return 0
 
 

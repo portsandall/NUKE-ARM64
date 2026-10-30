@@ -1,14 +1,86 @@
 #include "upstream_phys_buffer_allocator.h"
+#include "upstream_phys_free_list_compat.h"
 
 #include <algorithm>
 #include <array>
 #include <cassert>
 #include <cstdint>
+#include <cstdlib>
 #include <thread>
 #include <vector>
 
+struct FreeListNode
+{
+    FreeListNode *next = nullptr;
+    std::uint32_t id = 0;
+};
+
+static void check(bool condition)
+{
+    if (!condition)
+        std::abort();
+}
+
+static void test_native_pointer_free_list()
+{
+    void *head = nullptr;
+    unsigned int tag = 0;
+    std::array<FreeListNode, 3> small{};
+
+    for (std::size_t i = 0; i < small.size(); ++i)
+    {
+        small[i].id = static_cast<std::uint32_t>(i);
+        nuke_port::phys_free_list_push(&head, &tag, &small[i]);
+    }
+    check(tag == 3);
+    check(nuke_port::phys_free_list_pop(&head, &tag) == &small[2]);
+    check(nuke_port::phys_free_list_pop(&head, &tag) == &small[1]);
+    check(nuke_port::phys_free_list_pop(&head, &tag) == &small[0]);
+    check(nuke_port::phys_free_list_pop(&head, &tag) == nullptr);
+    check(head == nullptr);
+    check(tag == 6);
+
+    constexpr std::size_t thread_count = 8;
+    constexpr std::size_t nodes_per_thread = 128;
+    constexpr std::size_t node_count = thread_count * nodes_per_thread;
+    std::vector<FreeListNode> nodes(node_count);
+    for (std::size_t i = 0; i < nodes.size(); ++i)
+        nodes[i].id = static_cast<std::uint32_t>(i);
+
+    head = nullptr;
+    tag = 0;
+    std::vector<std::thread> workers;
+    for (std::size_t thread = 0; thread < thread_count; ++thread)
+    {
+        workers.emplace_back([&, thread] {
+            for (std::size_t i = 0; i < nodes_per_thread; ++i)
+                nuke_port::phys_free_list_push(
+                    &head, &tag, &nodes[thread * nodes_per_thread + i]);
+        });
+    }
+    for (auto &worker : workers)
+        worker.join();
+
+    check(tag == node_count);
+    std::vector<unsigned char> seen(node_count, 0);
+    std::size_t popped = 0;
+    while (void *raw = nuke_port::phys_free_list_pop(&head, &tag))
+    {
+        auto *node = static_cast<FreeListNode *>(raw);
+        check(node->id < node_count);
+        check(seen[node->id] == 0);
+        seen[node->id] = 1;
+        ++popped;
+    }
+    check(popped == node_count);
+    check(tag == node_count * 2);
+    for (unsigned char value : seen)
+        check(value == 1);
+}
+
 int main()
 {
+    test_native_pointer_free_list();
     alignas(64) std::array<unsigned char, 1024> small{};
     char *cursor = reinterpret_cast<char *>(small.data()) + 1;
     char *const end = reinterpret_cast<char *>(small.data() + small.size());
