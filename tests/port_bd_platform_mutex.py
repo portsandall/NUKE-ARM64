@@ -1,10 +1,9 @@
 #!/usr/bin/env python3
-"""Replace Win32 kernel-mutex calls with a recursive POSIX mutex on non-Windows.
+"""Select a recursive pthread implementation for KisakBlack's platform mutex.
 
-The public MutexHandle remains void* so this implementation preserves the
-existing handle-sized ABI. Windows retains the original Win32 implementation.
-This transform edits only the disposable pinned-source checkout used by CI.
-The file is matched as bytes and accepts either LF or CRLF source endings.
+The upstream file is a small four-method Win32 adapter. Check all four method
+anchors before replacing the disposable CI checkout. The public MutexHandle
+remains void*; Windows retains the original implementation.
 """
 from __future__ import annotations
 
@@ -19,35 +18,20 @@ def main() -> int:
 
     path = Path(sys.argv[1])
     original = path.read_bytes()
-    newline = b"\r\n" if b"\r\n" in original else b"\n"
-    normalized = original.replace(b"\r\n", b"\n")
+    source = original.decode("latin-1")
+    anchors = (
+        '#include "bdPlatformMutex.h"',
+        "bdPlatformMutex::createMutex()",
+        "bdPlatformMutex::lock(MutexHandle &hand)",
+        "bdPlatformMutex::unlock(MutexHandle &hand)",
+        "bdPlatformMutex::destroy(MutexHandle &hand)",
+    )
+    for anchor in anchors:
+        count = source.count(anchor)
+        if count != 1:
+            raise RuntimeError(f"expected exactly one source anchor {anchor!r}; found {count}")
 
-    expected = b'''#include "bdPlatformMutex.h"
-
-#include <Windows.h>
-
-MutexHandle bdPlatformMutex::createMutex()
-{
-    return CreateMutexA(NULL, FALSE, NULL);
-}
-
-void bdPlatformMutex::lock(MutexHandle &hand)
-{
-    WaitForSingleObject(hand, 0xFFFFFFFF);
-}
-
-void bdPlatformMutex::unlock(MutexHandle &hand)
-{
-    ReleaseMutex(hand);
-}
-
-void bdPlatformMutex::destroy(MutexHandle &hand)
-{
-    ReleaseMutex(hand);
-    CloseHandle(hand);
-}
-'''
-    replacement = b'''#include "bdPlatformMutex.h"
+    replacement = '''#include "bdPlatformMutex.h"
 
 #if defined(_WIN32)
 #include <Windows.h>
@@ -130,11 +114,7 @@ void bdPlatformMutex::destroy(MutexHandle &hand)
 }
 #endif
 '''
-    count = normalized.count(expected)
-    if count != 1:
-        raise RuntimeError(f"expected exactly one original Win32 mutex implementation; found {count}")
-
-    path.write_bytes(replacement.replace(b"\n", newline))
+    path.write_bytes(replacement.encode("ascii"))
     print(f"Applied recursive pthread mutex implementation to {path}")
     return 0
 
