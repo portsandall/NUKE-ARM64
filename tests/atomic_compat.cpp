@@ -54,6 +54,16 @@ int main() {
     PVOID pointer = &a;
     check(InterlockedExchangePointer(&pointer, &b) == &a);
     check(pointer == &b);
+
+    const PVOID sentinel =
+        reinterpret_cast<PVOID>(std::uintptr_t{0xFEDCBA98u});
+    PVOID owner = &a;
+    check(InterlockedCompareExchangePointer(
+              reinterpret_cast<PVOID volatile *>(&owner), sentinel, &a) == &a);
+    check(owner == sentinel);
+    check(InterlockedCompareExchangePointer(
+              reinterpret_cast<PVOID volatile *>(&owner), &b, sentinel) == sentinel);
+    check(owner == &b);
     _ReadWriteBarrier();
     MemoryBarrier();
 

@@ -103,6 +103,63 @@ def transform_source(path: Path) -> None:
         count=2,
     )
 
+    data = replace_once(
+        data,
+        b"ei->m_allocation_owner = (void *)0xFEDCBA98;",
+        b"ei->m_allocation_owner = reinterpret_cast<void *>(static_cast<std::uintptr_t>(0xFEDCBA98u));",
+        "LP64 allocation-owner sentinel initialization",
+    )
+    data = replace_once(
+        data,
+        b"""    if ((phys_slot_pool *)_InterlockedCompareExchange(
+        (volatile unsigned __int32 *)&ei->m_allocation_owner,
+        0xFEDCBA98,
+        (signed __int32)this) != this
+""",
+        b"""    void *const allocation_sentinel =
+        reinterpret_cast<void *>(static_cast<std::uintptr_t>(0xFEDCBA98u));
+    if (InterlockedCompareExchangePointer(
+        reinterpret_cast<void * volatile *>(&ei->m_allocation_owner),
+        allocation_sentinel,
+        this) != this
+""",
+        "LP64 allocation-owner atomic claim",
+    )
+    data = replace_once(
+        data,
+        b"""    _InterlockedExchangeAdd((volatile long *)&this->m_allocated_slot_count, 1u);""",
+        b"""    _InterlockedExchangeAdd((volatile unsigned int *)&this->m_allocated_slot_count, 1u);""",
+        "32-bit allocated-slot counter increment",
+    )
+    data = replace_once(
+        data,
+        b"""    if ((phys_slot_pool *)_InterlockedCompareExchange(
+        (volatile unsigned __int32 *)&ei->m_allocation_owner,
+        (signed __int32)this,
+        0xFEDCBA98) != (phys_slot_pool *)0xFEDCBA98
+""",
+        b"""    void *const allocation_sentinel =
+        reinterpret_cast<void *>(static_cast<std::uintptr_t>(0xFEDCBA98u));
+    if (InterlockedCompareExchangePointer(
+        reinterpret_cast<void * volatile *>(&ei->m_allocation_owner),
+        this,
+        allocation_sentinel) != allocation_sentinel
+""",
+        "LP64 allocation-owner atomic release",
+    )
+    data = replace_once(
+        data,
+        b"""    _InterlockedExchangeAdd((volatile long *)&this->m_allocated_slot_count, (unsigned long)-1);""",
+        b"""    _InterlockedExchangeAdd((volatile unsigned int *)&this->m_allocated_slot_count, 0xFFFFFFFFu);""",
+        "32-bit allocated-slot counter decrement",
+    )
+    data = replace_once(
+        data,
+        b"""    if ((unsigned int)ei->m_allocation_owner != 0xFEDCBA98""",
+        b"""    if (ei->m_allocation_owner != reinterpret_cast<void *>(static_cast<std::uintptr_t>(0xFEDCBA98u))""",
+        "LP64 allocation-owner validation",
+    )
+
     init_start = b"void __cdecl phys_memory_manager_init(void *const memory_buffer, int memory_buffer_size)\n{"
     init_end = b"\nvoid phys_slot_pool::extra_info_init(char *slot)"
     if data.count(init_start) != 1 or data.count(init_end) != 1:
@@ -219,9 +276,15 @@ def main() -> int:
         b"sizeof(this->m_slot_pool_map)",
         b"reinterpret_cast<std::uintptr_t>(memory_buffer)",
         b"sizeof(phys_slot_pool), alignof(phys_slot_pool)",
+        b"InterlockedCompareExchangePointer(",
+        b"volatile unsigned int *)&this->m_allocated_slot_count",
     ):
         if marker not in source_after:
             raise RuntimeError(f"transformed source missing {marker!r}")
+    if source_after.count(b"InterlockedCompareExchangePointer(") != 2:
+        raise RuntimeError("both allocation-owner transitions must use pointer-width atomic compare/exchange")
+    if b"(volatile long *)&this->m_allocated_slot_count" in source_after:
+        raise RuntimeError("LP64 long width must not be used for the 32-bit slot counter")
     constructor = source_after[source_after.index(b"phys_memory_manager::phys_memory_manager"):]
     if b"0x100u" in constructor:
         raise RuntimeError("fixed-size hash-table clearing remains in constructor")
