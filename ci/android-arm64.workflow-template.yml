@@ -85,6 +85,7 @@ jobs:
           python3 "$GITHUB_WORKSPACE/tests/fix_bd_addr_socket_and_array_new_headers.py" "$GITHUB_WORKSPACE/build/upstream/DemonWare/bdCore/bdSocket/bdAddr.h" "$GITHUB_WORKSPACE/build/upstream/DemonWare/bdCore/bdContainers/bdArray.h"
           python3 "$GITHUB_WORKSPACE/tests/fix_bd_array_lp64_returns.py" "$GITHUB_WORKSPACE/build/upstream/DemonWare/bdCore/bdContainers/bdArray.h"
           python3 "$GITHUB_WORKSPACE/tests/port_chull_lp64.py" "$GITHUB_WORKSPACE/build/upstream/src/physics/phys_local.h" "$GITHUB_WORKSPACE/build/upstream/src/physics/phys_convex_hull.cpp"
+          python3 "$GITHUB_WORKSPACE/tests/add_phys_local_stddef_include.py" "$GITHUB_WORKSPACE/build/upstream/src/physics/phys_local.h"
           python3 "$GITHUB_WORKSPACE/tests/port_gjk_runtime_layouts_lp64.py" "$GITHUB_WORKSPACE/build/upstream/src/physics/phys_colgeom.h"
           python3 "$GITHUB_WORKSPACE/tests/port_snapfloat_rounding.py" "$GITHUB_WORKSPACE/build/upstream/src/qcommon/common.h"
           python3 "$GITHUB_WORKSPACE/tests/drop_unused_phys_traverse_d3d_include.py" "$GITHUB_WORKSPACE/build/upstream/src/physics/phys_traverse.h"
