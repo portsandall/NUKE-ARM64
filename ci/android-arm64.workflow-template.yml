@@ -78,6 +78,7 @@ jobs:
           python3 "$GITHUB_WORKSPACE/tests/port_bd_platform_mutex.py" "$GITHUB_WORKSPACE/build/upstream/DemonWare/bdPlatform/bdPlatformThread/bdPlatformMutex.cpp"
           python3 "$GITHUB_WORKSPACE/tests/port_cubemap_types_case.py" "$GITHUB_WORKSPACE/build/upstream/src/CubeMapGenLib/VectorMacros.h"
           python3 "$GITHUB_WORKSPACE/tests/split_xaudio2_dsp_types.py" "$GITHUB_WORKSPACE/build/upstream"
+          python3 "$GITHUB_WORKSPACE/tests/gate_upstream_android_d3d_sources.py" "$GITHUB_WORKSPACE/build/upstream/cmake_files.cmake"
           python3 "$GITHUB_WORKSPACE/tests/gate_upstream_windows_links.py" "$GITHUB_WORKSPACE/build/upstream/CMakeLists.txt"
           grep -B1 -F 'WIN32_EXECUTABLE TRUE' build/upstream/CMakeLists.txt | grep -Fq 'if(WIN32)'
           grep -B3 -F 'VS_DEBUGGER_WORKING_DIRECTORY' build/upstream/CMakeLists.txt | grep -Fq 'if(MSVC AND WIN32)'
