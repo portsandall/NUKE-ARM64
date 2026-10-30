@@ -86,6 +86,7 @@ jobs:
           python3 "$GITHUB_WORKSPACE/tests/fix_bd_array_lp64_returns.py" "$GITHUB_WORKSPACE/build/upstream/DemonWare/bdCore/bdContainers/bdArray.h"
           python3 "$GITHUB_WORKSPACE/tests/port_chull_lp64.py" "$GITHUB_WORKSPACE/build/upstream/src/physics/phys_local.h" "$GITHUB_WORKSPACE/build/upstream/src/physics/phys_convex_hull.cpp"
           python3 "$GITHUB_WORKSPACE/tests/add_phys_local_stddef_include.py" "$GITHUB_WORKSPACE/build/upstream/src/physics/phys_local.h"
+          python3 "$GITHUB_WORKSPACE/tests/port_phys_memory_lp64.py" "$GITHUB_WORKSPACE/build/upstream"
           python3 "$GITHUB_WORKSPACE/tests/port_gjk_runtime_layouts_lp64.py" "$GITHUB_WORKSPACE/build/upstream/src/physics/phys_colgeom.h"
           python3 "$GITHUB_WORKSPACE/tests/port_snapfloat_rounding.py" "$GITHUB_WORKSPACE/build/upstream/src/qcommon/common.h"
           python3 "$GITHUB_WORKSPACE/tests/drop_unused_phys_traverse_d3d_include.py" "$GITHUB_WORKSPACE/build/upstream/src/physics/phys_traverse.h"
@@ -371,6 +372,21 @@ jobs:
             -c "$GITHUB_WORKSPACE/tests/upstream_msvc_extensions.cpp" \
             -o build/upstream-msvc-extensions-android.o
           "$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-readelf" -h build/upstream-msvc-extensions-android.o
+      - name: Compile and run LP64 physics allocator regression on host and Android
+        run: |
+          c++ -std=c++17 -Wall -Wextra -Werror -pthread \
+            -I "$GITHUB_WORKSPACE/tests" \
+            "$GITHUB_WORKSPACE/tests/upstream_phys_buffer_allocator.cpp" \
+            -o build/upstream-phys-buffer-allocator-host
+          ./build/upstream-phys-buffer-allocator-host
+          "$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android26-clang++" \
+            -std=c++17 -Wall -Wextra -Werror -pthread \
+            -I "$GITHUB_WORKSPACE/tests" \
+            "$GITHUB_WORKSPACE/tests/upstream_phys_buffer_allocator.cpp" \
+            -o build/upstream-phys-buffer-allocator-android
+          readelf="$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-readelf"
+          "$readelf" -h build/upstream-phys-buffer-allocator-android | grep -Eq 'Class:[[:space:]]+ELF64'
+          "$readelf" -h build/upstream-phys-buffer-allocator-android | grep -Eq 'Machine:[[:space:]]+AArch64'
       - name: Compile CubeMapGen bounding-box headers on host and Android
         run: |
           c++ -std=c++20 '-D__int64=long long' \
