@@ -84,6 +84,7 @@ jobs:
           python3 "$GITHUB_WORKSPACE/tests/decouple_fxprimitives_material_header.py" "$GITHUB_WORKSPACE/build/upstream/src/gfx_d3d/fxprimitives.h"
           python3 "$GITHUB_WORKSPACE/tests/decouple_dynent_client_scene_header.py" "$GITHUB_WORKSPACE/build/upstream/src/DynEntity/DynEntity_client.cpp" "$GITHUB_WORKSPACE/build/upstream/src/gfx_d3d/r_dynent_scene_api.h"
           python3 "$GITHUB_WORKSPACE/tests/decouple_rope_material_header.py" "$GITHUB_WORKSPACE/build/upstream/src/physics/rope.h"
+          python3 "$GITHUB_WORKSPACE/tests/decouple_nitrous_vehicle_material_header.py" "$GITHUB_WORKSPACE/build/upstream/src/vehicle/nitrous_vehicle.h"
           python3 "$GITHUB_WORKSPACE/tests/remove_d3d9_include_from_xanim.py" "$GITHUB_WORKSPACE/build/upstream/src/xanim/xanim.h"
           python3 "$GITHUB_WORKSPACE/tests/decouple_flame_material_header.py" "$GITHUB_WORKSPACE/build/upstream/src/flame/flame_system.h"
           python3 "$GITHUB_WORKSPACE/tests/add_database_header_to_com_memory.py" "$GITHUB_WORKSPACE/build/upstream/src/universal/com_memory.h" "$GITHUB_WORKSPACE/build/upstream/src/database/database.h"
