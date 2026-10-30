@@ -2,7 +2,7 @@ diff --git a/src/nuke/bd_byte_buffer_compat.h b/src/nuke/bd_byte_buffer_compat.h
 new file mode 100644
 --- /dev/null
 +++ b/src/nuke/bd_byte_buffer_compat.h
-@@ -0,0 +1,17 @@
+@@ -0,0 +1,18 @@
 +#pragma once
 +
 +#include <cstddef>
@@ -30,7 +30,7 @@ diff --git a/DemonWare/bdCore/bdContainers/bdByteBuffer.cpp b/DemonWare/bdCore/b
  #include <DemonWare/bdCore/bdMemory/bdMemory.h>
  #include <cstring>
  #include <universal/q_shared.h>
-@@ -552,10 +553,8 @@ bool bdByteBuffer::writeString(char *buf, unsigned int cnt)
+@@ -552,27 +553,20 @@ bool bdByteBuffer::writeString(char *buf, unsigned int cnt)
  {
 -    int v3; // eax
      bool v5; // [esp+0h] [ebp-2Ch]
@@ -41,7 +41,15 @@ diff --git a/DemonWare/bdCore/bdContainers/bdByteBuffer.cpp b/DemonWare/bdCore/b
      unsigned int v11; // [esp+18h] [ebp-14h]
      unsigned __int8 v12; // [esp+1Eh] [ebp-Eh]
      char v13; // [esp+1Fh] [ebp-Dh]
-@@ -571,8 +570,3 @@ bool bdByteBuffer::writeString(char *buf, unsigned int cnt)
+     unsigned int v14; // [esp+20h] [ebp-Ch]
+     unsigned int v15; // [esp+24h] [ebp-8h]
+     char v16; // [esp+2Bh] [ebp-1h]
+ 
+     v16 = 0;
+     if (!buf)
+         return bdByteBuffer::writeNAN();
+     v14 = 0;
+     v13 = 0;
      v16 = bdByteBuffer::writeDataType(BD_BB_SIGNED_CHAR8_STRING_TYPE);
 -    v3 = (int)memchr((unsigned __int8 *)buf, 0, cnt);
 -    v10 = v3;
