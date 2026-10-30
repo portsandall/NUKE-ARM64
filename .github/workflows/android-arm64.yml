@@ -411,7 +411,10 @@ jobs:
           readelf="$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-readelf"
           header="$("$readelf" -h build/upstream-chull-layout-android.o)"
           printf '%s\n' "$header" | grep -E 'Class:|Machine:'
-          printf '%s\n' "$header" | grep -Eq '^[[:space:]]*Class:[[:space:]]+ELF64[[:space:]]*        run: |
+          printf '%s\n' "$header" | grep -Eq '^[[:space:]]*Class:[[:space:]]+ELF64[[:space:]]*$'
+          printf '%s\n' "$header" | grep -Eq '^[[:space:]]*Machine:[[:space:]]+AArch64[[:space:]]*$'
+      - name: Compile variadic iassert compatibility in host and Android DEBUG/Release modes
+        run: |
           common=(
             -std=c++20 -fdeclspec
             -include "$GITHUB_WORKSPACE/tests/upstream_msvc_compat.h"
