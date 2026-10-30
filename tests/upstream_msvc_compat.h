@@ -1,8 +1,9 @@
 #pragma once
 
-// Microsoft integer and calling-convention spellings used by the pinned
-// KisakBlack headers. Android AArch64 is LP64: int is 32-bit and long long
-// is 64-bit. Keep __declspec(align(...)) compiler-parsed via -fdeclspec.
+// Microsoft integer, calling-convention, and intrinsic spellings used by the
+// pinned KisakBlack headers. Android AArch64 is LP64: int is 32-bit and
+// long long is 64-bit. Keep __declspec(align(...)) compiler-parsed via
+// -fdeclspec.
 #if !defined(_WIN32)
 #ifndef __int8
 #define __int8 char
@@ -18,5 +19,11 @@
 #endif
 #ifndef __cdecl
 #define __cdecl
+#endif
+#ifndef __forceinline
+#define __forceinline inline __attribute__((always_inline))
+#endif
+#ifndef __debugbreak
+#define __debugbreak() __builtin_trap()
 #endif
 #endif
