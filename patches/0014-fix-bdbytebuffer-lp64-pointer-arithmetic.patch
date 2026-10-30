@@ -30,7 +30,7 @@ diff --git a/DemonWare/bdCore/bdContainers/bdByteBuffer.cpp b/DemonWare/bdCore/b
  #include <DemonWare/bdCore/bdMemory/bdMemory.h>
  #include <cstring>
  #include <universal/q_shared.h>
-@@ -552,28 +553,21 @@ bool bdByteBuffer::writeString(char *buf, unsigned int cnt)
+@@ -552,27 +553,20 @@ bool bdByteBuffer::writeString(char *buf, unsigned int cnt)
  {
 -    int v3; // eax
      bool v5; // [esp+0h] [ebp-2Ch]
