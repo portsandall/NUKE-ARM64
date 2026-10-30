@@ -30,11 +30,12 @@ ANDROID_GUARD = (
 def verify(text: str) -> None:
     if text.count(ANDROID_GUARD) != 1:
         raise RuntimeError("expected exactly one verified Android D3D source exclusion block")
-    for variable in ("GFX_D3D_FILES", "CUBEMAPGENLIB_FILES"):
-        if text.count(f"\\t\u007b\u0024{variable}\\}") != 1:
-            raise RuntimeError(f"{variable} must occur exactly once in the executable source list")
     if text.count("add_executable(${BIN_NAME}") != 1:
         raise RuntimeError("expected exactly one KisakBlack executable source list")
+    target_sources = text.split("add_executable(${BIN_NAME}", 1)[1]
+    for variable in ("GFX_D3D_FILES", "CUBEMAPGENLIB_FILES"):
+        if target_sources.count(f"\\t${{{variable}}}") != 1:
+            raise RuntimeError(f"{variable} must occur exactly once in the executable source list")
 
 
 def main() -> int:
