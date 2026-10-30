@@ -83,6 +83,8 @@ jobs:
           python3 "$GITHUB_WORKSPACE/tests/gate_upstream_android_d3d_sources.py" "$GITHUB_WORKSPACE/build/upstream/cmake_files.cmake"
           python3 "$GITHUB_WORKSPACE/tests/decouple_fxprimitives_material_header.py" "$GITHUB_WORKSPACE/build/upstream/src/gfx_d3d/fxprimitives.h"
           python3 "$GITHUB_WORKSPACE/tests/decouple_dynent_client_scene_header.py" "$GITHUB_WORKSPACE/build/upstream/src/DynEntity/DynEntity_client.cpp" "$GITHUB_WORKSPACE/build/upstream/src/gfx_d3d/r_dynent_scene_api.h"
+          python3 "$GITHUB_WORKSPACE/tests/decouple_rope_material_header.py" "$GITHUB_WORKSPACE/build/upstream/src/physics/rope.h"
+          python3 "$GITHUB_WORKSPACE/tests/remove_d3d9_include_from_xanim.py" "$GITHUB_WORKSPACE/build/upstream/src/xanim/xanim.h"
           python3 "$GITHUB_WORKSPACE/tests/remove_unused_bdaddr_server_include.py" "$GITHUB_WORKSPACE/build/upstream/DemonWare/bdCore/bdSocket/bdAddr.h"
           python3 "$GITHUB_WORKSPACE/tests/fix_bd_addr_socket_and_array_new_headers.py" "$GITHUB_WORKSPACE/build/upstream/DemonWare/bdCore/bdSocket/bdAddr.h" "$GITHUB_WORKSPACE/build/upstream/DemonWare/bdCore/bdContainers/bdArray.h"
           python3 "$GITHUB_WORKSPACE/tests/fix_bd_array_lp64_returns.py" "$GITHUB_WORKSPACE/build/upstream/DemonWare/bdCore/bdContainers/bdArray.h"
@@ -472,6 +474,25 @@ jobs:
           printf '%s\n' "$header" | grep -E 'Class:|Machine:'
           printf '%s\n' "$header" | grep -Eq '^[[:space:]]*Class:[[:space:]]+ELF64[[:space:]]*$'
           printf '%s\n' "$header" | grep -Eq '^[[:space:]]*Machine:[[:space:]]+AArch64[[:space:]]*$'
+      - name: Compile rope and XAnim headers without D3D9 SDK coupling
+        run: |
+          common=(
+            -std=c++20 -fdeclspec -Wall -Wextra -Wno-ignored-attributes
+            -DKISAK_MP -DNDEBUG
+            -include "$GITHUB_WORKSPACE/tests/upstream_msvc_compat.h"
+            -I "$GITHUB_WORKSPACE/build/upstream"
+            -I "$GITHUB_WORKSPACE/build/upstream/src"
+            -I "$GITHUB_WORKSPACE/build/upstream/src/libs"
+            -I "$GITHUB_WORKSPACE/build/upstream/src/libs/libtomcrypt-1.17/src/headers"
+            -I "$GITHUB_WORKSPACE/build/upstream/src/libs/libtommath-1.0"
+            -I "$GITHUB_WORKSPACE/build/upstream/src/libs/libvpx-1.5.0/include"
+          )
+          clang++ "${common[@]}" -c tests/upstream_dynent_transitive_d3d9_headers.cpp -o build/upstream-dynent-transitive-d3d9-host.o
+          "$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android26-clang++" "${common[@]}" -c tests/upstream_dynent_transitive_d3d9_headers.cpp -o build/upstream-dynent-transitive-d3d9-android.o
+          header="$("$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-readelf" -h build/upstream-dynent-transitive-d3d9-android.o)"
+          printf '%s\n' "$header" | grep -E 'Class:|Machine:'
+          printf '%s\n' "$header" | grep -Eq '^[[:space:]]*Class:[[:space:]]+ELF64[[:space:]]*$'
+          printf '%s\n' "$header" | grep -Eq '^[[:space:]]*Machine:[[:space:]]+AArch64[[:space:]]*$'
       - name: Compile and verify native LP64 GJK runtime layouts on host and Android
         run: |
           common=(
@@ -662,6 +683,7 @@ jobs:
             build/upstream-sap-outer-layout-host.o
             build/upstream-sap-outer-layout-android.o
             build/upstream-dynent-scene-api-android.o
+            build/upstream-dynent-transitive-d3d9-android.o
             build/upstream-snd-dsp-types-android.o
             build/upstream-iassert-debug-android.o
             build/upstream-thread-android-cmake/nuke-upstream-thread-compat-test
