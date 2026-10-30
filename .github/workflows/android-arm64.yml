@@ -283,6 +283,44 @@ jobs:
           printf '%s\n' "$header" | grep -E 'Class:|Machine:'
           grep -Eq '^[[:space:]]*Class:[[:space:]]+ELF64[[:space:]]*$' <<< "$header" || { echo "Expected upstream file-access executable to be ELF64" >&2; exit 1; }
           grep -Eq '^[[:space:]]*Machine:[[:space:]]+AArch64[[:space:]]*$' <<< "$header" || { echo "Expected upstream file-access executable to be AArch64" >&2; exit 1; }
+      - name: Diagnose complete KisakBlack Android target (non-blocking)
+        shell: bash
+        run: |
+          set -uo pipefail
+          log="$GITHUB_WORKSPACE/build/upstream-android-root-diagnostic.log"
+          mkdir -p build/upstream-root-android
+          : > "$log"
+
+          set +e
+          cmake -S build/upstream -B build/upstream-root-android -G Ninja \
+            -DCMAKE_TOOLCHAIN_FILE="$ANDROID_NDK_HOME/build/cmake/android.toolchain.cmake" \
+            -DANDROID_ABI=arm64-v8a -DANDROID_PLATFORM=android-26 \
+            -DCMAKE_BUILD_TYPE=Release 2>&1 | tee -a "$log"
+          configure_rc=${PIPESTATUS[0]}
+          set -e
+          printf 'ROOT_CONFIGURE_EXIT=%s\n' "$configure_rc" | tee -a "$log"
+
+          if [ "$configure_rc" -eq 0 ]; then
+            set +e
+            timeout 180s cmake --build build/upstream-root-android --target KisakBlack --parallel 2 \
+              2>&1 | tee -a "$log"
+            build_rc=${PIPESTATUS[0]}
+            set -e
+            printf 'ROOT_BUILD_EXIT=%s\n' "$build_rc" | tee -a "$log"
+            if [ "$build_rc" -ne 0 ]; then
+              echo "::warning::Full KisakBlack Android target did not build; diagnostic log uploaded."
+            fi
+          else
+            echo "::warning::Full KisakBlack Android root configure failed; diagnostic log uploaded."
+          fi
+          tail -n 100 "$log"
+      - name: Upload full-engine Android diagnostic
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: kisakblack-android-root-diagnostic
+          path: build/upstream-android-root-diagnostic.log
+          if-no-files-found: warn
       - name: Upload upstream Android regression binaries
         uses: actions/upload-artifact@v6
         with:
