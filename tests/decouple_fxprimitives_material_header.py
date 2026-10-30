@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
-"""Decouple platform-neutral FX primitive declarations from the D3D9 material header.
+"""Decouple FX primitive declarations from the Windows-only D3D9 material header.
 
-The pinned fxprimitives.h only stores Material pointers. Pulling in r_material.h
-therefore leaks the Windows-only d3d9.h dependency into gameplay headers such
-as DynEntity_client.h. This transform edits only the disposable CI checkout.
+The pinned fxprimitives.h uses Material only as pointer fields. Its other
+transitive types come from the platform-neutral database and gfx headers.
+This edits only the disposable pinned-upstream checkout used by CI.
 """
 from __future__ import annotations
 
@@ -12,7 +12,11 @@ import sys
 from pathlib import Path
 
 MATERIAL_INCLUDE = '#include "r_material.h"'
-MATERIAL_FORWARD_DECL = "struct Material;"
+REPLACEMENT = (
+    "#include <database/database.h>\n"
+    "#include <gfx_d3d/r_gfx.h>\n"
+    "struct Material;"
+)
 
 
 def main() -> int:
@@ -32,7 +36,7 @@ def main() -> int:
         raise RuntimeError("expected the shared q_shared.h include exactly once")
 
     # Require every Material use to be pointer-only before replacing its
-    # complete D3D9-backed declaration with a forward declaration.
+    # complete D3D9-backed definition with a forward declaration.
     code = re.sub(r"/\*.*?\*/|//[^\n]*", "", source, flags=re.DOTALL)
     material_names = re.findall(r"\bMaterial\b", code)
     material_pointers = re.findall(r"\bMaterial\s*\*", code)
@@ -42,16 +46,24 @@ def main() -> int:
             "a forward declaration would be unsafe"
         )
 
-    updated = source.replace(MATERIAL_INCLUDE, MATERIAL_FORWARD_DECL, 1)
+    updated = source.replace(MATERIAL_INCLUDE, REPLACEMENT, 1)
     if MATERIAL_INCLUDE in updated:
         raise RuntimeError("D3D9 material header include remains after transform")
-    if updated.count(MATERIAL_FORWARD_DECL) != 1:
-        raise RuntimeError("expected exactly one Material forward declaration")
+    for required in (
+        "#include <database/database.h>",
+        "#include <gfx_d3d/r_gfx.h>",
+        "struct Material;",
+    ):
+        if updated.count(required) != 1:
+            raise RuntimeError(f"expected exactly one {required!r}")
+    if "d3d9.h" in updated:
+        raise RuntimeError("D3D9 header leaked into the platform-neutral FX header")
 
     path.write_text(updated, encoding="utf-8")
     print(
-        f"Replaced D3D9-backed r_material.h include with a Material forward "
-        f"declaration; verified {len(material_pointers)} pointer-only uses."
+        "Replaced r_material.h with database/database.h, gfx_d3d/r_gfx.h, "
+        f"and a Material forward declaration; verified {len(material_pointers)} "
+        "pointer-only Material uses."
     )
     return 0
 
