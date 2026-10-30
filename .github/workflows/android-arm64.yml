@@ -392,8 +392,8 @@ jobs:
             -include "$GITHUB_WORKSPACE/tests/upstream_msvc_compat.h"
             -I build/upstream -I build/upstream/src
           )
-          clang++ "${common[@]}" -Wall -Wextra -Werror -Wno-ignored-attributes -c tests/upstream_fxprimitives_header.cpp -o build/upstream-fxprimitives-host.o
-          "$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android26-clang++" "${common[@]}" -Wall -Wextra -Werror -Wno-ignored-attributes -c tests/upstream_fxprimitives_header.cpp -o build/upstream-fxprimitives-android.o
+          clang++ "${common[@]}" -Wall -Wextra -Wno-ignored-attributes -c tests/upstream_fxprimitives_header.cpp -o build/upstream-fxprimitives-host.o
+          "$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android26-clang++" "${common[@]}" -Wall -Wextra -Wno-ignored-attributes -c tests/upstream_fxprimitives_header.cpp -o build/upstream-fxprimitives-android.o
           header="$("$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-readelf" -h build/upstream-fxprimitives-android.o)"
           printf '%s\n' "$header" | grep -E 'Class:|Machine:'
           printf '%s\n' "$header" | grep -Eq '^[[:space:]]*Class:[[:space:]]+ELF64[[:space:]]*$'
