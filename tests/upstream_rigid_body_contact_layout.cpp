@@ -13,8 +13,8 @@ static_assert(sizeof(contact_slot) == 0x70,
               "contact free-list wrapper LP64 size changed");
 static_assert(alignof(contact_slot) == 8,
               "contact free-list wrapper LP64 alignment changed");
-static_assert(contact_list::allocation_alignment == 8,
-              "contact free-list allocation must preserve native pointer alignment");
+static_assert(contact_list::allocation_alignment == 16,
+              "contact free-list allocation preserves the existing 16-byte PMM size-class policy");
 static_assert(sizeof(contact_slot) % contact_list::allocation_alignment == 0,
               "contact slot size must be a multiple of its allocation alignment");
 static_assert(std::is_same_v<decltype(phys_simple_link_list<contact_point_info>::m_first),
