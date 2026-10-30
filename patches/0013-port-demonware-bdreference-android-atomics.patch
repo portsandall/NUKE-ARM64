@@ -1,7 +1,7 @@
 diff --git a/DemonWare/bdCore/bdReference/bdReferencable.h b/DemonWare/bdCore/bdReference/bdReferencable.h
 --- a/DemonWare/bdCore/bdReference/bdReferencable.h
 +++ b/DemonWare/bdCore/bdReference/bdReferencable.h
-@@ -1,6 +1,11 @@
+@@ -1,7 +1,12 @@
  #pragma once
  
 +#if defined(_WIN32)
@@ -16,7 +16,7 @@ diff --git a/DemonWare/bdCore/bdReference/bdReferencable.h b/DemonWare/bdCore/bd
 diff --git a/src/nuke/win_atomic_compat.h b/src/nuke/win_atomic_compat.h
 --- a/src/nuke/win_atomic_compat.h
 +++ b/src/nuke/win_atomic_compat.h
-@@ -47,3 +47,6 @@
+@@ -42,3 +42,6 @@
  inline std::uint32_t _InterlockedDecrement(volatile std::uint32_t* p) noexcept {
      return __atomic_sub_fetch(p, std::uint32_t{1}, __ATOMIC_SEQ_CST);
  }
