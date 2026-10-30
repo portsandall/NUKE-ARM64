@@ -78,6 +78,7 @@ jobs:
           python3 "$GITHUB_WORKSPACE/tests/port_bd_platform_mutex.py" "$GITHUB_WORKSPACE/build/upstream/DemonWare/bdPlatform/bdPlatformThread/bdPlatformMutex.cpp"
           python3 "$GITHUB_WORKSPACE/tests/port_cubemap_types_case.py" "$GITHUB_WORKSPACE/build/upstream/src/CubeMapGenLib/VectorMacros.h"
           python3 "$GITHUB_WORKSPACE/tests/split_xaudio2_dsp_types.py" "$GITHUB_WORKSPACE/build/upstream"
+          python3 "$GITHUB_WORKSPACE/tests/port_variadic_iassert.py" "$GITHUB_WORKSPACE/build/upstream/src/universal/assertive.h"
           python3 "$GITHUB_WORKSPACE/tests/gate_upstream_android_d3d_sources.py" "$GITHUB_WORKSPACE/build/upstream/cmake_files.cmake"
           python3 "$GITHUB_WORKSPACE/tests/gate_upstream_windows_links.py" "$GITHUB_WORKSPACE/build/upstream/CMakeLists.txt"
           grep -B1 -F 'WIN32_EXECUTABLE TRUE' build/upstream/CMakeLists.txt | grep -Fq 'if(WIN32)'
@@ -380,6 +381,21 @@ jobs:
           printf '%s\n' "$header" | grep -E 'Class:|Machine:'
           printf '%s\n' "$header" | grep -Eq '^[[:space:]]*Class:[[:space:]]+ELF64[[:space:]]*$'
           printf '%s\n' "$header" | grep -Eq '^[[:space:]]*Machine:[[:space:]]+AArch64[[:space:]]*$'
+      - name: Compile variadic iassert compatibility in host and Android DEBUG/Release modes
+        run: |
+          common=(
+            -std=c++20 -fdeclspec
+            -include "$GITHUB_WORKSPACE/tests/upstream_msvc_compat.h"
+            -I build/upstream -I build/upstream/src
+          )
+          clang++ "${common[@]}" -D_DEBUG -c tests/upstream_iassert_variadic.cpp -o build/upstream-iassert-debug-host.o
+          clang++ "${common[@]}" -c tests/upstream_iassert_variadic.cpp -o build/upstream-iassert-release-host.o
+          "$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android26-clang++" "${common[@]}" -D_DEBUG -c tests/upstream_iassert_variadic.cpp -o build/upstream-iassert-debug-android.o
+          "$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android26-clang++" "${common[@]}" -c tests/upstream_iassert_variadic.cpp -o build/upstream-iassert-release-android.o
+          header="$("$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-readelf" -h build/upstream-iassert-debug-android.o)"
+          printf '%s\n' "$header" | grep -E 'Class:|Machine:'
+          printf '%s\n' "$header" | grep -Eq '^[[:space:]]*Class:[[:space:]]+ELF64[[:space:]]*$'
+          printf '%s\n' "$header" | grep -Eq '^[[:space:]]*Machine:[[:space:]]+AArch64[[:space:]]*$'
       - name: Diagnose complete KisakBlack Android target (non-blocking)
         shell: bash
         run: |
@@ -431,6 +447,7 @@ jobs:
             build/upstream-bd-platform-mutex-android
             build/upstream-msvc-extensions-android.o
             build/upstream-snd-dsp-types-android.o
+            build/upstream-iassert-debug-android.o
             build/upstream-thread-android-cmake/nuke-upstream-thread-compat-test
             build/upstream-base64-android-cmake/nuke-upstream-base64-test
             build/nuke-upstream-angle-vectors-android.o
