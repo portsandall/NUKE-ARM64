@@ -82,6 +82,7 @@ jobs:
           python3 "$GITHUB_WORKSPACE/tests/gate_upstream_android_d3d_sources.py" "$GITHUB_WORKSPACE/build/upstream/cmake_files.cmake"
           python3 "$GITHUB_WORKSPACE/tests/remove_unused_bdaddr_server_include.py" "$GITHUB_WORKSPACE/build/upstream/DemonWare/bdCore/bdSocket/bdAddr.h"
           python3 "$GITHUB_WORKSPACE/tests/fix_bd_addr_socket_and_array_new_headers.py" "$GITHUB_WORKSPACE/build/upstream/DemonWare/bdCore/bdSocket/bdAddr.h" "$GITHUB_WORKSPACE/build/upstream/DemonWare/bdCore/bdContainers/bdArray.h"
+          python3 "$GITHUB_WORKSPACE/tests/fix_bd_array_lp64_returns.py" "$GITHUB_WORKSPACE/build/upstream/DemonWare/bdCore/bdContainers/bdArray.h"
           python3 "$GITHUB_WORKSPACE/tests/gate_upstream_windows_links.py" "$GITHUB_WORKSPACE/build/upstream/CMakeLists.txt"
           grep -B1 -F 'WIN32_EXECUTABLE TRUE' build/upstream/CMakeLists.txt | grep -Fq 'if(WIN32)'
           grep -B3 -F 'VS_DEBUGGER_WORKING_DIRECTORY' build/upstream/CMakeLists.txt | grep -Fq 'if(MSVC AND WIN32)'
