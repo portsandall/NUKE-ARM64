@@ -19,3 +19,7 @@ static_assert(sizeof(DvarLimits) == 16, "DvarLimits layout changed");
 static_assert(alignof(dvar_s) == 8, "dvar_s must remain 8-byte aligned");
 static_assert(alignof(bdBitBuffer) >= 4, "bdBitBuffer alignment regressed");
 static_assert(alignof(bdByteBuffer) >= 2, "bdByteBuffer alignment regressed");
+
+// Include the native-pointer physics-node layout regression in the existing
+// host and Android MSVC-extension compile probe.
+#include "upstream_chull_layout.cpp"
