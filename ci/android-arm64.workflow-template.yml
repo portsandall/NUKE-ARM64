@@ -69,6 +69,7 @@ jobs:
           git -C build/upstream apply --ignore-whitespace "$GITHUB_WORKSPACE/patches/0011-gate-win32-only-cmake-defines.patch"
           git -C build/upstream apply --ignore-whitespace --check "$GITHUB_WORKSPACE/patches/0012-gate-directx-sdk-paths.patch"
           git -C build/upstream apply --ignore-whitespace "$GITHUB_WORKSPACE/patches/0012-gate-directx-sdk-paths.patch"
+          python3 "$GITHUB_WORKSPACE/tests/gate_upstream_windows_links.py" "$GITHUB_WORKSPACE/build/upstream/CMakeLists.txt"
           grep -B1 -F 'WIN32_EXECUTABLE TRUE' build/upstream/CMakeLists.txt | grep -Fq 'if(WIN32)'
           grep -B3 -F 'VS_DEBUGGER_WORKING_DIRECTORY' build/upstream/CMakeLists.txt | grep -Fq 'if(MSVC AND WIN32)'
           grep -Fq 'if(MSVC)' build/upstream/CMakeLists.txt
@@ -104,6 +105,37 @@ jobs:
               assert lines[i - 1].strip() == "if(WIN32)", f"DirectX SDK path is not Windows-gated at line {i + 1}"
               assert lines[i + 1].strip() == "endif()", f"DirectX SDK path guard is malformed at line {i + 1}"
           print("Verified DirectX SDK include and x86 library paths are Windows-only")
+          PY
+          python3 - <<'PY'
+          from pathlib import Path
+
+          lines = Path("build/upstream/CMakeLists.txt").read_text().splitlines()
+          vendor_markers = (
+              'target_link_directories(KisakBlack PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/src/steam/redistributable_bin")',
+              'target_link_directories(KisakBlack PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/src/binklib")',
+              'target_link_directories(KisakBlack PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/src/nvapi")',
+          )
+          indexes = [[i for i, line in enumerate(lines) if marker in line] for marker in vendor_markers]
+          assert all(len(found) == 1 for found in indexes), "expected exactly three Windows vendor path entries"
+          first = indexes[0][0]
+          assert lines[first - 1].strip() == "if(WIN32)", "vendor link directories must begin under if(WIN32)"
+          assert [lines[first + j].strip() for j in range(3)] == [m.strip() for m in vendor_markers], "vendor path block order/content changed"
+          assert lines[first + 3].strip() == "endif()", "vendor link-directory guard must close"
+
+          link_start = lines.index("# ----- Links -----") + 1
+          end_candidates = [i for i in range(link_start, len(lines)) if lines[i].strip() == "if(MSVC AND WIN32 AND CMAKE_SIZEOF_VOID_P EQUAL 4)"]
+          assert end_candidates, "expected following MSVC-only 32-bit linker guard"
+          links = "\n".join(lines[link_start:end_candidates[0]])
+          assert lines[link_start].strip() == "if(WIN32)", "Windows import-library links must start under if(WIN32)"
+          assert links.rstrip().endswith("endif()"), "Windows library guard must close before compiler-specific linker flags"
+          for library in (
+              "steam_api.lib", "binkw32.lib", "nvapi.lib", "d3d9.lib",
+              "ws2_32.lib", "dxguid.lib", "dsound.lib", "winmm.lib",
+              "xinput.lib", "xapobase.lib", "dxerr.lib", "libvpx.lib",
+              "legacy_stdio_definitions.lib", "d3dx9d.lib", "d3dx9.lib",
+          ):
+              assert library in links, f"Expected Windows library missing from guarded block: {library}"
+          print("Verified Windows vendor paths and import-library links are gated")
           PY
           test -f build/upstream/src/nuke/win_thread_compat.h
           grep -q '#include <nuke/win_thread_compat.h>' build/upstream/tl/base/tl_thread.h
@@ -267,6 +299,8 @@ jobs:
   host-tests:
     runs-on: ubuntu-latest
     steps:
+      - name: Verify workflow template parity
+        run: cmp --silent .github/workflows/android-arm64.yml ci/android-arm64.workflow-template.yml
       - uses: actions/checkout@v5
       - run: cmake -S . -B build/host -G Ninja -DCMAKE_BUILD_TYPE=Debug
       - run: cmake --build build/host
