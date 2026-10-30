@@ -2,6 +2,7 @@
 #include <xanim/xanim.h>
 #include <flame/flame_system.h>
 #include <universal/com_memory.h>
+#include <gfx_d3d/r_utils.h>
 
 #include <type_traits>
 
