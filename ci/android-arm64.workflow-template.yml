@@ -76,6 +76,7 @@ jobs:
           python3 "$GITHUB_WORKSPACE/tests/port_bd_cypher3des.py" "$GITHUB_WORKSPACE/build/upstream/DemonWare/bdCore/bdCrypto/bdCypher3Des.cpp"
           ! grep -Fq 'static void des3_done' build/upstream/DemonWare/bdCore/bdCrypto/bdCypher3Des.cpp
           python3 "$GITHUB_WORKSPACE/tests/port_bd_platform_mutex.py" "$GITHUB_WORKSPACE/build/upstream/DemonWare/bdPlatform/bdPlatformThread/bdPlatformMutex.cpp"
+          python3 "$GITHUB_WORKSPACE/tests/port_cubemap_types_case.py" "$GITHUB_WORKSPACE/build/upstream/src/CubeMapGenLib/VectorMacros.h"
           python3 "$GITHUB_WORKSPACE/tests/gate_upstream_windows_links.py" "$GITHUB_WORKSPACE/build/upstream/CMakeLists.txt"
           grep -B1 -F 'WIN32_EXECUTABLE TRUE' build/upstream/CMakeLists.txt | grep -Fq 'if(WIN32)'
           grep -B3 -F 'VS_DEBUGGER_WORKING_DIRECTORY' build/upstream/CMakeLists.txt | grep -Fq 'if(MSVC AND WIN32)'
@@ -345,6 +346,13 @@ jobs:
             -c "$GITHUB_WORKSPACE/tests/upstream_msvc_extensions.cpp" \
             -o build/upstream-msvc-extensions-android.o
           "$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-readelf" -h build/upstream-msvc-extensions-android.o
+      - name: Compile CubeMapGen bounding-box headers on host and Android
+        run: |
+          common=(-std=c++20 -fdeclspec -I build/upstream -I build/upstream/src -include "$GITHUB_WORKSPACE/tests/upstream_msvc_compat.h")
+          c++ "${common[@]}" -c tests/upstream_cubemap_headers.cpp -o build/upstream-cubemap-headers-host.o
+          "$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android26-clang++" "${common[@]}" -c tests/upstream_cubemap_headers.cpp -o build/upstream-cubemap-headers-android.o
+          "$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-readelf" -h build/upstream-cubemap-headers-android.o | grep -Eq 'Class:[[:space:]]+ELF64'
+          "$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-readelf" -h build/upstream-cubemap-headers-android.o | grep -Eq 'Machine:[[:space:]]+AArch64'
       - name: Diagnose complete KisakBlack Android target (non-blocking)
         shell: bash
         run: |
