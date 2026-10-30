@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
-"""Remove the unnecessary Windows SDK include from generic job-queue declarations.
+"""Make generic job-queue declarations and storage layout LP64-safe.
 
-The header uses LONG64 for one signed 64-bit thread-id field and memcpy in
-its inline queue methods. Neither requires the Windows SDK: __int64 is
-already covered by the repository's MSVC-compatibility preinclude, and
-<string.h> declares memcpy for this C-style header.
+The header's Windows include was only supplying LONG64, memcpy and offsetof.
+The 32-bit jqBatch assertion describes the original x86 runtime object, not
+serialized data: the queue allocates nodes using sizeof(NodeType) and copies
+batches using sizeof(jqBatch). On LP64, retain native pointer widths and
+request sufficient alignment for the node's pointer members.
 """
 from pathlib import Path
 import sys
@@ -12,7 +13,20 @@ import sys
 WINDOWS_INCLUDE = "#include <Windows.h>"
 OLD_THREAD_ID = "volatile LONG64 ThreadId;"
 NEW_THREAD_ID = "volatile __int64 ThreadId;"
-STRING_HEADER = "#include <string.h>"
+OLD_BATCH_ASSERT = "static_assert(sizeof(jqBatch) == 124);"
+NEW_BATCH_ASSERT = (
+    'static_assert(sizeof(jqBatch) == (sizeof(void *) == 8 ? 152 : 124), '
+    '"jqBatch is an internal runtime queue payload with native pointers");'
+)
+OLD_NODE_ALLOC = "tlMemAlloc(blockSize + sizeof(NodeBlockEntry), 4u, 0);"
+NEW_NODE_ALLOC = "tlMemAlloc(blockSize + sizeof(NodeBlockEntry), alignof(NodeType), 0);"
+
+
+def replace_once(source: str, old: str, new: str, label: str) -> str:
+    count = source.count(old)
+    if count != 1:
+        raise ValueError(f"expected one {label}, found {count}")
+    return source.replace(old, new, 1)
 
 
 def main() -> int:
@@ -26,28 +40,36 @@ def main() -> int:
         return 2
 
     source = path.read_text(encoding="utf-8")
-    if source.count(WINDOWS_INCLUDE) != 1:
-        print("expected exactly one Windows.h include in jobqueue_all.h", file=sys.stderr)
+    if "memcpy(" not in source or "offsetof(" not in source:
+        print("expected inline memcpy and offsetof uses in jobqueue_all.h", file=sys.stderr)
         return 1
-    if source.count(OLD_THREAD_ID) != 1:
-        print("expected exactly one LONG64 thread-id field in jobqueue_all.h", file=sys.stderr)
-        return 1
-    if "memcpy(" not in source:
-        print("expected inline memcpy use in jobqueue_all.h", file=sys.stderr)
+    if "#include <stddef.h>" in source or "#include <string.h>" in source:
+        print("jobqueue_all.h already contains one of the required C headers", file=sys.stderr)
         return 1
 
-    updated = source.replace(WINDOWS_INCLUDE, STRING_HEADER, 1)
-    updated = updated.replace(OLD_THREAD_ID, NEW_THREAD_ID, 1)
+    updated = replace_once(
+        source, WINDOWS_INCLUDE,
+        "#include <stddef.h>\n#include <string.h>",
+        "Windows SDK include",
+    )
+    updated = replace_once(updated, OLD_THREAD_ID, NEW_THREAD_ID, "64-bit thread ID")
+    updated = replace_once(updated, OLD_BATCH_ASSERT, NEW_BATCH_ASSERT, "jqBatch size assertion")
+    updated = replace_once(updated, OLD_NODE_ALLOC, NEW_NODE_ALLOC, "job-queue node allocation")
 
     if WINDOWS_INCLUDE in updated or "LONG64" in updated:
         print("Windows-specific declaration remains in jobqueue_all.h", file=sys.stderr)
         return 1
-    if updated.count(STRING_HEADER) != 1:
-        print("expected one string.h include after transformation", file=sys.stderr)
+    if updated.count("#include <stddef.h>") != 1 or updated.count("#include <string.h>") != 1:
+        print("expected one declaration include for offsetof and memcpy", file=sys.stderr)
+        return 1
+    if OLD_NODE_ALLOC in updated or NEW_NODE_ALLOC not in updated:
+        print("job-queue node allocation alignment was not updated", file=sys.stderr)
         return 1
 
     path.write_text(updated, encoding="utf-8")
-    print("Removed job-queue header's Windows.h dependency; retained signed 64-bit ThreadId and memcpy declaration.")
+    print("Removed jobqueue_all.h Windows SDK header dependency.")
+    print("Preserved signed 64-bit thread IDs and added standard declarations for offsetof/memcpy.")
+    print("Made jqBatch size architecture-aware and aligned node blocks to alignof(NodeType).")
     return 0
 
 
