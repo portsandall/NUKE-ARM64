@@ -1,25 +1,18 @@
 diff --git a/DemonWare/bdCore/bdReference/bdReferencable.h b/DemonWare/bdCore/bdReference/bdReferencable.h
 --- a/DemonWare/bdCore/bdReference/bdReferencable.h
 +++ b/DemonWare/bdCore/bdReference/bdReferencable.h
-@@ -1,7 +1,11 @@
+@@ -1,7 +1,14 @@
  #pragma once
  
 +#if defined(_WIN32)
  #include <Windows.h>
 +#else
 +#include <nuke/win_atomic_compat.h>
++inline std::uint32_t InterlockedDecrement(volatile std::uint32_t* p) noexcept {
++    return _InterlockedDecrement(p);
++}
 +#endif
  
  template <typename T>
  struct bdReference//<bdByteBuffer> // sizeof=0x4
  {                                                                             // XREF: bdRemoteTask/r
-diff --git a/src/nuke/win_atomic_compat.h b/src/nuke/win_atomic_compat.h
---- a/src/nuke/win_atomic_compat.h
-+++ b/src/nuke/win_atomic_compat.h
-@@ -42,3 +42,6 @@
- inline std::uint32_t _InterlockedDecrement(volatile std::uint32_t* p) noexcept {
-     return __atomic_sub_fetch(p, std::uint32_t{1}, __ATOMIC_SEQ_CST);
- }
-+inline std::uint32_t InterlockedDecrement(volatile std::uint32_t* p) noexcept {
-+    return _InterlockedDecrement(p);
-+}
