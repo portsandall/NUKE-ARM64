@@ -16,9 +16,18 @@ ALIGN = f"{CONTACT}::allocation_alignment"
 SIZE = f"sizeof({TI})"
 
 
-def replace_count(source: str, old: str, new: str, expected: int, label: str) -> str:
+def replace_count(
+    source: str,
+    old: str,
+    new: str,
+    expected: int,
+    label: str,
+    ignore_new: str = "",
+) -> str:
     old_count = source.count(old)
-    new_count = source.count(new)
+    # A replacement token may also appear in a declaration introduced by the
+    # same transform. Exclude that declaration when counting transformed uses.
+    new_count = source.count(new) - (source.count(ignore_new) if ignore_new else 0)
     if old_count == expected and new_count == 0:
         source = source.replace(old, new)
         print(f"Updated {label} ({expected})")
@@ -86,6 +95,7 @@ def main() -> int:
         "allocation_alignment",
         4,
         "generic free-list allocate/validate/free alignment",
+        ignore_new="static constexpr unsigned int allocation_alignment",
     )
     text = prefix + marker + tail
     paths["phys_local"].write_text(text, encoding="utf-8")
