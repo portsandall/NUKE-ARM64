@@ -1,5 +1,6 @@
 #include <physics/rope.h>
 #include <xanim/xanim.h>
+#include <flame/flame_system.h>
 #include <universal/com_memory.h>
 
 #include <type_traits>
@@ -10,6 +11,10 @@ static_assert(std::is_same_v<decltype(VisualRope::drawSurf), GfxDrawSurf *>,
               "VisualRope drawSurf must remain a GfxDrawSurf pointer");
 static_assert(std::is_same_v<decltype(rope_t::m_material), const Material *>,
               "rope_t material must remain a Material pointer");
+static_assert(std::is_same_v<decltype(flameTable::fire), Material *>,
+              "flameTable fire material must remain a Material pointer");
+static_assert(std::is_same_v<decltype(flameTable::streamFuel2), Material *>,
+              "flameTable stream material must remain a Material pointer");
 static_assert(std::is_same_v<decltype(XSurface::vb0), IDirect3DVertexBuffer9 *>,
               "XSurface vertex buffer pointer ABI changed");
 static_assert(std::is_same_v<decltype(XSurface::indexBuffer), IDirect3DIndexBuffer9 *>,
