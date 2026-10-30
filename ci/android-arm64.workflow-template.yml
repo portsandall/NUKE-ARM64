@@ -94,6 +94,7 @@ jobs:
           python3 "$GITHUB_WORKSPACE/tests/port_rigid_body_contact_lp64.py" "$GITHUB_WORKSPACE/build/upstream"
           python3 "$GITHUB_WORKSPACE/tests/port_gjk_cache_lp64.py" "$GITHUB_WORKSPACE/build/upstream"
           python3 "$GITHUB_WORKSPACE/tests/port_broad_phase_memory_layout_lp64.py" "$GITHUB_WORKSPACE/build/upstream/src/physics/phys_broad_phase.h"
+          python3 "$GITHUB_WORKSPACE/tests/port_sap_outer_layout_lp64.py" "$GITHUB_WORKSPACE/build/upstream/src/physics/phys_broad_phase.h" "$GITHUB_WORKSPACE/build/upstream/src/physics/phys_broad_phase.cpp"
           python3 "$GITHUB_WORKSPACE/tests/port_snapfloat_rounding.py" "$GITHUB_WORKSPACE/build/upstream/src/qcommon/common.h"
           python3 "$GITHUB_WORKSPACE/tests/drop_unused_phys_traverse_d3d_include.py" "$GITHUB_WORKSPACE/build/upstream/src/physics/phys_traverse.h"
           python3 "$GITHUB_WORKSPACE/tests/add_cm_trace_string_include.py" "$GITHUB_WORKSPACE/build/upstream/src/qcommon/cm_trace.h"
@@ -532,6 +533,21 @@ jobs:
           printf '%s\n' "$header" | grep -Eq '^[[:space:]]*Class:[[:space:]]+ELF64[[:space:]]*$'
           printf '%s\n' "$header" | grep -Eq '^[[:space:]]*Machine:[[:space:]]+AArch64[[:space:]]*$'
 
+      - name: Compile native LP64 sweep-and-prune outer layout on host and Android
+        run: |
+          common=(
+            -std=c++20 -fdeclspec -Wall -Wextra -Wno-ignored-attributes
+            -include "$GITHUB_WORKSPACE/tests/upstream_msvc_compat.h"
+            -I "$GITHUB_WORKSPACE/build/upstream"
+            -I "$GITHUB_WORKSPACE/build/upstream/src"
+          )
+          clang++ "${common[@]}" -c "$GITHUB_WORKSPACE/tests/upstream_sap_outer_layout.cpp" -o build/upstream-sap-outer-layout-host.o
+          "$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android26-clang++" "${common[@]}" -c "$GITHUB_WORKSPACE/tests/upstream_sap_outer_layout.cpp" -o build/upstream-sap-outer-layout-android.o
+          header="$("$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-readelf" -h build/upstream-sap-outer-layout-android.o)"
+          printf '%s\\n' "$header" | grep -E 'Class:|Machine:'
+          printf '%s\\n' "$header" | grep -Eq '^[[:space:]]*Class:[[:space:]]+ELF64[[:space:]]*$'
+          printf '%s\\n' "$header" | grep -Eq '^[[:space:]]*Machine:[[:space:]]+AArch64[[:space:]]*$'
+
       - name: Compile generic job-queue declarations on host and Android
         run: |
           common=(
@@ -629,6 +645,8 @@ jobs:
             build/upstream-auto-activate-layout-android.o
             build/upstream-phys-collision-pair-layout-android.o
             build/upstream-broad-phase-memory-layout-android.o
+            build/upstream-sap-outer-layout-host.o
+            build/upstream-sap-outer-layout-android.o
             build/upstream-snd-dsp-types-android.o
             build/upstream-iassert-debug-android.o
             build/upstream-thread-android-cmake/nuke-upstream-thread-compat-test
