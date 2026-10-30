@@ -1,7 +1,7 @@
 diff --git a/DemonWare/bdCore/bdReference/bdReferencable.h b/DemonWare/bdCore/bdReference/bdReferencable.h
 --- a/DemonWare/bdCore/bdReference/bdReferencable.h
 +++ b/DemonWare/bdCore/bdReference/bdReferencable.h
-@@ -1,6 +1,10 @@
+@@ -1,6 +1,11 @@
  #pragma once
  
 +#if defined(_WIN32)
