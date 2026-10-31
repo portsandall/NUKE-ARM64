@@ -1,5 +1,0 @@
-diff --git a/src/demo/demo_common.h b/src/demo/demo_common.h
---- a/src/demo/demo_common.h
-+++ b/src/demo/demo_common.h
-@@ -1,0 +2 @@
-+#include <client_mp/client_mp.h>
