@@ -24,13 +24,13 @@ def main() -> int:
         anchor = "#pragma once"
         if demo_source.count(anchor) != 1:
             raise SystemExit("demo_common.h does not have a unique #pragma once anchor")
-        demo_source = demo_source.replace(anchor, anchor + "\\n" + include, 1)
+        demo_source = demo_source.replace(anchor, anchor + "\n" + include, 1)
         demo_header.write_text(demo_source, encoding="utf-8")
     elif count != 1:
         raise SystemExit("demo_common.h contains duplicate client_mp.h includes")
 
     verified = demo_header.read_text(encoding="utf-8")
-    if verified.count(include) != 1 or not verified.startswith("#pragma once\\n" + include):
+    if verified.count(include) != 1 or not verified.startswith("#pragma once\n" + include):
         raise SystemExit("client-state include insertion did not verify")
     print("Verified demo_common.h includes the complete clientState_s definition")
     return 0
