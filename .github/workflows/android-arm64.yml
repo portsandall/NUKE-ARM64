@@ -105,6 +105,7 @@ jobs:
           python3 "$GITHUB_WORKSPACE/tests/port_sap_outer_layout_lp64.py" "$GITHUB_WORKSPACE/build/upstream/src/physics/phys_broad_phase.h" "$GITHUB_WORKSPACE/build/upstream/src/physics/phys_broad_phase.cpp"
           python3 "$GITHUB_WORKSPACE/tests/port_com_primary_light_lp64.py" "$GITHUB_WORKSPACE/build/upstream/src/qcommon/com_bsp_load_obj.h" "$GITHUB_WORKSPACE/build/upstream/src/gfx_d3d/r_primarylights.h" "$GITHUB_WORKSPACE/build/upstream/src/qcommon/com_bsp_load_obj.cpp"
           python3 "$GITHUB_WORKSPACE/tests/port_stringtable_lp64.py" "$GITHUB_WORKSPACE/build/upstream/src/universal/com_stringtable.h"
+          python3 "$GITHUB_WORKSPACE/tests/port_dynent_material_fastfile_lookup.py" "$GITHUB_WORKSPACE/build/upstream/src/DynEntity/DynEntity_load_obj.cpp" "$GITHUB_WORKSPACE/build/upstream/src/database/db_material_fastfile.h"
           python3 "$GITHUB_WORKSPACE/tests/port_snapfloat_rounding.py" "$GITHUB_WORKSPACE/build/upstream/src/qcommon/common.h"
           python3 "$GITHUB_WORKSPACE/tests/drop_unused_phys_traverse_d3d_include.py" "$GITHUB_WORKSPACE/build/upstream/src/physics/phys_traverse.h"
           python3 "$GITHUB_WORKSPACE/tests/add_cm_trace_string_include.py" "$GITHUB_WORKSPACE/build/upstream/src/qcommon/cm_trace.h"
@@ -403,6 +404,20 @@ jobs:
           readelf="$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-readelf"
           "$readelf" -h build/upstream-stringtable-lp64-android | grep -Eq 'Class:[[:space:]]+ELF64'
           "$readelf" -h build/upstream-stringtable-lp64-android | grep -Eq 'Machine:[[:space:]]+AArch64'
+      - name: Compile and run Android FastFile material lookup regression on host and Android
+        run: |
+          common=(
+            -std=c++20 -fdeclspec
+            -include "$GITHUB_WORKSPACE/tests/upstream_msvc_compat.h"
+            -Wall -Wextra -Werror
+            -I "$GITHUB_WORKSPACE/build/upstream/src"
+          )
+          clang++ "${common[@]}" "$GITHUB_WORKSPACE/tests/upstream_dynent_material_fastfile_lookup.cpp" -o build/upstream-dynent-material-fastfile-host
+          ./build/upstream-dynent-material-fastfile-host
+          "$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android26-clang++" "${common[@]}" "$GITHUB_WORKSPACE/tests/upstream_dynent_material_fastfile_lookup.cpp" -o build/upstream-dynent-material-fastfile-android
+          readelf="$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-readelf"
+          "$readelf" -h build/upstream-dynent-material-fastfile-android | grep -Eq 'Class:[[:space:]]+ELF64'
+          "$readelf" -h build/upstream-dynent-material-fastfile-android | grep -Eq 'Machine:[[:space:]]+AArch64'
       - name: Compile and run LP64 physics allocator regression on host and Android
         run: |
           c++ -std=c++17 -Wall -Wextra -Werror -pthread \
