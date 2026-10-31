@@ -1,0 +1,61 @@
+diff --git a/src/nuke/bd_byte_buffer_compat.h b/src/nuke/bd_byte_buffer_compat.h
+new file mode 100644
+--- /dev/null
++++ b/src/nuke/bd_byte_buffer_compat.h
+@@ -0,0 +1,18 @@
++#pragma once
++
++#include <cstddef>
++#include <cstdint>
++#include <cstring>
++
++namespace nuke
++{
++inline std::uint32_t boundedCStringLength(const char* buffer,
++                                         std::uint32_t limit) noexcept
++{
++    const auto* terminator = static_cast<const char*>(
++        std::memchr(buffer, '\0', static_cast<std::size_t>(limit)));
++    if (terminator == nullptr)
++        return limit;
++    return static_cast<std::uint32_t>(terminator - buffer);
++}
++} // namespace nuke
+diff --git a/DemonWare/bdCore/bdContainers/bdByteBuffer.cpp b/DemonWare/bdCore/bdContainers/bdByteBuffer.cpp
+--- a/DemonWare/bdCore/bdContainers/bdByteBuffer.cpp
++++ b/DemonWare/bdCore/bdContainers/bdByteBuffer.cpp
+@@ -1,4 +1,5 @@
+ #include "bdByteBuffer.h"
++#include <nuke/bd_byte_buffer_compat.h>
+ #include <DemonWare/bdCore/bdMemory/bdMemory.h>
+ #include <cstring>
+ #include <universal/q_shared.h>
+@@ -552,27 +553,20 @@ bool bdByteBuffer::writeString(char *buf, unsigned int cnt)
+ {
+-    int v3; // eax
+     bool v5; // [esp+0h] [ebp-2Ch]
+     bool v6; // [esp+4h] [ebp-28h]
+     unsigned int v7; // [esp+8h] [ebp-24h]
+     unsigned __int8 src; // [esp+13h] [ebp-19h] BYREF
+-    int v10; // [esp+14h] [ebp-18h]
+     unsigned int v11; // [esp+18h] [ebp-14h]
+     unsigned __int8 v12; // [esp+1Eh] [ebp-Eh]
+     char v13; // [esp+1Fh] [ebp-Dh]
+     unsigned int v14; // [esp+20h] [ebp-Ch]
+     unsigned int v15; // [esp+24h] [ebp-8h]
+     char v16; // [esp+2Bh] [ebp-1h]
+ 
+     v16 = 0;
+     if (!buf)
+         return bdByteBuffer::writeNAN();
+     v14 = 0;
+     v13 = 0;
+     v16 = bdByteBuffer::writeDataType(BD_BB_SIGNED_CHAR8_STRING_TYPE);
+-    v3 = (int)memchr((unsigned __int8 *)buf, 0, cnt);
+-    v10 = v3;
+-    if (v3)
+-        v7 = v10 - (_DWORD)buf;
+-    else
+-        v7 = cnt;
++    v7 = nuke::boundedCStringLength(buf, cnt);
+     v11 = v7;

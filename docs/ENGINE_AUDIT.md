@@ -1,35 +1,50 @@
 # NUKE-ARM64 native engine audit
 
-Audit date: 2026-10-30  
+Audit date: 2026-10-31  
 Pinned upstream: [SwagSoftware/KisakBlack](https://github.com/SwagSoftware/KisakBlack) @ `306bb14a8e052a6244bd1df4e4df7d8504c04ef4`.
 
 ## Latest verified boundary
 
-Latest verified code/workflow baseline: [`5de99e0d`](https://github.com/portsandall/NUKE-ARM64/commit/5de99e0d86b2671c5eb456c91e2b43b2ba873ed0), 2026-10-30 00:00:26 UTC.
+Latest verified focused iteration: [`eaf9bbb1`](https://github.com/portsandall/NUKE-ARM64/commit/eaf9bbb1ac62dd97041567ea9ecda85b79be8e0a), on PR branch `ci/diagnose-kisakblack-android-root-20261030`.
 
-- [ARM64 bootstrap run 535 / ID 40976878871](https://github.com/portsandall/NUKE-ARM64/actions/runs/40976878871): **all three jobs passed** — host tests, upstream patch/component checks, and Android AArch64 smoke build.
-- [Angle/vector runtime regression run 535 / ID 40976878904](https://github.com/portsandall/NUKE-ARM64/actions/runs/40976878904): **passed**.
-- The upstream patch job now applies patches 0001–0012, then runs [`tests/gate_upstream_windows_links.py`](https://github.com/portsandall/NUKE-ARM64/blob/main/tests/gate_upstream_windows_links.py) against the disposable pinned-upstream checkout. It deterministically places the Steam/Bink/NVAPI binary search paths and Windows import-library links behind `if(WIN32)`, asserts the exact expected library block remains in that guard, and checks that `KISAK_MP` remains a common compile definition.
-- This is verified CMake source isolation plus the existing focused regression suite. The script modifies only the CI checkout of upstream; it does not alter the upstream repository.
+- [ARM64 bootstrap run 41151027148](https://github.com/portsandall/NUKE-ARM64/actions/runs/41151027148): **all three jobs passed** — host tests, upstream patch/component checks, and Android AArch64 smoke build.
+- [Angle/vector regression run 41151027119](https://github.com/portsandall/NUKE-ARM64/actions/runs/41151027119): **passed**.
+- Added `tests/port_stringtable_lp64.py` and `tests/upstream_stringtable_lp64.cpp`. The CI transform replaces the pinned source's 32-bit-only `sizeof(StringTable) == 20` assertion with pointer-width-aware ILP32/LP64 sizes and explicit field-offset checks. Host execution and Android AArch64 compilation both passed. The active workflow and reusable template remain byte-identical.
+- The transform touches only the disposable pinned-upstream checkout used by CI; it does not modify the KisakBlack repository.
+
+## Full-engine Android diagnostic
+
+The new non-blocking root-target diagnostic establishes a useful boundary:
+
+- Android NDK CMake configure: `ROOT_CONFIGURE_EXIT=0`.
+- Full `KisakBlack` target build: `ROOT_BUILD_EXIT=1`.
+- [Diagnostic artifact from run 41151027148](https://github.com/portsandall/NUKE-ARM64/actions/runs/41151027148/artifacts/13022479567).
+
+The StringTable size assertion no longer appears in the latest root-build errors. Remaining first-wave failures include:
+
+- `DynEntity_load_obj.cpp`: `Material_RegisterHandle` is undeclared after D3D renderer headers are decoupled.
+- LP64 size assertions still fail for `SndDriverGlobals`, `NitrousVehicle`, `centity_s`, `playerState_s`, and `weaponInfo_s`.
+- `demo_common.h`: `clientState_s` is incomplete at a by-value field.
+- `gfx_d3d/r_init.h`: the Windows-only renderer header still pulls in `Windows.h`.
+
+The root configure succeeding is progress, but the full target is still not compiled or linked. The diagnostic job is intentionally non-blocking and uploads the first compiler output rather than masking the failure.
 
 ## Verified build scope
 
-The CI compiles the platform probe and selected portability targets, including patched bitarray/atomic/threading compatibility tests and upstream `src/universal/base64.cpp`, `src/universal/com_math_anglevectors.cpp`, a limited extracted `AxisToQuat`/`ikAxisToQuat` subset, and `src/universal/com_fileaccess.cpp`. The upstream read/write mutex regression runs on Linux under ThreadSanitizer; its Android counterpart is cross-compiled and checked as ELF64/AArch64, not executed on physical Android hardware.
-
-The workflow **does not configure, compile, or link the complete KisakBlack root target**. Green smoke builds are not a full engine build and do not prove there is a playable APK.
+The workflow compiles the platform probe and selected upstream portability components, including Base64, angle/vector code, an extracted quaternion-conversion subset, file access, threading, DemonWare reference counting/mutexes, selected physics layouts, MSVC-style header probes, and the new StringTable LP64 layout test. Android outputs are cross-compiled and checked as ELF64/AArch64; host regressions run on the CI host. These are not a complete game build and are not physical-device runtime tests.
 
 ## Priority blockers
 
-1. **Compilability / platform isolation:** CMake's Windows-only MSVC flags, Win32 target properties/defines, DirectX SDK paths, vendor-library directories and Windows import libraries are now guarded in the CI patch series. This removes several configuration hazards, but the upstream root configure/link has not yet been attempted for Android. Remaining Windows APIs, runtime services, third-party dependencies and engine source assumptions still need explicit Android implementations.
-2. **Physics numerical portability:** pinned `src/physics/phys_gjk.cpp` expects x87 floating-point behavior. AArch64 has no x87. Do not delete or bypass this path's guard until an AArch64 numerical implementation passes collision/GJK regression cases.
-3. **LP64:** compile-time ABI checks and targeted fixes exist; no engine-wide pointer/integer conversion, structure-layout, serialization or Windows-type audit is complete.
-4. **Graphics bootstrap:** no native Android game renderer is integrated into the upstream engine.
+1. **Compilability / platform isolation:** the patched upstream root now configures for Android, but the `KisakBlack` target still fails to compile. The remaining renderer/D3D include path and missing material API declaration need explicit platform boundaries.
+2. **LP64:** the StringTable runtime layout is now pointer-width-aware and tested. Other 32-bit size assertions still fail; audit each type's pointer fields, offsets, serialization and network use before changing expected sizes. Do not pack structures or widen integers blindly.
+3. **Physics numerical portability:** pinned `src/physics/phys_gjk.cpp` expects x87 floating-point behavior. AArch64 has no x87. Do not remove or bypass the guard until an AArch64 numerical implementation passes collision/GJK regression cases.
+4. **Graphics bootstrap:** no native Android renderer is integrated into the upstream engine.
 5. **Map loading:** no real `mp_nuked` asset, collision, or spawn path is implemented. The map name in the portability probe is only a scope assertion.
 6. **Multiplayer:** no playable engine, session creation/joining, spawn validation or network gameplay.
 7. **Performance:** no representative in-game frame-time, memory, GPU or network benchmarks.
 
 ## Next acceptance gate
 
-Attempt the **first real Android NDK configure of the patched upstream root** in a separate diagnostic CI job. Capture the first unresolved CMake/source dependency rather than treating the current component tests as proof of engine portability. Keep that experiment non-blocking until its dependencies and expected build target are understood. Then isolate one dependency-complete gameplay/platform subsystem and require a linked ELF64/AArch64 result before moving on to native graphics or Nuketown map loading.
+Take the smallest remaining LP64 runtime structure, starting with `SndDriverGlobals`, and replace its 32-bit-only size assumption with explicit pointer-width-aware size and offset checks. Compile the real header on host and Android before proceeding to the larger gameplay structures. In parallel, keep the missing material API and Windows renderer header isolated as separate platform-boundary tasks.
 
 Before distributing upstream-derived binaries or source, confirm applicable licensing and redistribution rights. Do not describe generic FPS code or a procedural blockout as the original Black Ops port.
