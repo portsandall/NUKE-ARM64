@@ -15,6 +15,26 @@ static_assert(
 
 int main()
 {
+    if (DB_NativePointerSlotSize() != static_cast<int>(sizeof(void *)))
+        return 6;
+    if (DB_NativePointerSlotAlignmentMask() != static_cast<int>(alignof(void *) - 1))
+        return 7;
+
+    alignas(void *) unsigned char reservationStorage[32] = {};
+    const std::uintptr_t unalignedAddress =
+        reinterpret_cast<std::uintptr_t>(reservationStorage + 1);
+    const std::uintptr_t alignmentMask =
+        static_cast<std::uintptr_t>(DB_NativePointerSlotAlignmentMask());
+    const std::uintptr_t alignedAddress =
+        (unalignedAddress + alignmentMask) & ~alignmentMask;
+    auto *reservedSlot = reinterpret_cast<unsigned char *>(alignedAddress);
+    if (reinterpret_cast<std::uintptr_t>(reservedSlot) % alignof(void *) != 0)
+        return 8;
+    if (DB_NativePointerSlotSize() != sizeof(void *))
+        return 9;
+    if (reservedSlot + DB_NativePointerSlotSize() > reservationStorage + sizeof(reservationStorage))
+        return 10;
+
     alignas(void *) unsigned char slot[sizeof(void *)] = {};
     const std::uint32_t serializedOffset = 0x12345678u;
     std::memcpy(slot, &serializedOffset, sizeof(serializedOffset));
