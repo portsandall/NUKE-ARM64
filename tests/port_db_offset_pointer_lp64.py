@@ -42,6 +42,7 @@ NEW_FUNCTION = """void __cdecl DB_ConvertOffsetToPointer(void *data)
     DB_WriteNativePointerSlot(data, pointer);
 }"""
 HELPER_INCLUDE = '#include "db_stream_pointer_relocation.h"'
+STREAM_HELPER_INCLUDE = '#include "db_stream_pointer_relocation.h"'
 HELPER_CONTENT = """#pragma once
 
 #include <stdint.h>
@@ -66,6 +67,17 @@ static inline void *DB_ReadNativePointerSlot(const void *slot)
     void *pointer = 0;
     memcpy(&pointer, slot, sizeof(pointer));
     return pointer;
+}
+
+// DB_AllocStreamPos takes an alignment mask, not an alignment byte count.
+static inline int DB_NativePointerSlotAlignmentMask(void)
+{
+    return (int)(alignof(void *) - 1);
+}
+
+static inline int DB_NativePointerSlotSize(void)
+{
+    return (int)sizeof(void *);
 }
 """
 
@@ -140,13 +152,56 @@ def main() -> int:
     if source.count(old_alias_start) or source.count(new_alias_start) != 1:
         raise RuntimeError("alias conversion function did not reach the expected state")
 
+    stream_path = source_path.with_name("db_stream.cpp")
+    stream_source = stream_path.read_text(encoding="utf-8")
+    if STREAM_HELPER_INCLUDE not in stream_source:
+        stream_source = replace_once(
+            stream_source,
+            '#include "db_stream.h"\n',
+            '#include "db_stream.h"\n' + STREAM_HELPER_INCLUDE + "\n",
+            "DB_InsertPointer helper include",
+        )
+    if stream_source.count(STREAM_HELPER_INCLUDE) != 1:
+        raise RuntimeError("db_stream.cpp must include the pointer relocation helper exactly once")
+
+    old_insert_pointer = """const void **__cdecl DB_InsertPointer()
+{
+    const void **pData; // [esp+0h] [ebp-4h]
+
+    DB_PushStreamPos(4u);
+    pData = (const void **)DB_AllocStreamPos(3);
+    DB_IncStreamPos(4);
+    DB_PopStreamPos();
+    return pData;
+}"""
+    new_insert_pointer = """const void **__cdecl DB_InsertPointer()
+{
+    const void **pData; // [esp+0h] [ebp-4h]
+
+    DB_PushStreamPos(4u);
+    pData = (const void **)DB_AllocStreamPos(DB_NativePointerSlotAlignmentMask());
+    DB_IncStreamPos(DB_NativePointerSlotSize());
+    DB_PopStreamPos();
+    return pData;
+}"""
+    if old_insert_pointer in stream_source:
+        stream_source = replace_once(
+            stream_source, old_insert_pointer, new_insert_pointer,
+            "DB_InsertPointer native-width reservation",
+        )
+    elif stream_source.count(new_insert_pointer) != 1:
+        raise RuntimeError("expected original or transformed DB_InsertPointer function")
+    if old_insert_pointer in stream_source or stream_source.count(new_insert_pointer) != 1:
+        raise RuntimeError("DB_InsertPointer did not reach native pointer-width reservation")
+
     if helper_path.read_text(encoding="utf-8") != HELPER_CONTENT:
         raise RuntimeError("generated pointer relocation helper differs from expected content")
     header_path.write_text(header, encoding="utf-8")
     source_path.write_text(source, encoding="utf-8")
+    stream_path.write_text(stream_source, encoding="utf-8")
     print(
-        "Verified 32-bit FastFile offsets are read separately and resolved "
-        "addresses are stored at native pointer width."
+        "Verified 32-bit FastFile offsets are resolved at native pointer width "
+        "and DB_InsertPointer reserves an aligned native-width backpatch slot."
     )
     return 0
 
