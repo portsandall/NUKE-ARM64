@@ -94,7 +94,10 @@ def main() -> int:
         )
     if client.count(MATERIAL_MEMORY_INCLUDE) != 1:
         raise RuntimeError("DynEntity_client.cpp must include the data-only header once")
-    if len(re.findall(r"\bMaterialMemory\b", client)) != 2:
+    if not re.search(
+        r"bool\s+CompareMaterialMemory\s*\(\s*const\s+MaterialMemory\s*&\s*one\s*,\s*const\s+MaterialMemory\s*&\s*two\s*\)",
+        client,
+    ):
         raise RuntimeError("DynEntity client's MaterialMemory comparison signature changed")
 
     header = light_header_path.read_text(encoding="utf-8")
