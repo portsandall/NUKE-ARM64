@@ -7,9 +7,32 @@ from pathlib import Path
 
 OLD_DECL = "void __cdecl DB_ConvertOffsetToPointer(unsigned int *data);"
 NEW_DECL = "void __cdecl DB_ConvertOffsetToPointer(void *data);"
+OLD_ALIAS_DECL = "void __cdecl DB_ConvertOffsetToAlias(unsigned int *data);"
+NEW_ALIAS_DECL = "void __cdecl DB_ConvertOffsetToAlias(void *data);"
 OLD_FUNCTION = """void __cdecl DB_ConvertOffsetToPointer(unsigned int *data)
 {
     *data = (unsigned int)&g_streamBlocks[(unsigned int)(*data - 1) >> 29].data[(*data - 1) & 0x1FFFFFFF];
+}"""
+NEW_ALIAS_FUNCTION = """void __cdecl DB_ConvertOffsetToAlias(void *data)
+{
+    const uint32_t offset = DB_ReadSerializedPointerOffset32(data);
+
+    if ((offset == 0 || offset >= 0xFFFFFFFEu)
+        && !Assert_MyHandler(
+            "C:\\projects_pc\\cod\\codsrc\\src\\database\\db_stream_load.cpp",
+            67,
+            0,
+            "%s\\n\\t(offset) = %i",
+            "(offset && (offset != 0xFFFFFFFF) && (offset != 0xFFFFFFFE))",
+            offset))
+    {
+        __debugbreak();
+    }
+
+    const void *aliasSlot =
+        &g_streamBlocks[(offset - 1) >> 29].data[(offset - 1) & 0x1FFFFFFF];
+    void *aliasPointer = DB_ReadNativePointerSlot(aliasSlot);
+    DB_WriteNativePointerSlot(data, aliasPointer);
 }"""
 NEW_FUNCTION = """void __cdecl DB_ConvertOffsetToPointer(void *data)
 {
@@ -36,6 +59,13 @@ static inline uint32_t DB_ReadSerializedPointerOffset32(const void *slot)
 static inline void DB_WriteNativePointerSlot(void *slot, void *pointer)
 {
     memcpy(slot, &pointer, sizeof(pointer));
+}
+
+static inline void *DB_ReadNativePointerSlot(const void *slot)
+{
+    void *pointer = 0;
+    memcpy(&pointer, slot, sizeof(pointer));
+    return pointer;
 }
 """
 
@@ -67,6 +97,13 @@ def main() -> int:
     if OLD_DECL in header or header.count(NEW_DECL) != 1:
         raise RuntimeError("pointer conversion declaration did not reach the expected state")
 
+    if OLD_ALIAS_DECL in header:
+        header = replace_once(header, OLD_ALIAS_DECL, NEW_ALIAS_DECL, "alias conversion declaration")
+    elif header.count(NEW_ALIAS_DECL) != 1:
+        raise RuntimeError("expected the original or already-transformed alias declaration")
+    if OLD_ALIAS_DECL in header or header.count(NEW_ALIAS_DECL) != 1:
+        raise RuntimeError("alias conversion declaration did not reach the expected state")
+
     if helper_path.exists():
         if helper_path.read_text(encoding="utf-8") != HELPER_CONTENT:
             raise RuntimeError("existing db_stream_pointer_relocation.h has unexpected contents")
@@ -90,6 +127,18 @@ def main() -> int:
         raise RuntimeError("expected the original or already-transformed pointer conversion function")
     if OLD_FUNCTION in source or source.count(NEW_FUNCTION) != 1:
         raise RuntimeError("pointer conversion function did not reach the expected state")
+
+    old_alias_start = "void __cdecl DB_ConvertOffsetToAlias(unsigned int *data)\n{"
+    new_alias_start = "void __cdecl DB_ConvertOffsetToAlias(void *data)\n{"
+    alias_marker = "\nvoid __cdecl DB_ConvertOffsetToPointer("
+    if source.count(old_alias_start) == 1:
+        start = source.index(old_alias_start)
+        end = source.index(alias_marker, start)
+        source = source[:start] + NEW_ALIAS_FUNCTION + source[end:]
+    elif source.count(new_alias_start) != 1:
+        raise RuntimeError("expected the original or already-transformed alias conversion function")
+    if source.count(old_alias_start) or source.count(new_alias_start) != 1:
+        raise RuntimeError("alias conversion function did not reach the expected state")
 
     if helper_path.read_text(encoding="utf-8") != HELPER_CONTENT:
         raise RuntimeError("generated pointer relocation helper differs from expected content")

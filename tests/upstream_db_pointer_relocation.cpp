@@ -5,9 +5,13 @@
 #include <type_traits>
 
 using PointerConversionSignature = void (*)(void *);
+using AliasConversionSignature = void (*)(void *);
 static_assert(
     std::is_same<decltype(&DB_ConvertOffsetToPointer), PointerConversionSignature>::value,
     "DB_ConvertOffsetToPointer must accept the address of a native pointer slot");
+static_assert(
+    std::is_same<decltype(&DB_ConvertOffsetToAlias), AliasConversionSignature>::value,
+    "DB_ConvertOffsetToAlias must accept the address of a native pointer slot");
 
 int main()
 {
@@ -34,6 +38,11 @@ int main()
     std::memcpy(&recoveredPointer, slot, sizeof(recoveredPointer));
     if (recoveredPointer != resolvedPointer)
         return 3;
+
+    alignas(void *) unsigned char aliasSlot[sizeof(void *)] = {};
+    DB_WriteNativePointerSlot(aliasSlot, resolvedPointer);
+    if (DB_ReadNativePointerSlot(aliasSlot) != resolvedPointer)
+        return 5;
 
     if constexpr (sizeof(void *) == 8)
     {
