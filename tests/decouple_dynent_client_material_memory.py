@@ -17,7 +17,7 @@ MATERIAL_MEMORY_INCLUDE = "#include <gfx_d3d/r_material_memory.h>"
 MATERIAL_HEADER_INCLUDE = '#include "r_material_memory.h"'
 STRUCT_PATTERN = re.compile(
     r"(?m)^struct MaterialMemory // sizeof=0x8\n"
-    r"\{\n"
+    r"\{[^\n]*\n"
     r"[ \t]*Material \*material;[^\n]*\n"
     r"[ \t]*int memory;[^\n]*\n"
     r"\};"
