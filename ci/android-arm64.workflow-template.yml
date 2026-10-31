@@ -774,12 +774,20 @@ jobs:
             echo "::warning::Full KisakBlack Android root configure failed; diagnostic log uploaded."
           fi
           tail -n 100 "$log"
+      - name: Summarize full-engine Android diagnostic
+        if: always()
+        run: |
+          python3 "$GITHUB_WORKSPACE/ci/summarize_android_root_diagnostics.py" \
+            "$GITHUB_WORKSPACE/build/upstream-android-root-diagnostic.log" \
+            "$GITHUB_WORKSPACE/build/upstream-android-root-diagnostic-summary.md"
       - name: Upload full-engine Android diagnostic
         if: always()
         uses: actions/upload-artifact@v6
         with:
           name: kisakblack-android-root-diagnostic
-          path: build/upstream-android-root-diagnostic.log
+          path: |
+            build/upstream-android-root-diagnostic.log
+            build/upstream-android-root-diagnostic-summary.md
           if-no-files-found: warn
       - name: Upload upstream Android regression binaries
         uses: actions/upload-artifact@v6
@@ -812,6 +820,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
+      - name: Test Android root diagnostic summary
+        run: python3 -m unittest discover -s tests -p 'test_android_root_diagnostic_summary.py' -v
       - name: Verify workflow template parity
         run: cmp --silent .github/workflows/android-arm64.yml ci/android-arm64.workflow-template.yml
       - run: cmake -S . -B build/host -G Ninja -DCMAKE_BUILD_TYPE=Debug
