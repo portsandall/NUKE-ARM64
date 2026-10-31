@@ -17,8 +17,8 @@ CL_DATA_INCLUDE = "#include <qcommon/vid_config_types.h>"
 RINIT_DATA_INCLUDE = "#include <qcommon/vid_config_types.h>"
 VIDEO_FIELD = "vidConfig_t vidConfig;"
 STRUCT_RE = re.compile(
-    r"(?ms)^struct __declspec\\(align\\(4\\)\\) vidConfig_t // sizeof=0x38\\n"
-    r"\\{.*?^\\};\\n?"
+    r"(?ms)^struct __declspec\(align\(4\)\) vidConfig_t // sizeof=0x38\n"
+    r"\{.*?^\};\n?"
 )
 
 DATA_HEADER = """#pragma once
@@ -98,16 +98,16 @@ def transform(client_path: Path, renderer_path: Path, data_path: Path) -> None:
         raise RuntimeError("could not extract the complete original vidConfig_t definition")
     original_struct = match.group(0)
     for field in EXPECTED_FIELDS:
-        if len(re.findall(rf"\\b{re.escape(field)}\\b", original_struct)) != 1:
+        if len(re.findall(rf"\b{re.escape(field)}\b", original_struct)) != 1:
             raise RuntimeError(f"unexpected original vidConfig_t field: {field}")
 
     updated_client = client.replace(CL_RENDERER_INCLUDE, CL_DATA_INCLUDE, 1)
     updated_renderer = renderer[:match.start()] + renderer[match.end():]
-    pragma = "#pragma once\\n"
+    pragma = "#pragma once\n"
     if updated_renderer.count(pragma) != 1:
         raise RuntimeError("expected one r_init.h pragma once")
     updated_renderer = updated_renderer.replace(
-        pragma, pragma + RINIT_DATA_INCLUDE + "\\n", 1
+        pragma, pragma + RINIT_DATA_INCLUDE + "\n", 1
     )
 
     if CL_RENDERER_INCLUDE in updated_client or updated_client.count(CL_DATA_INCLUDE) != 1:
