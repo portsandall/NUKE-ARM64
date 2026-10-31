@@ -89,6 +89,7 @@ jobs:
           python3 "$GITHUB_WORKSPACE/tests/decouple_rope_material_header.py" "$GITHUB_WORKSPACE/build/upstream/src/physics/rope.h"
           python3 "$GITHUB_WORKSPACE/tests/decouple_nitrous_vehicle_material_header.py" "$GITHUB_WORKSPACE/build/upstream/src/vehicle/nitrous_vehicle.h"
           python3 "$GITHUB_WORKSPACE/tests/port_nitrous_vehicle_runtime_layout_lp64.py" "$GITHUB_WORKSPACE/build/upstream/src/vehicle/nitrous_vehicle.h"
+          python3 "$GITHUB_WORKSPACE/tests/port_weapon_info_runtime_layout_lp64.py" "$GITHUB_WORKSPACE/build/upstream/src/cgame/cg_weapons.h"
           python3 "$GITHUB_WORKSPACE/tests/port_shader_constant_set_data_header.py" "$GITHUB_WORKSPACE/build/upstream/src/bgame/bg_local.h" "$GITHUB_WORKSPACE/build/upstream/src/gfx_d3d/r_shader_constant_set.h" "$GITHUB_WORKSPACE/build/upstream/src/qcommon/shader_constant_set_types.h"
           python3 "$GITHUB_WORKSPACE/tests/remove_d3d9_include_from_xanim.py" "$GITHUB_WORKSPACE/build/upstream/src/xanim/xanim.h"
           python3 "$GITHUB_WORKSPACE/tests/decouple_flame_material_header.py" "$GITHUB_WORKSPACE/build/upstream/src/flame/flame_system.h"
