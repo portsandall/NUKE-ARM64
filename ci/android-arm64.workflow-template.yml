@@ -431,7 +431,9 @@ jobs:
           "$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android26-clang++" "${common[@]}" -c "$GITHUB_WORKSPACE/tests/upstream_demo_client_state_header.cpp" -o build/upstream-demo-clientstate-android.o
           readelf="$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-readelf"
           header="$("$readelf" -h build/upstream-demo-clientstate-android.o)"
-          printf '%s\n' "$header" | grep -Eq '^[[:space:]]*Class:[[:space:]]+ELF64[[:space:]]*      - name: Compile and run LP64 physics allocator regression on host and Android
+          printf '%s\n' "$header" | grep -Eq '^[[:space:]]*Class:[[:space:]]+ELF64[[:space:]]*$'
+          printf '%s\n' "$header" | grep -Eq '^[[:space:]]*Machine:[[:space:]]+AArch64[[:space:]]*$'
+      - name: Compile and run LP64 physics allocator regression on host and Android
         run: |
           c++ -std=c++17 -Wall -Wextra -Werror -pthread \
             -I "$GITHUB_WORKSPACE/tests" \
