@@ -1,50 +1,64 @@
 # NUKE-ARM64 native engine audit
 
-Audit date: 2026-10-31  
+Audit date: 2026-11-01  
 Pinned upstream: [SwagSoftware/KisakBlack](https://github.com/SwagSoftware/KisakBlack) @ `306bb14a8e052a6244bd1df4e4df7d8504c04ef4`.
 
-## Latest verified boundary
+## Repository and CI boundary
 
-Latest verified focused iteration: [`eaf9bbb1`](https://github.com/portsandall/NUKE-ARM64/commit/eaf9bbb1ac62dd97041567ea9ecda85b79be8e0a), on PR branch `ci/diagnose-kisakblack-android-root-20261030`.
+- Default branch `main`: `f778c1f4345588d2991942afed62f0483e72469e` (`2026-10-30`).
+- Open full-engine diagnostic PR: [#65](https://github.com/portsandall/NUKE-ARM64/pull/65), head `bbdfe2e1752ebd1392782d640d4fb4f7029bd1e1` on `ci/diagnose-kisakblack-android-root-20261030`.
+- [ARM64 bootstrap run 41249265199](https://github.com/portsandall/NUKE-ARM64/actions/runs/41249265199): all three workflow jobs passed (Android smoke, host tests, upstream patch checks).
+- [Angle/vector regression run 41249265254](https://github.com/portsandall/NUKE-ARM64/actions/runs/41249265254): passed.
+- The full `KisakBlack` root build is a deliberately non-blocking diagnostic step. Therefore, a green workflow does **not** mean that the complete engine compiled.
 
-- [ARM64 bootstrap run 41151027148](https://github.com/portsandall/NUKE-ARM64/actions/runs/41151027148): **all three jobs passed** — host tests, upstream patch/component checks, and Android AArch64 smoke build.
-- [Angle/vector regression run 41151027119](https://github.com/portsandall/NUKE-ARM64/actions/runs/41151027119): **passed**.
-- Added `tests/port_stringtable_lp64.py` and `tests/upstream_stringtable_lp64.cpp`. The CI transform replaces the pinned source's 32-bit-only `sizeof(StringTable) == 20` assertion with pointer-width-aware ILP32/LP64 sizes and explicit field-offset checks. Host execution and Android AArch64 compilation both passed. The active workflow and reusable template remain byte-identical.
-- The transform touches only the disposable pinned-upstream checkout used by CI; it does not modify the KisakBlack repository.
+## Latest full-engine Android diagnostic
 
-## Full-engine Android diagnostic
+Run 41249265199 reports:
 
-The new non-blocking root-target diagnostic establishes a useful boundary:
-
-- Android NDK CMake configure: `ROOT_CONFIGURE_EXIT=0`.
+- Android NDK root CMake configure: `ROOT_CONFIGURE_EXIT=0`.
 - Full `KisakBlack` target build: `ROOT_BUILD_EXIT=1`.
-- [Diagnostic artifact from run 41151027148](https://github.com/portsandall/NUKE-ARM64/actions/runs/41151027148/artifacts/13022479567).
+- First failed Ninja object: `src/DynEntity/DynEntity_client.cpp.o`.
+- Raw diagnostic artifact: [kisakblack-android-root-diagnostic](https://github.com/portsandall/NUKE-ARM64/actions/runs/41249265199/artifacts/13060333530).
 
-The StringTable size assertion no longer appears in the latest root-build errors. Remaining first-wave failures include:
+Compiler errors in the captured first-wave build:
 
-- `DynEntity_load_obj.cpp`: `Material_RegisterHandle` is undeclared after D3D renderer headers are decoupled.
-- LP64 size assertions still fail for `SndDriverGlobals`, `NitrousVehicle`, `centity_s`, `playerState_s`, and `weaponInfo_s`.
-- `demo_common.h`: `clientState_s` is incomplete at a by-value field.
-- `gfx_d3d/r_init.h`: the Windows-only renderer header still pulls in `Windows.h`.
+| Source | Android AArch64 result | Meaning |
+|---|---:|---|
+| `src/sound/snd.h:498` | `SndDriverGlobals`: 104 bytes, assertion expects 52 | Pointer-bearing runtime layout conflicts with the 32-bit asset record |
+| `src/bgame/bg_local.h:341` | `centity_s`: 856 bytes, assertion expects 808 | 48-byte layout drift; fields and consumers need auditing |
+| `src/bgame/bg_local.h:731` | `playerState_s`: 10,152 bytes, assertion expects 9,892 | 260-byte layout drift; network/demo serialization and field offsets need auditing |
+| `src/DynEntity/DynEntity_client.cpp:1113,1127` | Constraint object pointers cast to `int` | Pointer truncation in the runtime constraint handle |
+| `src/DynEntity/DynEntity_client.cpp:1306` | `Phys_ObjCreate` pointer cast to `int` | Pointer-sized physics user-data pointer is being stored in a 32-bit handle |
 
-The root configure succeeding is progress, but the full target is still not compiled or linked. The diagnostic job is intentionally non-blocking and uploads the first compiler output rather than masking the failure.
+### Important layout findings
 
-## Verified build scope
+Do not fix these by changing static assertions to whatever size AArch64 produces.
 
-The workflow compiles the platform probe and selected upstream portability components, including Base64, angle/vector code, an extracted quaternion-conversion subset, file access, threading, DemonWare reference counting/mutexes, selected physics layouts, MSVC-style header probes, and the new StringTable LP64 layout test. Android outputs are cross-compiled and checked as ELF64/AArch64; host regressions run on the CI host. These are not a complete game build and are not physical-device runtime tests.
+- `SndDriverGlobals` is read as a fixed 52-byte asset record: `Load_SndDriverGlobals` calls `Load_Stream(..., 52)`, and `DB_SizeofXAsset_SndDriverGlobals_` returns 52. A correct LP64 design needs an explicit fixed-width serialized representation and a native runtime representation/conversion; simply accepting 104 bytes would break the asset stream.
+- `PhysConstraint::constraintHandle` is a runtime pointer token stored in an `int`, but `PhysConstraintsLoadFile` uses a fixed 168-byte element stride, a 2,696-byte allocation, and hard-coded byte offsets. Widening this field in place would invalidate that parser layout. Use a stable 32-bit handle table or separate the fixed-layout config record from runtime pointer state.
+- `Phys_ObjCreate` returns `PhysObjUserData *`; the current 32-bit code narrows it to `int`, and `Phys_GetUserData(int)` converts that integer directly back to a pointer. This needs a consistent pointer-safe physics-handle design across all callers, not a local cast suppression.
+- The earlier `Material_RegisterHandle`, incomplete `clientState_s`, and `Windows.h` diagnostics are absent from this run's compiler-error list. That is progress in the include-boundary transformations, not proof that the full source tree is platform-clean.
 
-## Priority blockers
+## Verified focused components
 
-1. **Compilability / platform isolation:** the patched upstream root now configures for Android, but the `KisakBlack` target still fails to compile. The remaining renderer/D3D include path and missing material API declaration need explicit platform boundaries.
-2. **LP64:** the StringTable runtime layout is now pointer-width-aware and tested. Other 32-bit size assertions still fail; audit each type's pointer fields, offsets, serialization and network use before changing expected sizes. Do not pack structures or widen integers blindly.
-3. **Physics numerical portability:** pinned `src/physics/phys_gjk.cpp` expects x87 floating-point behavior. AArch64 has no x87. Do not remove or bypass the guard until an AArch64 numerical implementation passes collision/GJK regression cases.
-4. **Graphics bootstrap:** no native Android renderer is integrated into the upstream engine.
-5. **Map loading:** no real `mp_nuked` asset, collision, or spawn path is implemented. The map name in the portability probe is only a scope assertion.
-6. **Multiplayer:** no playable engine, session creation/joining, spawn validation or network gameplay.
-7. **Performance:** no representative in-game frame-time, memory, GPU or network benchmarks.
+The successful upstream-patch job compiles/tests a growing subset of the pinned source on host and/or Android AArch64, including Base64, angle/vector and extracted quaternion code, file access, threading, DemonWare reference/mutex/buffer helpers, and selected physics, database, renderer-independent declarations and LP64 layouts. Android objects are checked as ELF64/AArch64; host regressions execute on the CI runner.
+
+These checks are not a complete engine build and are not physical-device runtime tests. No playable APK is produced by this repository's default branch.
+
+## Blockers, in required priority
+
+1. **Compilability:** root CMake configuration passes, but the complete engine target still fails in its first observed gameplay translation unit.
+2. **Platform isolation:** current transformations remove several Windows/D3D transitive includes and Windows-only CMake dependencies; remaining renderer, material and platform services still need real native boundaries.
+3. **LP64:** the three structure-layout mismatches and two classes of pointer-to-int storage must be fixed according to serialization/runtime semantics, not by packing or blind widening. GJK's x87 assumptions also remain a separate AArch64 numerical-portability gate.
+4. **Graphics bootstrap:** no integrated native Android renderer in the KisakBlack engine.
+5. **Map loading:** no real `mp_nuked` asset loading, collision or spawn path. The repository's map identifier is only a scope guard.
+6. **Multiplayer:** no playable session creation/joining, server/client gameplay or network spawn validation.
+7. **Performance:** no representative game frame-time, memory, GPU or network benchmarks.
 
 ## Next acceptance gate
 
-Take the smallest remaining LP64 runtime structure, starting with `SndDriverGlobals`, and replace its 32-bit-only size assumption with explicit pointer-width-aware size and offset checks. Compile the real header on host and Android before proceeding to the larger gameplay structures. In parallel, keep the missing material API and Windows renderer header isolated as separate platform-boundary tasks.
+Start with an explicit 52-byte `SndDriverGlobals` serialized-record type and a separate LP64 runtime representation. Add offset/size tests for the serialized record and a loader conversion test before changing the production loader. In a separate patch, design a pointer-safe physics-handle abstraction; do not widen `PhysConstraint` in place because its parser relies on fixed byte offsets and element stride.
 
-Before distributing upstream-derived binaries or source, confirm applicable licensing and redistribution rights. Do not describe generic FPS code or a procedural blockout as the original Black Ops port.
+The new CI diagnostic summarizer is being added to publish a concise Markdown error list alongside the raw root-build log. Its own workflow verification is pending at this audit revision.
+
+Before distributing upstream-derived binaries or source, confirm applicable licensing and redistribution rights. The repository does not distribute proprietary Black Ops assets.
