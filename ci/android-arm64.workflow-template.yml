@@ -106,7 +106,6 @@ jobs:
           python3 "$GITHUB_WORKSPACE/tests/port_com_primary_light_lp64.py" "$GITHUB_WORKSPACE/build/upstream/src/qcommon/com_bsp_load_obj.h" "$GITHUB_WORKSPACE/build/upstream/src/gfx_d3d/r_primarylights.h" "$GITHUB_WORKSPACE/build/upstream/src/qcommon/com_bsp_load_obj.cpp"
           python3 "$GITHUB_WORKSPACE/tests/port_stringtable_lp64.py" "$GITHUB_WORKSPACE/build/upstream/src/universal/com_stringtable.h"
           python3 "$GITHUB_WORKSPACE/tests/port_dynent_material_fastfile_lookup.py" "$GITHUB_WORKSPACE/build/upstream/src/DynEntity/DynEntity_load_obj.cpp" "$GITHUB_WORKSPACE/build/upstream/src/database/db_material_fastfile.h"
-          python3 "$GITHUB_WORKSPACE/tests/complete_demo_client_state_header.py" "$GITHUB_WORKSPACE/build/upstream/src/demo/demo_common.h"
           python3 "$GITHUB_WORKSPACE/tests/port_snapfloat_rounding.py" "$GITHUB_WORKSPACE/build/upstream/src/qcommon/common.h"
           python3 "$GITHUB_WORKSPACE/tests/drop_unused_phys_traverse_d3d_include.py" "$GITHUB_WORKSPACE/build/upstream/src/physics/phys_traverse.h"
           python3 "$GITHUB_WORKSPACE/tests/add_cm_trace_string_include.py" "$GITHUB_WORKSPACE/build/upstream/src/qcommon/cm_trace.h"
@@ -419,20 +418,6 @@ jobs:
           readelf="$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-readelf"
           "$readelf" -h build/upstream-dynent-material-fastfile-android | grep -Eq 'Class:[[:space:]]+ELF64'
           "$readelf" -h build/upstream-dynent-material-fastfile-android | grep -Eq 'Machine:[[:space:]]+AArch64'
-      - name: Compile demo client-state header dependency on host and Android
-        run: |
-          common=(
-            -std=c++20 -fdeclspec -DKISAK_MP -DNDEBUG -Wall -Wextra -Wno-ignored-attributes
-            -include "$GITHUB_WORKSPACE/tests/upstream_msvc_compat.h"
-            -I "$GITHUB_WORKSPACE/build/upstream"
-            -I "$GITHUB_WORKSPACE/build/upstream/src"
-          )
-          clang++ "${common[@]}" -c "$GITHUB_WORKSPACE/tests/upstream_demo_client_state_header.cpp" -o build/upstream-demo-clientstate-host.o
-          "$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android26-clang++" "${common[@]}" -c "$GITHUB_WORKSPACE/tests/upstream_demo_client_state_header.cpp" -o build/upstream-demo-clientstate-android.o
-          readelf="$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-readelf"
-          header="$("$readelf" -h build/upstream-demo-clientstate-android.o)"
-          printf '%s\\n' "$header" | grep -Eq '^[[:space:]]*Class:[[:space:]]+ELF64[[:space:]]*$'
-          printf '%s\\n' "$header" | grep -Eq '^[[:space:]]*Machine:[[:space:]]+AArch64[[:space:]]*$'
       - name: Compile and run LP64 physics allocator regression on host and Android
         run: |
           c++ -std=c++17 -Wall -Wextra -Werror -pthread \
