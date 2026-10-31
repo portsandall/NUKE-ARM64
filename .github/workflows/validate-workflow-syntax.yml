@@ -17,4 +17,5 @@ jobs:
       - name: Install actionlint
         run: go install github.com/rhysd/actionlint/cmd/actionlint@latest
       - name: Validate Android bootstrap workflow
-        run: "$HOME/go/bin/actionlint" .github/workflows/android-arm64.yml
+        run: |
+          "$HOME/go/bin/actionlint" .github/workflows/android-arm64.yml
