@@ -85,6 +85,7 @@ jobs:
           python3 "$GITHUB_WORKSPACE/tests/decouple_fxprimitives_material_header.py" "$GITHUB_WORKSPACE/build/upstream/src/gfx_d3d/fxprimitives.h"
           python3 "$GITHUB_WORKSPACE/tests/decouple_db_registry_material_header.py" "$GITHUB_WORKSPACE/build/upstream/src/database/db_registry.h"
           python3 "$GITHUB_WORKSPACE/tests/decouple_dynent_client_scene_header.py" "$GITHUB_WORKSPACE/build/upstream/src/DynEntity/DynEntity_client.cpp" "$GITHUB_WORKSPACE/build/upstream/src/gfx_d3d/r_dynent_scene_api.h"
+          python3 "$GITHUB_WORKSPACE/tests/decouple_dynent_client_material_memory.py" "$GITHUB_WORKSPACE/build/upstream/src/DynEntity/DynEntity_client.cpp" "$GITHUB_WORKSPACE/build/upstream/src/gfx_d3d/r_material.h" "$GITHUB_WORKSPACE/build/upstream/src/gfx_d3d/r_material_memory.h"
           python3 "$GITHUB_WORKSPACE/tests/decouple_rope_material_header.py" "$GITHUB_WORKSPACE/build/upstream/src/physics/rope.h"
           python3 "$GITHUB_WORKSPACE/tests/decouple_nitrous_vehicle_material_header.py" "$GITHUB_WORKSPACE/build/upstream/src/vehicle/nitrous_vehicle.h"
           python3 "$GITHUB_WORKSPACE/tests/port_shader_constant_set_data_header.py" "$GITHUB_WORKSPACE/build/upstream/src/bgame/bg_local.h" "$GITHUB_WORKSPACE/build/upstream/src/gfx_d3d/r_shader_constant_set.h" "$GITHUB_WORKSPACE/build/upstream/src/qcommon/shader_constant_set_types.h"
@@ -231,6 +232,1151 @@ jobs:
           printf '%s\n' "$header" | grep -E 'Class:|Machine:'
           grep -Eq '^[[:space:]]*Class:[[:space:]]+ELF64[[:space:]]*$' <<< "$header" || { echo "Expected patched atomic test to be ELF64" >&2; exit 1; }
           grep -Eq '^[[:space:]]*Machine:[[:space:]]+AArch64[[:space:]]*$' <<< "$header" || { echo "Expected patched atomic test to be AArch64" >&2; exit 1; }
+      - name: Compile renderer-independent MaterialMemory layout on host and Android
+        run: |
+          c++ -std=c++17 -Wall -Wextra -Werror \
+            -I "$GITHUB_WORKSPACE/build/upstream/src" \
+            -c "$GITHUB_WORKSPACE/tests/upstream_material_memory_layout.cpp" \
+            -o build/upstream-material-memory-layout-host.o
+          "$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android26-clang++" \
+            -std=c++17 -Wall -Wextra -Werror \
+            -I "$GITHUB_WORKSPACE/build/upstream/src" \
+            -c "$GITHUB_WORKSPACE/tests/upstream_material_memory_layout.cpp" \
+            -o build/upstream-material-memory-layout-android.o
+          header="$("$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-readelf" -h build/upstream-material-memory-layout-android.o)"
+          printf '%s\n' "$header" | grep -E 'Class:|Machine:'
+          grep -Eq '^[[:space:]]*Class:[[:space:]]+ELF64[[:space:]]*        run: |
+          c++ -std=c++17 -Wall -Wextra -Werror \
+            -I "$GITHUB_WORKSPACE/build/upstream" \
+            -I "$GITHUB_WORKSPACE/build/upstream/src" \
+            "$GITHUB_WORKSPACE/tests/upstream_bd_referencable.cpp" \
+            -o build/upstream-bd-reference-host
+          ./build/upstream-bd-reference-host
+          "$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android26-clang++" \
+            -std=c++17 -Wall -Wextra -Werror \
+            -I "$GITHUB_WORKSPACE/build/upstream" \
+            -I "$GITHUB_WORKSPACE/build/upstream/src" \
+            "$GITHUB_WORKSPACE/tests/upstream_bd_referencable.cpp" \
+            -o build/upstream-bd-reference-android
+          header="$("$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-readelf" -h build/upstream-bd-reference-android)"
+          printf '%s\\n' "$header" | grep -E 'Class:|Machine:'
+          grep -Eq '^[[:space:]]*Class:[[:space:]]+ELF64[[:space:]]*$' <<< "$header" || { echo "Expected DemonWare reference test to be ELF64" >&2; exit 1; }
+          grep -Eq '^[[:space:]]*Machine:[[:space:]]+AArch64[[:space:]]*$' <<< "$header" || { echo "Expected DemonWare reference test to be AArch64" >&2; exit 1; }
+      - name: Compile and run DemonWare bounded-string length regression
+        run: |
+          c++ -std=c++17 -Wall -Wextra -Werror -I build/upstream/src \
+            tests/upstream_bd_bytebuffer_length.cpp \
+            -o build/upstream-bd-bytebuffer-length-host
+          ./build/upstream-bd-bytebuffer-length-host
+          "$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android26-clang++" \
+            -std=c++17 -Wall -Wextra -Werror -I build/upstream/src \
+            tests/upstream_bd_bytebuffer_length.cpp \
+            -o build/upstream-bd-bytebuffer-length-android
+          readelf="$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-readelf"
+          "$readelf" -h build/upstream-bd-bytebuffer-length-android | grep -Eq 'Class:[[:space:]]+ELF64'
+          "$readelf" -h build/upstream-bd-bytebuffer-length-android | grep -Eq 'Machine:[[:space:]]+AArch64'
+      - name: Compile and run POSIX DemonWare mutex regression
+        run: |
+          c++ -std=c++17 -Wall -Wextra -Werror -pthread -I build/upstream \
+            tests/upstream_bd_platform_mutex.cpp \
+            build/upstream/DemonWare/bdPlatform/bdPlatformThread/bdPlatformMutex.cpp \
+            -o build/upstream-bd-platform-mutex-host
+          ./build/upstream-bd-platform-mutex-host
+          "$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android26-clang++" \
+            -std=c++17 -Wall -Wextra -Werror -pthread -I build/upstream \
+            tests/upstream_bd_platform_mutex.cpp \
+            build/upstream/DemonWare/bdPlatform/bdPlatformThread/bdPlatformMutex.cpp \
+            -o build/upstream-bd-platform-mutex-android
+          readelf="$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-readelf"
+          "$readelf" -h build/upstream-bd-platform-mutex-android | grep -Eq 'Class:[[:space:]]+ELF64'
+          "$readelf" -h build/upstream-bd-platform-mutex-android | grep -Eq 'Machine:[[:space:]]+AArch64'
+      - name: Compile and run SnapFloat rounding regression on host and Android
+        run: |
+          common=(
+            -std=c++17 -frounding-math -Wall -Wextra -Werror
+            -I "$GITHUB_WORKSPACE/build/upstream/src"
+          )
+          c++ "${common[@]}" "$GITHUB_WORKSPACE/tests/upstream_snapfloat_rounding.cpp" -o build/upstream-snapfloat-rounding-host
+          ./build/upstream-snapfloat-rounding-host
+          "$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android26-clang++" "${common[@]}" "$GITHUB_WORKSPACE/tests/upstream_snapfloat_rounding.cpp" -o build/upstream-snapfloat-rounding-android
+          readelf="$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-readelf"
+          "$readelf" -h build/upstream-snapfloat-rounding-android | grep -Eq 'Class:[[:space:]]+ELF64'
+          "$readelf" -h build/upstream-snapfloat-rounding-android | grep -Eq 'Machine:[[:space:]]+AArch64'
+      - name: Configure upstream threading host target
+        run: |
+          cmake -S "$GITHUB_WORKSPACE" -B build/upstream-thread-host-cmake -G Ninja \
+            -DNUKE_BUILD_UPSTREAM_THREAD_COMPAT_TEST=ON \
+            -DNUKE_UPSTREAM_SOURCE_DIR="$GITHUB_WORKSPACE/build/upstream" \
+            -DBUILD_TESTING=ON -DCMAKE_BUILD_TYPE=Release
+      - name: Build and run upstream threading host regression
+        run: |
+          cmake --build build/upstream-thread-host-cmake --target nuke-upstream-thread-compat-test --verbose
+          ctest --test-dir build/upstream-thread-host-cmake -R '^upstream-thread-compat$' --output-on-failure
+      - name: Configure upstream threading Android target
+        run: |
+          cmake -S "$GITHUB_WORKSPACE" -B build/upstream-thread-android-cmake -G Ninja \
+            -DCMAKE_TOOLCHAIN_FILE="$ANDROID_NDK_HOME/build/cmake/android.toolchain.cmake" \
+            -DANDROID_ABI=arm64-v8a -DANDROID_PLATFORM=android-26 \
+            -DNUKE_BUILD_UPSTREAM_THREAD_COMPAT_TEST=ON \
+            -DNUKE_UPSTREAM_SOURCE_DIR="$GITHUB_WORKSPACE/build/upstream" \
+            -DBUILD_TESTING=OFF -DCMAKE_BUILD_TYPE=Release
+      - name: Compile and verify upstream threading Android target
+        run: |
+          cmake --build build/upstream-thread-android-cmake --target nuke-upstream-thread-compat-test --verbose
+          path="build/upstream-thread-android-cmake/nuke-upstream-thread-compat-test"
+          test -x "$path"
+          header="$("$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-readelf" -h "$path")"
+          printf '%s\n' "$header" | grep -E 'Class:|Machine:'
+          grep -Eq '^[[:space:]]*Class:[[:space:]]+ELF64[[:space:]]*$' <<< "$header" || { echo "Expected upstream threading regression to be ELF64" >&2; exit 1; }
+          grep -Eq '^[[:space:]]*Machine:[[:space:]]+AArch64[[:space:]]*$' <<< "$header" || { echo "Expected upstream threading regression to be AArch64" >&2; exit 1; }
+      - name: Configure upstream Base64 host target
+        run: |
+          cmake -S "$GITHUB_WORKSPACE" -B build/upstream-base64-host -G Ninja \
+            -DNUKE_BUILD_UPSTREAM_BASE64_TEST=ON \
+            -DNUKE_UPSTREAM_SOURCE_DIR="$GITHUB_WORKSPACE/build/upstream" \
+            -DBUILD_TESTING=ON -DCMAKE_BUILD_TYPE=Release
+      - name: Build and run upstream Base64 host target
+        run: |
+          cmake --build build/upstream-base64-host --target nuke-upstream-base64-test
+          ctest --test-dir build/upstream-base64-host -R '^upstream-base64-roundtrip$' --output-on-failure
+      - name: Configure upstream Base64 Android target
+        run: |
+          cmake -S "$GITHUB_WORKSPACE" -B build/upstream-base64-android-cmake -G Ninja \
+            -DCMAKE_TOOLCHAIN_FILE="$ANDROID_NDK_HOME/build/cmake/android.toolchain.cmake" \
+            -DANDROID_ABI=arm64-v8a -DANDROID_PLATFORM=android-26 \
+            -DNUKE_BUILD_UPSTREAM_BASE64_TEST=ON \
+            -DNUKE_UPSTREAM_SOURCE_DIR="$GITHUB_WORKSPACE/build/upstream" \
+            -DBUILD_TESTING=OFF -DCMAKE_BUILD_TYPE=Release
+      - name: Build and verify upstream Base64 Android target
+        run: |
+          cmake --build build/upstream-base64-android-cmake --target nuke-upstream-base64-test
+          header="$("$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-readelf" -h build/upstream-base64-android-cmake/nuke-upstream-base64-test)"
+          printf '%s\n' "$header" | grep -E 'Class:|Machine:'
+          grep -Eq '^[[:space:]]*Class:[[:space:]]+ELF64[[:space:]]*$' <<< "$header" || { echo "Expected upstream Base64 regression to be ELF64" >&2; exit 1; }
+          grep -Eq '^[[:space:]]*Machine:[[:space:]]+AArch64[[:space:]]*$' <<< "$header" || { echo "Expected upstream Base64 regression to be AArch64" >&2; exit 1; }
+      - name: Configure upstream angle/vector host target
+        run: |
+          cmake -S "$GITHUB_WORKSPACE" -B build/upstream-angle-host -G Ninja \
+            -DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++ \
+            -DNUKE_BUILD_UPSTREAM_ANGLE_VECTORS=ON \
+            -DNUKE_UPSTREAM_SOURCE_DIR="$GITHUB_WORKSPACE/build/upstream" \
+            -DBUILD_TESTING=OFF -DCMAKE_BUILD_TYPE=Release
+      - name: Compile upstream angle/vector and quaternion host objects
+        run: cmake --build build/upstream-angle-host --target nuke-upstream-angle-vectors nuke-upstream-axis-to-quat --verbose
+      - name: Configure upstream angle/vector Android target
+        run: |
+          cmake -S "$GITHUB_WORKSPACE" -B build/upstream-angle-android -G Ninja \
+            -DCMAKE_TOOLCHAIN_FILE="$ANDROID_NDK_HOME/build/cmake/android.toolchain.cmake" \
+            -DANDROID_ABI=arm64-v8a -DANDROID_PLATFORM=android-26 \
+            -DNUKE_BUILD_UPSTREAM_ANGLE_VECTORS=ON \
+            -DNUKE_BUILD_UPSTREAM_FILEACCESS_TEST=ON \
+            -DNUKE_UPSTREAM_SOURCE_DIR="$GITHUB_WORKSPACE/build/upstream" \
+            -DBUILD_TESTING=OFF -DCMAKE_BUILD_TYPE=Release
+      - name: Compile and link upstream angle/vector Android smoke test
+        run: |
+          cmake --build build/upstream-angle-android --target nuke-upstream-angle-vectors nuke-upstream-axis-to-quat nuke-upstream-angle-vectors-test nuke-upstream-fileaccess-test --verbose
+          for target in nuke-upstream-angle-vectors nuke-upstream-axis-to-quat; do
+            object="$(find "build/upstream-angle-android/CMakeFiles/$target.dir" -name '*.o' -print -quit)"
+            test -n "$object"
+            output="build/$target-android.o"
+            cp "$object" "$output"
+            header="$("$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-readelf" -h "$output")"
+            printf '%s\n' "$header" | grep -E 'Class:|Machine:'
+            grep -Eq '^[[:space:]]*Class:[[:space:]]+ELF64[[:space:]]*$' <<< "$header" || { echo "Expected $target object to be ELF64" >&2; exit 1; }
+            grep -Eq '^[[:space:]]*Machine:[[:space:]]+AArch64[[:space:]]*$' <<< "$header" || { echo "Expected $target object to be AArch64" >&2; exit 1; }
+          done
+          executable="build/upstream-angle-android/nuke-upstream-angle-vectors-test"
+          test -x "$executable"
+          header="$("$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-readelf" -h "$executable")"
+          printf '%s\n' "$header" | grep -E 'Class:|Machine:'
+          grep -Eq '^[[:space:]]*Class:[[:space:]]+ELF64[[:space:]]*$' <<< "$header" || { echo "Expected linked angle/vector smoke test to be ELF64" >&2; exit 1; }
+          grep -Eq '^[[:space:]]*Machine:[[:space:]]+AArch64[[:space:]]*$' <<< "$header" || { echo "Expected linked angle/vector smoke test to be AArch64" >&2; exit 1; }
+          fileaccess="build/upstream-angle-android/nuke-upstream-fileaccess-test"
+          test -x "$fileaccess"
+          header="$("$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-readelf" -h "$fileaccess")"
+          printf '%s\n' "$header" | grep -E 'Class:|Machine:'
+          grep -Eq '^[[:space:]]*Class:[[:space:]]+ELF64[[:space:]]*$' <<< "$header" || { echo "Expected upstream file-access executable to be ELF64" >&2; exit 1; }
+          grep -Eq '^[[:space:]]*Machine:[[:space:]]+AArch64[[:space:]]*$' <<< "$header" || { echo "Expected upstream file-access executable to be AArch64" >&2; exit 1; }
+      - name: Compile MSVC-style upstream headers with Android Clang extensions
+        run: |
+          "$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android26-clang++" \
+            -std=c++20 -fdeclspec -include "$GITHUB_WORKSPACE/tests/upstream_msvc_compat.h" -Wall -Wextra \
+            -I "$GITHUB_WORKSPACE/build/upstream" \
+            -I "$GITHUB_WORKSPACE/build/upstream/src" \
+            -c "$GITHUB_WORKSPACE/tests/upstream_msvc_extensions.cpp" \
+            -o build/upstream-msvc-extensions-android.o
+          "$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-readelf" -h build/upstream-msvc-extensions-android.o
+      - name: Compile and run StringTable LP64 layout regression on host and Android
+        run: |
+          common=(
+            -std=c++20 -fdeclspec
+            -include "$GITHUB_WORKSPACE/tests/upstream_msvc_compat.h"
+            -Wall -Wextra -Werror
+            -I "$GITHUB_WORKSPACE/build/upstream/src"
+          )
+          clang++ "${common[@]}" "$GITHUB_WORKSPACE/tests/upstream_stringtable_lp64.cpp" -o build/upstream-stringtable-lp64-host
+          ./build/upstream-stringtable-lp64-host
+          "$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android26-clang++" "${common[@]}" "$GITHUB_WORKSPACE/tests/upstream_stringtable_lp64.cpp" -o build/upstream-stringtable-lp64-android
+          readelf="$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-readelf"
+          "$readelf" -h build/upstream-stringtable-lp64-android | grep -Eq 'Class:[[:space:]]+ELF64'
+          "$readelf" -h build/upstream-stringtable-lp64-android | grep -Eq 'Machine:[[:space:]]+AArch64'
+      - name: Compile and run renderer-independent vidConfig_t layout on host and Android
+        run: |
+          common=(
+            -std=c++20 -Wall -Wextra -Werror
+            -I "$GITHUB_WORKSPACE/build/upstream/src"
+          )
+          clang++ "${common[@]}" "$GITHUB_WORKSPACE/tests/upstream_vid_config_types.cpp" -o build/upstream-vid-config-types-host
+          ./build/upstream-vid-config-types-host
+          "$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android26-clang++" "${common[@]}" "$GITHUB_WORKSPACE/tests/upstream_vid_config_types.cpp" -o build/upstream-vid-config-types-android
+          readelf="$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-readelf"
+          "$readelf" -h build/upstream-vid-config-types-android | grep -Eq 'Class:[[:space:]]+ELF64'
+          "$readelf" -h build/upstream-vid-config-types-android | grep -Eq 'Machine:[[:space:]]+AArch64'
+      - name: Compile and run Android FastFile material lookup regression on host and Android
+        run: |
+          common=(
+            -std=c++20 -fdeclspec
+            -include "$GITHUB_WORKSPACE/tests/upstream_msvc_compat.h"
+            -Wall -Wextra -Werror
+            -I "$GITHUB_WORKSPACE/build/upstream/src"
+          )
+          clang++ "${common[@]}" "$GITHUB_WORKSPACE/tests/upstream_dynent_material_fastfile_lookup.cpp" -o build/upstream-dynent-material-fastfile-host
+          ./build/upstream-dynent-material-fastfile-host
+          "$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android26-clang++" "${common[@]}" "$GITHUB_WORKSPACE/tests/upstream_dynent_material_fastfile_lookup.cpp" -o build/upstream-dynent-material-fastfile-android
+          readelf="$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-readelf"
+          "$readelf" -h build/upstream-dynent-material-fastfile-android | grep -Eq 'Class:[[:space:]]+ELF64'
+          "$readelf" -h build/upstream-dynent-material-fastfile-android | grep -Eq 'Machine:[[:space:]]+AArch64'
+      - name: Compile and run LP64 physics allocator regression on host and Android
+        run: |
+          c++ -std=c++17 -Wall -Wextra -Werror -pthread \
+            -I "$GITHUB_WORKSPACE/tests" \
+            "$GITHUB_WORKSPACE/tests/upstream_phys_buffer_allocator.cpp" \
+            -o build/upstream-phys-buffer-allocator-host
+          ./build/upstream-phys-buffer-allocator-host
+          "$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android26-clang++" \
+            -std=c++17 -Wall -Wextra -Werror -pthread \
+            -I "$GITHUB_WORKSPACE/tests" \
+            "$GITHUB_WORKSPACE/tests/upstream_phys_buffer_allocator.cpp" \
+            -o build/upstream-phys-buffer-allocator-android
+          readelf="$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-readelf"
+          "$readelf" -h build/upstream-phys-buffer-allocator-android | grep -Eq 'Class:[[:space:]]+ELF64'
+          "$readelf" -h build/upstream-phys-buffer-allocator-android | grep -Eq 'Machine:[[:space:]]+AArch64'
+      - name: Compile patched physics memory manager on host and Android
+        run: |
+          common=(
+            -std=c++20 -fdeclspec
+            -include "$GITHUB_WORKSPACE/tests/upstream_msvc_compat.h"
+            -I "$GITHUB_WORKSPACE/build/upstream"
+            -I "$GITHUB_WORKSPACE/build/upstream/src"
+          )
+          clang++ "${common[@]}" -Wall -Wextra -Wno-ignored-attributes \
+            -c "$GITHUB_WORKSPACE/build/upstream/src/physics/phys_mem_new.cpp" \
+            -o build/upstream-phys-mem-new-host.o
+          "$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android26-clang++" \
+            "${common[@]}" -Wall -Wextra -Wno-ignored-attributes \
+            -c "$GITHUB_WORKSPACE/build/upstream/src/physics/phys_mem_new.cpp" \
+            -o build/upstream-phys-mem-new-android.o
+          "$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-readelf" \
+            -h build/upstream-phys-mem-new-android.o | grep -Eq 'Class:[[:space:]]+ELF64'
+          "$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-readelf" \
+            -h build/upstream-phys-mem-new-android.o | grep -Eq 'Machine:[[:space:]]+AArch64'
+      - name: Compile CubeMapGen bounding-box headers on host and Android
+        run: |
+          c++ -std=c++20 '-D__int64=long long' \
+            -I build/upstream -I build/upstream/src \
+            -c tests/upstream_cubemap_headers.cpp \
+            -o build/upstream-cubemap-headers-host.o
+          "$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android26-clang++" \
+            -std=c++20 -fdeclspec \
+            -include "$GITHUB_WORKSPACE/tests/upstream_msvc_compat.h" \
+            -I build/upstream -I build/upstream/src \
+            -c tests/upstream_cubemap_headers.cpp \
+            -o build/upstream-cubemap-headers-android.o
+          "$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-readelf" -h build/upstream-cubemap-headers-android.o | grep -Eq 'Class:[[:space:]]+ELF64'
+          "$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-readelf" -h build/upstream-cubemap-headers-android.o | grep -Eq 'Machine:[[:space:]]+AArch64'
+      - name: Compile generic sound DSP headers and validate layouts on host and Android
+        run: |
+          common=(
+            -std=c++20 -fdeclspec
+            -include "$GITHUB_WORKSPACE/tests/upstream_msvc_compat.h"
+            -I build/upstream -I build/upstream/src
+          )
+          clang++ "${common[@]}" -Wall -Wextra \
+            -c tests/upstream_snd_dsp_types.cpp \
+            -o build/upstream-snd-dsp-types-host.o
+          "$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android26-clang++" \
+            "${common[@]}" -Wall -Wextra \
+            -c tests/upstream_snd_dsp_types.cpp \
+            -o build/upstream-snd-dsp-types-android.o
+          header="$("$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-readelf" -h build/upstream-snd-dsp-types-android.o)"
+          printf '%s\n' "$header" | grep -E 'Class:|Machine:'
+          printf '%s\n' "$header" | grep -Eq '^[[:space:]]*Class:[[:space:]]+ELF64[[:space:]]*$'
+          printf '%s\n' "$header" | grep -Eq '^[[:space:]]*Machine:[[:space:]]+AArch64[[:space:]]*$'
+      - name: Compile FX primitive declarations without D3D9 coupling
+        run: |
+          common=(
+            -std=c++20 -fdeclspec
+            -include "$GITHUB_WORKSPACE/tests/upstream_msvc_compat.h"
+            -I build/upstream -I build/upstream/src
+          )
+          clang++ "${common[@]}" -Wall -Wextra -Wno-ignored-attributes -c tests/upstream_fxprimitives_header.cpp -o build/upstream-fxprimitives-host.o
+          "$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android26-clang++" "${common[@]}" -Wall -Wextra -Wno-ignored-attributes -c tests/upstream_fxprimitives_header.cpp -o build/upstream-fxprimitives-android.o
+          header="$("$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-readelf" -h build/upstream-fxprimitives-android.o)"
+          printf '%s\n' "$header" | grep -E 'Class:|Machine:'
+          printf '%s\n' "$header" | grep -Eq '^[[:space:]]*Class:[[:space:]]+ELF64[[:space:]]*$'
+          printf '%s\n' "$header" | grep -Eq '^[[:space:]]*Machine:[[:space:]]+AArch64[[:space:]]*$'
+      - name: Compile DB registry material declarations without D3D9 coupling
+        run: |
+          common=(
+            -std=c++20 -fdeclspec -Wall -Wextra -Wno-ignored-attributes
+            -DKISAK_MP -DNDEBUG
+            -include "$GITHUB_WORKSPACE/tests/upstream_msvc_compat.h"
+            -I "$GITHUB_WORKSPACE/build/upstream"
+            -I "$GITHUB_WORKSPACE/build/upstream/src"
+            -I "$GITHUB_WORKSPACE/build/upstream/src/libs"
+            -I "$GITHUB_WORKSPACE/build/upstream/src/libs/libtomcrypt-1.17/src/headers"
+            -I "$GITHUB_WORKSPACE/build/upstream/src/libs/libtommath-1.0"
+            -I "$GITHUB_WORKSPACE/build/upstream/src/libs/libvpx-1.5.0/include"
+          )
+          clang++ "${common[@]}" -c tests/upstream_db_registry_header.cpp -o build/upstream-db-registry-header-host.o
+          "$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android26-clang++" "${common[@]}" -c tests/upstream_db_registry_header.cpp -o build/upstream-db-registry-header-android.o
+          readelf="$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-readelf"
+          header="$("$readelf" -h build/upstream-db-registry-header-android.o)"
+          grep -Eq '^[[:space:]]*Class:[[:space:]]+ELF64[[:space:]]*$' <<< "$header"
+          grep -Eq '^[[:space:]]*Machine:[[:space:]]+AArch64[[:space:]]*$' <<< "$header"
+      - name: Compile DynEntity renderer API declarations without D3D9 coupling
+        run: |
+          common=(
+            -std=c++20 -fdeclspec
+            -include "$GITHUB_WORKSPACE/tests/upstream_msvc_compat.h"
+            -I build/upstream -I build/upstream/src
+          )
+          clang++ "${common[@]}" -Wall -Wextra -Wno-ignored-attributes -c tests/upstream_dynent_scene_api.cpp -o build/upstream-dynent-scene-api-host.o
+          "$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android26-clang++" "${common[@]}" -Wall -Wextra -Wno-ignored-attributes -c tests/upstream_dynent_scene_api.cpp -o build/upstream-dynent-scene-api-android.o
+          header="$("$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-readelf" -h build/upstream-dynent-scene-api-android.o)"
+          printf '%s\n' "$header" | grep -E 'Class:|Machine:'
+          printf '%s\n' "$header" | grep -Eq '^[[:space:]]*Class:[[:space:]]+ELF64[[:space:]]*$'
+          printf '%s\n' "$header" | grep -Eq '^[[:space:]]*Machine:[[:space:]]+AArch64[[:space:]]*$'
+      - name: Compile rope and XAnim headers without D3D9 SDK coupling
+        run: |
+          common=(
+            -std=c++20 -fdeclspec -Wall -Wextra -Wno-ignored-attributes
+            -DKISAK_MP -DNDEBUG
+            -include "$GITHUB_WORKSPACE/tests/upstream_msvc_compat.h"
+            -I "$GITHUB_WORKSPACE/build/upstream"
+            -I "$GITHUB_WORKSPACE/build/upstream/src"
+            -I "$GITHUB_WORKSPACE/build/upstream/src/libs"
+            -I "$GITHUB_WORKSPACE/build/upstream/src/libs/libtomcrypt-1.17/src/headers"
+            -I "$GITHUB_WORKSPACE/build/upstream/src/libs/libtommath-1.0"
+            -I "$GITHUB_WORKSPACE/build/upstream/src/libs/libvpx-1.5.0/include"
+          )
+          clang++ "${common[@]}" -c tests/upstream_dynent_transitive_d3d9_headers.cpp -o build/upstream-dynent-transitive-d3d9-host.o
+          "$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android26-clang++" "${common[@]}" -c tests/upstream_dynent_transitive_d3d9_headers.cpp -o build/upstream-dynent-transitive-d3d9-android.o
+          header="$("$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-readelf" -h build/upstream-dynent-transitive-d3d9-android.o)"
+          printf '%s\n' "$header" | grep -E 'Class:|Machine:'
+          printf '%s\n' "$header" | grep -Eq '^[[:space:]]*Class:[[:space:]]+ELF64[[:space:]]*$'
+          printf '%s\n' "$header" | grep -Eq '^[[:space:]]*Machine:[[:space:]]+AArch64[[:space:]]*$'
+      - name: Compile renderer-independent shader constant-set data layout on host and Android
+        run: |
+          common=(
+            -std=c++20 -Wall -Wextra -Werror
+            -I "$GITHUB_WORKSPACE/build/upstream/src"
+          )
+          clang++ "${common[@]}" -c "$GITHUB_WORKSPACE/tests/upstream_shader_constant_set_types.cpp" -o build/upstream-shader-constant-set-host.o
+          "$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android26-clang++" "${common[@]}" -c "$GITHUB_WORKSPACE/tests/upstream_shader_constant_set_types.cpp" -o build/upstream-shader-constant-set-android.o
+          readelf="$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-readelf"
+          "$readelf" -h build/upstream-shader-constant-set-android.o | grep -Eq 'Class:[[:space:]]+ELF64'
+          "$readelf" -h build/upstream-shader-constant-set-android.o | grep -Eq 'Machine:[[:space:]]+AArch64'
+      - name: Compile and verify native LP64 GJK runtime layouts on host and Android
+        run: |
+          common=(
+            -std=c++20 -fdeclspec -Wall -Wextra -Wno-ignored-attributes
+            -include "$GITHUB_WORKSPACE/tests/upstream_msvc_compat.h"
+            -I "$GITHUB_WORKSPACE/build/upstream"
+            -I "$GITHUB_WORKSPACE/build/upstream/src"
+          )
+          clang++ "${common[@]}" -c "$GITHUB_WORKSPACE/tests/upstream_gjk_runtime_layout.cpp" -o build/upstream-gjk-runtime-layout-host.o
+          "$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android26-clang++" "${common[@]}" -c "$GITHUB_WORKSPACE/tests/upstream_gjk_runtime_layout.cpp" -o build/upstream-gjk-runtime-layout-android.o
+          header="$("$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-readelf" -h build/upstream-gjk-runtime-layout-android.o)"
+          printf '%s\n' "$header" | grep -E 'Class:|Machine:'
+          printf '%s\n' "$header" | grep -Eq '^[[:space:]]*Class:[[:space:]]+ELF64[[:space:]]*$'
+          printf '%s\n' "$header" | grep -Eq '^[[:space:]]*Machine:[[:space:]]+AArch64[[:space:]]*$'
+      - name: Compile and verify LP64 auto-activation callback layouts on host and Android
+        run: |
+          common=(
+            -std=c++20 -Wall -Wextra
+            -I "$GITHUB_WORKSPACE/build"
+          )
+          clang++ "${common[@]}" -c tests/upstream_auto_activate_layout.cpp -o build/upstream-auto-activate-layout-host.o
+          "$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android26-clang++" "${common[@]}" -c tests/upstream_auto_activate_layout.cpp -o build/upstream-auto-activate-layout-android.o
+          header="$("$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-readelf" -h build/upstream-auto-activate-layout-android.o)"
+          printf '%s\n' "$header" | grep -E 'Class:|Machine:'
+          printf '%s\n' "$header" | grep -Eq '^[[:space:]]*Class:[[:space:]]+ELF64[[:space:]]*$'
+          printf '%s\n' "$header" | grep -Eq '^[[:space:]]*Machine:[[:space:]]+AArch64[[:space:]]*$'
+      - name: Compile and verify LP64 physics collision-pair layout on host and Android
+        run: |
+          common=(
+            -std=c++20 -fdeclspec -Wall -Wextra -Wno-ignored-attributes
+            -include "$GITHUB_WORKSPACE/tests/upstream_msvc_compat.h"
+            -I "$GITHUB_WORKSPACE/build"
+            -I "$GITHUB_WORKSPACE/build/upstream"
+            -I "$GITHUB_WORKSPACE/build/upstream/src"
+          )
+          clang++ "${common[@]}" -c tests/upstream_phys_collision_pair_layout.cpp -o build/upstream-phys-collision-pair-layout-host.o
+          "$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android26-clang++" "${common[@]}" -c tests/upstream_phys_collision_pair_layout.cpp -o build/upstream-phys-collision-pair-layout-android.o
+          header="$("$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-readelf" -h build/upstream-phys-collision-pair-layout-android.o)"
+          printf '%s\n' "$header" | grep -E 'Class:|Machine:'
+          printf '%s\n' "$header" | grep -Eq '^[[:space:]]*Class:[[:space:]]+ELF64[[:space:]]*$'
+          printf '%s\n' "$header" | grep -Eq '^[[:space:]]*Machine:[[:space:]]+AArch64[[:space:]]*$'
+      - name: Compile and verify LP64 rigid-body contact free-list layout on host and Android
+        run: |
+          common=(
+            -std=c++20 -fdeclspec -Wall -Wextra -Wno-ignored-attributes
+            -DKISAK_MP -DNDEBUG
+            -include "$GITHUB_WORKSPACE/tests/upstream_msvc_compat.h"
+            -I "$GITHUB_WORKSPACE/build/upstream"
+            -I "$GITHUB_WORKSPACE/build/upstream/src"
+            -I "$GITHUB_WORKSPACE/build/upstream/src/libs"
+            -I "$GITHUB_WORKSPACE/build/upstream/src/libs/libtomcrypt-1.17/src/headers"
+            -I "$GITHUB_WORKSPACE/build/upstream/src/libs/libtommath-1.0"
+            -I "$GITHUB_WORKSPACE/build/upstream/src/libs/libvpx-1.5.0/include"
+          )
+          clang++ "${common[@]}" -c tests/upstream_rigid_body_contact_layout.cpp -o build/upstream-rbc-contact-layout-host.o
+          "$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android26-clang++" "${common[@]}" -c tests/upstream_rigid_body_contact_layout.cpp -o build/upstream-rbc-contact-layout-android.o
+          header="$("$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-readelf" -h build/upstream-rbc-contact-layout-android.o)"
+          printf '%s\n' "$header" | grep -E 'Class:|Machine:'
+          printf '%s\n' "$header" | grep -Eq '^[[:space:]]*Class:[[:space:]]+ELF64[[:space:]]*$'
+          printf '%s\n' "$header" | grep -Eq '^[[:space:]]*Machine:[[:space:]]+AArch64[[:space:]]*$'
+      - name: Compile native LP64 broad-phase memory layout on host and Android
+        run: |
+          common=(
+            -std=c++20 -fdeclspec -Wall -Wextra -Wno-ignored-attributes
+            -include "$GITHUB_WORKSPACE/tests/upstream_msvc_compat.h"
+            -I "$GITHUB_WORKSPACE/build/upstream"
+            -I "$GITHUB_WORKSPACE/build/upstream/src"
+          )
+          clang++ "${common[@]}" -c "$GITHUB_WORKSPACE/tests/upstream_broad_phase_memory_layout.cpp" -o build/upstream-broad-phase-memory-layout-host.o
+          "$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android26-clang++" "${common[@]}" -c "$GITHUB_WORKSPACE/tests/upstream_broad_phase_memory_layout.cpp" -o build/upstream-broad-phase-memory-layout-android.o
+          header="$("$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-readelf" -h build/upstream-broad-phase-memory-layout-android.o)"
+          printf '%s\n' "$header" | grep -E 'Class:|Machine:'
+          printf '%s\n' "$header" | grep -Eq '^[[:space:]]*Class:[[:space:]]+ELF64[[:space:]]*$'
+          printf '%s\n' "$header" | grep -Eq '^[[:space:]]*Machine:[[:space:]]+AArch64[[:space:]]*$'
+
+      - name: Compile native LP64 sweep-and-prune outer layout on host and Android
+        run: |
+          common=(
+            -std=c++20 -fdeclspec -Wall -Wextra -Wno-ignored-attributes
+            -include "$GITHUB_WORKSPACE/tests/upstream_msvc_compat.h"
+            -I "$GITHUB_WORKSPACE/build/upstream"
+            -I "$GITHUB_WORKSPACE/build/upstream/src"
+          )
+          clang++ "${common[@]}" -c "$GITHUB_WORKSPACE/tests/upstream_sap_outer_layout.cpp" -o build/upstream-sap-outer-layout-host.o
+          "$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android26-clang++" "${common[@]}" -c "$GITHUB_WORKSPACE/tests/upstream_sap_outer_layout.cpp" -o build/upstream-sap-outer-layout-android.o
+          header="$("$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-readelf" -h build/upstream-sap-outer-layout-android.o)"
+          printf '%s\n' "$header" | grep -E 'Class:|Machine:'
+          printf '%s\n' "$header" | grep -Eq '^[[:space:]]*Class:[[:space:]]+ELF64[[:space:]]*$'
+          printf '%s\n' "$header" | grep -Eq '^[[:space:]]*Machine:[[:space:]]+AArch64[[:space:]]*$'
+
+      - name: Compile shared ComPrimaryLight BSP layout on host and Android
+        run: |
+          common=(
+            -std=c++20 -fdeclspec -Wall -Wextra -Wno-ignored-attributes
+            -include "$GITHUB_WORKSPACE/tests/upstream_msvc_compat.h"
+            -I "$GITHUB_WORKSPACE/build/upstream"
+            -I "$GITHUB_WORKSPACE/build/upstream/src"
+          )
+          clang++ "${common[@]}" -c "$GITHUB_WORKSPACE/tests/upstream_com_primary_light_layout.cpp" -o build/upstream-com-primary-light-layout-host.o
+          "$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android26-clang++" "${common[@]}" -c "$GITHUB_WORKSPACE/tests/upstream_com_primary_light_layout.cpp" -o build/upstream-com-primary-light-layout-android.o
+          header="$("$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-readelf" -h build/upstream-com-primary-light-layout-android.o)"
+          printf '%s\n' "$header" | grep -E 'Class:|Machine:'
+          printf '%s\n' "$header" | grep -Eq '^[[:space:]]*Class:[[:space:]]+ELF64[[:space:]]*$'
+          printf '%s\n' "$header" | grep -Eq '^[[:space:]]*Machine:[[:space:]]+AArch64[[:space:]]*$'
+
+      - name: Compile generic job-queue declarations on host and Android
+        run: |
+          common=(
+            -std=c++20 -fdeclspec -Wall -Wextra -Wno-ignored-attributes
+            -include "$GITHUB_WORKSPACE/tests/upstream_msvc_compat.h"
+            -I "$GITHUB_WORKSPACE/build/upstream"
+            -I "$GITHUB_WORKSPACE/build/upstream/src"
+          )
+          clang++ "${common[@]}" -c "$GITHUB_WORKSPACE/tests/upstream_jobqueue_header.cpp" -o build/upstream-jobqueue-header-host.o
+          "$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android26-clang++" "${common[@]}" -c "$GITHUB_WORKSPACE/tests/upstream_jobqueue_header.cpp" -o build/upstream-jobqueue-header-android.o
+          header="$("$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-readelf" -h build/upstream-jobqueue-header-android.o)"
+          printf '%s\n' "$header" | grep -E 'Class:|Machine:'
+          printf '%s\n' "$header" | grep -Eq '^[[:space:]]*Class:[[:space:]]+ELF64[[:space:]]*$'
+          printf '%s\n' "$header" | grep -Eq '^[[:space:]]*Machine:[[:space:]]+AArch64[[:space:]]*$'
+      - name: Compile LP64 GJK cache-node layout on host and Android
+        run: |
+          common=(
+            -std=c++20 -fdeclspec -Wall -Wextra -Wno-ignored-attributes
+            -include "$GITHUB_WORKSPACE/tests/upstream_msvc_compat.h"
+            -I "$GITHUB_WORKSPACE/build/upstream"
+            -I "$GITHUB_WORKSPACE/build/upstream/src"
+          )
+          clang++ "${common[@]}" -c "$GITHUB_WORKSPACE/tests/upstream_phys_gjk_cache_layout.cpp" -o build/upstream-phys-gjk-cache-layout-host.o
+          "$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android26-clang++" "${common[@]}" -c "$GITHUB_WORKSPACE/tests/upstream_phys_gjk_cache_layout.cpp" -o build/upstream-phys-gjk-cache-layout-android.o
+          header="$("$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-readelf" -h build/upstream-phys-gjk-cache-layout-android.o)"
+          printf '%s\\n' "$header" | grep -E 'Class:|Machine:'
+          printf '%s\\n' "$header" | grep -Eq '^[[:space:]]*Class:[[:space:]]+ELF64[[:space:]]*$'
+          printf '%s\\n' "$header" | grep -Eq '^[[:space:]]*Machine:[[:space:]]+AArch64[[:space:]]*$'
+      - name: Compile variadic iassert compatibility in host and Android DEBUG/Release modes
+        run: |
+          common=(
+            -std=c++20 -fdeclspec
+            -include "$GITHUB_WORKSPACE/tests/upstream_msvc_compat.h"
+            -I build/upstream -I build/upstream/src
+          )
+          clang++ "${common[@]}" -D_DEBUG -c tests/upstream_iassert_variadic.cpp -o build/upstream-iassert-debug-host.o
+          clang++ "${common[@]}" -c tests/upstream_iassert_variadic.cpp -o build/upstream-iassert-release-host.o
+          "$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android26-clang++" "${common[@]}" -D_DEBUG -c tests/upstream_iassert_variadic.cpp -o build/upstream-iassert-debug-android.o
+          "$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android26-clang++" "${common[@]}" -c tests/upstream_iassert_variadic.cpp -o build/upstream-iassert-release-android.o
+          header="$("$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-readelf" -h build/upstream-iassert-debug-android.o)"
+          printf '%s\n' "$header" | grep -E 'Class:|Machine:'
+          printf '%s\n' "$header" | grep -Eq '^[[:space:]]*Class:[[:space:]]+ELF64[[:space:]]*$'
+          printf '%s\n' "$header" | grep -Eq '^[[:space:]]*Machine:[[:space:]]+AArch64[[:space:]]*$'
+      - name: Diagnose complete KisakBlack Android target (non-blocking)
+        shell: bash
+        run: |
+          set -uo pipefail
+          log="$GITHUB_WORKSPACE/build/upstream-android-root-diagnostic.log"
+          mkdir -p build/upstream-root-android
+          : > "$log"
+
+          set +e
+          cmake -S build/upstream -B build/upstream-root-android -G Ninja \
+            -DCMAKE_TOOLCHAIN_FILE="$ANDROID_NDK_HOME/build/cmake/android.toolchain.cmake" \
+            -DANDROID_ABI=arm64-v8a -DANDROID_PLATFORM=android-26 \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_CXX_FLAGS="-fdeclspec -include $GITHUB_WORKSPACE/tests/upstream_msvc_compat.h" 2>&1 | tee -a "$log"
+          configure_rc=${PIPESTATUS[0]}
+          set -e
+          printf 'ROOT_CONFIGURE_EXIT=%s\n' "$configure_rc" | tee -a "$log"
+
+          if [ "$configure_rc" -eq 0 ]; then
+            set +e
+            timeout 180s cmake --build build/upstream-root-android --target KisakBlack --parallel 2 \
+              2>&1 | tee -a "$log"
+            build_rc=${PIPESTATUS[0]}
+            set -e
+            printf 'ROOT_BUILD_EXIT=%s\n' "$build_rc" | tee -a "$log"
+            if [ "$build_rc" -ne 0 ]; then
+              echo "::warning::Full KisakBlack Android target did not build; diagnostic log uploaded."
+            fi
+          else
+            echo "::warning::Full KisakBlack Android root configure failed; diagnostic log uploaded."
+          fi
+          tail -n 100 "$log"
+      - name: Upload full-engine Android diagnostic
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: kisakblack-android-root-diagnostic
+          path: build/upstream-android-root-diagnostic.log
+          if-no-files-found: warn
+      - name: Upload upstream Android regression binaries
+        uses: actions/upload-artifact@v6
+        with:
+          name: nuke-upstream-regression-arm64
+          path: |
+            build/upstream-bitarray-android
+            build/upstream-atomic-android
+            build/upstream-bd-reference-android
+            build/upstream-bd-bytebuffer-length-android
+            build/upstream-bd-platform-mutex-android
+            build/upstream-snapfloat-rounding-android
+            build/upstream-msvc-extensions-android.o
+            build/upstream-auto-activate-layout-android.o
+            build/upstream-phys-collision-pair-layout-android.o
+            build/upstream-broad-phase-memory-layout-android.o
+            build/upstream-sap-outer-layout-host.o
+            build/upstream-sap-outer-layout-android.o
+            build/upstream-dynent-scene-api-android.o
+            build/upstream-dynent-transitive-d3d9-android.o
+            build/upstream-snd-dsp-types-android.o
+            build/upstream-iassert-debug-android.o
+            build/upstream-thread-android-cmake/nuke-upstream-thread-compat-test
+            build/upstream-base64-android-cmake/nuke-upstream-base64-test
+            build/nuke-upstream-angle-vectors-android.o
+            build/nuke-upstream-axis-to-quat-android.o
+            build/upstream-angle-android/nuke-upstream-angle-vectors-test
+            build/upstream-angle-android/nuke-upstream-fileaccess-test
+  host-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - name: Verify workflow template parity
+        run: cmp --silent .github/workflows/android-arm64.yml ci/android-arm64.workflow-template.yml
+      - run: cmake -S . -B build/host -G Ninja -DCMAKE_BUILD_TYPE=Debug
+      - run: cmake --build build/host
+      - run: ctest --test-dir build/host --output-on-failure
+ <<< "$header" || { echo "Expected MaterialMemory test to be ELF64" >&2; exit 1; }
+          grep -Eq '^[[:space:]]*Machine:[[:space:]]+AArch64[[:space:]]*        run: |
+          c++ -std=c++17 -Wall -Wextra -Werror \
+            -I "$GITHUB_WORKSPACE/build/upstream" \
+            -I "$GITHUB_WORKSPACE/build/upstream/src" \
+            "$GITHUB_WORKSPACE/tests/upstream_bd_referencable.cpp" \
+            -o build/upstream-bd-reference-host
+          ./build/upstream-bd-reference-host
+          "$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android26-clang++" \
+            -std=c++17 -Wall -Wextra -Werror \
+            -I "$GITHUB_WORKSPACE/build/upstream" \
+            -I "$GITHUB_WORKSPACE/build/upstream/src" \
+            "$GITHUB_WORKSPACE/tests/upstream_bd_referencable.cpp" \
+            -o build/upstream-bd-reference-android
+          header="$("$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-readelf" -h build/upstream-bd-reference-android)"
+          printf '%s\\n' "$header" | grep -E 'Class:|Machine:'
+          grep -Eq '^[[:space:]]*Class:[[:space:]]+ELF64[[:space:]]*$' <<< "$header" || { echo "Expected DemonWare reference test to be ELF64" >&2; exit 1; }
+          grep -Eq '^[[:space:]]*Machine:[[:space:]]+AArch64[[:space:]]*$' <<< "$header" || { echo "Expected DemonWare reference test to be AArch64" >&2; exit 1; }
+      - name: Compile and run DemonWare bounded-string length regression
+        run: |
+          c++ -std=c++17 -Wall -Wextra -Werror -I build/upstream/src \
+            tests/upstream_bd_bytebuffer_length.cpp \
+            -o build/upstream-bd-bytebuffer-length-host
+          ./build/upstream-bd-bytebuffer-length-host
+          "$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android26-clang++" \
+            -std=c++17 -Wall -Wextra -Werror -I build/upstream/src \
+            tests/upstream_bd_bytebuffer_length.cpp \
+            -o build/upstream-bd-bytebuffer-length-android
+          readelf="$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-readelf"
+          "$readelf" -h build/upstream-bd-bytebuffer-length-android | grep -Eq 'Class:[[:space:]]+ELF64'
+          "$readelf" -h build/upstream-bd-bytebuffer-length-android | grep -Eq 'Machine:[[:space:]]+AArch64'
+      - name: Compile and run POSIX DemonWare mutex regression
+        run: |
+          c++ -std=c++17 -Wall -Wextra -Werror -pthread -I build/upstream \
+            tests/upstream_bd_platform_mutex.cpp \
+            build/upstream/DemonWare/bdPlatform/bdPlatformThread/bdPlatformMutex.cpp \
+            -o build/upstream-bd-platform-mutex-host
+          ./build/upstream-bd-platform-mutex-host
+          "$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android26-clang++" \
+            -std=c++17 -Wall -Wextra -Werror -pthread -I build/upstream \
+            tests/upstream_bd_platform_mutex.cpp \
+            build/upstream/DemonWare/bdPlatform/bdPlatformThread/bdPlatformMutex.cpp \
+            -o build/upstream-bd-platform-mutex-android
+          readelf="$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-readelf"
+          "$readelf" -h build/upstream-bd-platform-mutex-android | grep -Eq 'Class:[[:space:]]+ELF64'
+          "$readelf" -h build/upstream-bd-platform-mutex-android | grep -Eq 'Machine:[[:space:]]+AArch64'
+      - name: Compile and run SnapFloat rounding regression on host and Android
+        run: |
+          common=(
+            -std=c++17 -frounding-math -Wall -Wextra -Werror
+            -I "$GITHUB_WORKSPACE/build/upstream/src"
+          )
+          c++ "${common[@]}" "$GITHUB_WORKSPACE/tests/upstream_snapfloat_rounding.cpp" -o build/upstream-snapfloat-rounding-host
+          ./build/upstream-snapfloat-rounding-host
+          "$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android26-clang++" "${common[@]}" "$GITHUB_WORKSPACE/tests/upstream_snapfloat_rounding.cpp" -o build/upstream-snapfloat-rounding-android
+          readelf="$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-readelf"
+          "$readelf" -h build/upstream-snapfloat-rounding-android | grep -Eq 'Class:[[:space:]]+ELF64'
+          "$readelf" -h build/upstream-snapfloat-rounding-android | grep -Eq 'Machine:[[:space:]]+AArch64'
+      - name: Configure upstream threading host target
+        run: |
+          cmake -S "$GITHUB_WORKSPACE" -B build/upstream-thread-host-cmake -G Ninja \
+            -DNUKE_BUILD_UPSTREAM_THREAD_COMPAT_TEST=ON \
+            -DNUKE_UPSTREAM_SOURCE_DIR="$GITHUB_WORKSPACE/build/upstream" \
+            -DBUILD_TESTING=ON -DCMAKE_BUILD_TYPE=Release
+      - name: Build and run upstream threading host regression
+        run: |
+          cmake --build build/upstream-thread-host-cmake --target nuke-upstream-thread-compat-test --verbose
+          ctest --test-dir build/upstream-thread-host-cmake -R '^upstream-thread-compat$' --output-on-failure
+      - name: Configure upstream threading Android target
+        run: |
+          cmake -S "$GITHUB_WORKSPACE" -B build/upstream-thread-android-cmake -G Ninja \
+            -DCMAKE_TOOLCHAIN_FILE="$ANDROID_NDK_HOME/build/cmake/android.toolchain.cmake" \
+            -DANDROID_ABI=arm64-v8a -DANDROID_PLATFORM=android-26 \
+            -DNUKE_BUILD_UPSTREAM_THREAD_COMPAT_TEST=ON \
+            -DNUKE_UPSTREAM_SOURCE_DIR="$GITHUB_WORKSPACE/build/upstream" \
+            -DBUILD_TESTING=OFF -DCMAKE_BUILD_TYPE=Release
+      - name: Compile and verify upstream threading Android target
+        run: |
+          cmake --build build/upstream-thread-android-cmake --target nuke-upstream-thread-compat-test --verbose
+          path="build/upstream-thread-android-cmake/nuke-upstream-thread-compat-test"
+          test -x "$path"
+          header="$("$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-readelf" -h "$path")"
+          printf '%s\n' "$header" | grep -E 'Class:|Machine:'
+          grep -Eq '^[[:space:]]*Class:[[:space:]]+ELF64[[:space:]]*$' <<< "$header" || { echo "Expected upstream threading regression to be ELF64" >&2; exit 1; }
+          grep -Eq '^[[:space:]]*Machine:[[:space:]]+AArch64[[:space:]]*$' <<< "$header" || { echo "Expected upstream threading regression to be AArch64" >&2; exit 1; }
+      - name: Configure upstream Base64 host target
+        run: |
+          cmake -S "$GITHUB_WORKSPACE" -B build/upstream-base64-host -G Ninja \
+            -DNUKE_BUILD_UPSTREAM_BASE64_TEST=ON \
+            -DNUKE_UPSTREAM_SOURCE_DIR="$GITHUB_WORKSPACE/build/upstream" \
+            -DBUILD_TESTING=ON -DCMAKE_BUILD_TYPE=Release
+      - name: Build and run upstream Base64 host target
+        run: |
+          cmake --build build/upstream-base64-host --target nuke-upstream-base64-test
+          ctest --test-dir build/upstream-base64-host -R '^upstream-base64-roundtrip$' --output-on-failure
+      - name: Configure upstream Base64 Android target
+        run: |
+          cmake -S "$GITHUB_WORKSPACE" -B build/upstream-base64-android-cmake -G Ninja \
+            -DCMAKE_TOOLCHAIN_FILE="$ANDROID_NDK_HOME/build/cmake/android.toolchain.cmake" \
+            -DANDROID_ABI=arm64-v8a -DANDROID_PLATFORM=android-26 \
+            -DNUKE_BUILD_UPSTREAM_BASE64_TEST=ON \
+            -DNUKE_UPSTREAM_SOURCE_DIR="$GITHUB_WORKSPACE/build/upstream" \
+            -DBUILD_TESTING=OFF -DCMAKE_BUILD_TYPE=Release
+      - name: Build and verify upstream Base64 Android target
+        run: |
+          cmake --build build/upstream-base64-android-cmake --target nuke-upstream-base64-test
+          header="$("$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-readelf" -h build/upstream-base64-android-cmake/nuke-upstream-base64-test)"
+          printf '%s\n' "$header" | grep -E 'Class:|Machine:'
+          grep -Eq '^[[:space:]]*Class:[[:space:]]+ELF64[[:space:]]*$' <<< "$header" || { echo "Expected upstream Base64 regression to be ELF64" >&2; exit 1; }
+          grep -Eq '^[[:space:]]*Machine:[[:space:]]+AArch64[[:space:]]*$' <<< "$header" || { echo "Expected upstream Base64 regression to be AArch64" >&2; exit 1; }
+      - name: Configure upstream angle/vector host target
+        run: |
+          cmake -S "$GITHUB_WORKSPACE" -B build/upstream-angle-host -G Ninja \
+            -DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++ \
+            -DNUKE_BUILD_UPSTREAM_ANGLE_VECTORS=ON \
+            -DNUKE_UPSTREAM_SOURCE_DIR="$GITHUB_WORKSPACE/build/upstream" \
+            -DBUILD_TESTING=OFF -DCMAKE_BUILD_TYPE=Release
+      - name: Compile upstream angle/vector and quaternion host objects
+        run: cmake --build build/upstream-angle-host --target nuke-upstream-angle-vectors nuke-upstream-axis-to-quat --verbose
+      - name: Configure upstream angle/vector Android target
+        run: |
+          cmake -S "$GITHUB_WORKSPACE" -B build/upstream-angle-android -G Ninja \
+            -DCMAKE_TOOLCHAIN_FILE="$ANDROID_NDK_HOME/build/cmake/android.toolchain.cmake" \
+            -DANDROID_ABI=arm64-v8a -DANDROID_PLATFORM=android-26 \
+            -DNUKE_BUILD_UPSTREAM_ANGLE_VECTORS=ON \
+            -DNUKE_BUILD_UPSTREAM_FILEACCESS_TEST=ON \
+            -DNUKE_UPSTREAM_SOURCE_DIR="$GITHUB_WORKSPACE/build/upstream" \
+            -DBUILD_TESTING=OFF -DCMAKE_BUILD_TYPE=Release
+      - name: Compile and link upstream angle/vector Android smoke test
+        run: |
+          cmake --build build/upstream-angle-android --target nuke-upstream-angle-vectors nuke-upstream-axis-to-quat nuke-upstream-angle-vectors-test nuke-upstream-fileaccess-test --verbose
+          for target in nuke-upstream-angle-vectors nuke-upstream-axis-to-quat; do
+            object="$(find "build/upstream-angle-android/CMakeFiles/$target.dir" -name '*.o' -print -quit)"
+            test -n "$object"
+            output="build/$target-android.o"
+            cp "$object" "$output"
+            header="$("$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-readelf" -h "$output")"
+            printf '%s\n' "$header" | grep -E 'Class:|Machine:'
+            grep -Eq '^[[:space:]]*Class:[[:space:]]+ELF64[[:space:]]*$' <<< "$header" || { echo "Expected $target object to be ELF64" >&2; exit 1; }
+            grep -Eq '^[[:space:]]*Machine:[[:space:]]+AArch64[[:space:]]*$' <<< "$header" || { echo "Expected $target object to be AArch64" >&2; exit 1; }
+          done
+          executable="build/upstream-angle-android/nuke-upstream-angle-vectors-test"
+          test -x "$executable"
+          header="$("$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-readelf" -h "$executable")"
+          printf '%s\n' "$header" | grep -E 'Class:|Machine:'
+          grep -Eq '^[[:space:]]*Class:[[:space:]]+ELF64[[:space:]]*$' <<< "$header" || { echo "Expected linked angle/vector smoke test to be ELF64" >&2; exit 1; }
+          grep -Eq '^[[:space:]]*Machine:[[:space:]]+AArch64[[:space:]]*$' <<< "$header" || { echo "Expected linked angle/vector smoke test to be AArch64" >&2; exit 1; }
+          fileaccess="build/upstream-angle-android/nuke-upstream-fileaccess-test"
+          test -x "$fileaccess"
+          header="$("$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-readelf" -h "$fileaccess")"
+          printf '%s\n' "$header" | grep -E 'Class:|Machine:'
+          grep -Eq '^[[:space:]]*Class:[[:space:]]+ELF64[[:space:]]*$' <<< "$header" || { echo "Expected upstream file-access executable to be ELF64" >&2; exit 1; }
+          grep -Eq '^[[:space:]]*Machine:[[:space:]]+AArch64[[:space:]]*$' <<< "$header" || { echo "Expected upstream file-access executable to be AArch64" >&2; exit 1; }
+      - name: Compile MSVC-style upstream headers with Android Clang extensions
+        run: |
+          "$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android26-clang++" \
+            -std=c++20 -fdeclspec -include "$GITHUB_WORKSPACE/tests/upstream_msvc_compat.h" -Wall -Wextra \
+            -I "$GITHUB_WORKSPACE/build/upstream" \
+            -I "$GITHUB_WORKSPACE/build/upstream/src" \
+            -c "$GITHUB_WORKSPACE/tests/upstream_msvc_extensions.cpp" \
+            -o build/upstream-msvc-extensions-android.o
+          "$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-readelf" -h build/upstream-msvc-extensions-android.o
+      - name: Compile and run StringTable LP64 layout regression on host and Android
+        run: |
+          common=(
+            -std=c++20 -fdeclspec
+            -include "$GITHUB_WORKSPACE/tests/upstream_msvc_compat.h"
+            -Wall -Wextra -Werror
+            -I "$GITHUB_WORKSPACE/build/upstream/src"
+          )
+          clang++ "${common[@]}" "$GITHUB_WORKSPACE/tests/upstream_stringtable_lp64.cpp" -o build/upstream-stringtable-lp64-host
+          ./build/upstream-stringtable-lp64-host
+          "$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android26-clang++" "${common[@]}" "$GITHUB_WORKSPACE/tests/upstream_stringtable_lp64.cpp" -o build/upstream-stringtable-lp64-android
+          readelf="$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-readelf"
+          "$readelf" -h build/upstream-stringtable-lp64-android | grep -Eq 'Class:[[:space:]]+ELF64'
+          "$readelf" -h build/upstream-stringtable-lp64-android | grep -Eq 'Machine:[[:space:]]+AArch64'
+      - name: Compile and run renderer-independent vidConfig_t layout on host and Android
+        run: |
+          common=(
+            -std=c++20 -Wall -Wextra -Werror
+            -I "$GITHUB_WORKSPACE/build/upstream/src"
+          )
+          clang++ "${common[@]}" "$GITHUB_WORKSPACE/tests/upstream_vid_config_types.cpp" -o build/upstream-vid-config-types-host
+          ./build/upstream-vid-config-types-host
+          "$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android26-clang++" "${common[@]}" "$GITHUB_WORKSPACE/tests/upstream_vid_config_types.cpp" -o build/upstream-vid-config-types-android
+          readelf="$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-readelf"
+          "$readelf" -h build/upstream-vid-config-types-android | grep -Eq 'Class:[[:space:]]+ELF64'
+          "$readelf" -h build/upstream-vid-config-types-android | grep -Eq 'Machine:[[:space:]]+AArch64'
+      - name: Compile and run Android FastFile material lookup regression on host and Android
+        run: |
+          common=(
+            -std=c++20 -fdeclspec
+            -include "$GITHUB_WORKSPACE/tests/upstream_msvc_compat.h"
+            -Wall -Wextra -Werror
+            -I "$GITHUB_WORKSPACE/build/upstream/src"
+          )
+          clang++ "${common[@]}" "$GITHUB_WORKSPACE/tests/upstream_dynent_material_fastfile_lookup.cpp" -o build/upstream-dynent-material-fastfile-host
+          ./build/upstream-dynent-material-fastfile-host
+          "$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android26-clang++" "${common[@]}" "$GITHUB_WORKSPACE/tests/upstream_dynent_material_fastfile_lookup.cpp" -o build/upstream-dynent-material-fastfile-android
+          readelf="$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-readelf"
+          "$readelf" -h build/upstream-dynent-material-fastfile-android | grep -Eq 'Class:[[:space:]]+ELF64'
+          "$readelf" -h build/upstream-dynent-material-fastfile-android | grep -Eq 'Machine:[[:space:]]+AArch64'
+      - name: Compile and run LP64 physics allocator regression on host and Android
+        run: |
+          c++ -std=c++17 -Wall -Wextra -Werror -pthread \
+            -I "$GITHUB_WORKSPACE/tests" \
+            "$GITHUB_WORKSPACE/tests/upstream_phys_buffer_allocator.cpp" \
+            -o build/upstream-phys-buffer-allocator-host
+          ./build/upstream-phys-buffer-allocator-host
+          "$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android26-clang++" \
+            -std=c++17 -Wall -Wextra -Werror -pthread \
+            -I "$GITHUB_WORKSPACE/tests" \
+            "$GITHUB_WORKSPACE/tests/upstream_phys_buffer_allocator.cpp" \
+            -o build/upstream-phys-buffer-allocator-android
+          readelf="$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-readelf"
+          "$readelf" -h build/upstream-phys-buffer-allocator-android | grep -Eq 'Class:[[:space:]]+ELF64'
+          "$readelf" -h build/upstream-phys-buffer-allocator-android | grep -Eq 'Machine:[[:space:]]+AArch64'
+      - name: Compile patched physics memory manager on host and Android
+        run: |
+          common=(
+            -std=c++20 -fdeclspec
+            -include "$GITHUB_WORKSPACE/tests/upstream_msvc_compat.h"
+            -I "$GITHUB_WORKSPACE/build/upstream"
+            -I "$GITHUB_WORKSPACE/build/upstream/src"
+          )
+          clang++ "${common[@]}" -Wall -Wextra -Wno-ignored-attributes \
+            -c "$GITHUB_WORKSPACE/build/upstream/src/physics/phys_mem_new.cpp" \
+            -o build/upstream-phys-mem-new-host.o
+          "$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android26-clang++" \
+            "${common[@]}" -Wall -Wextra -Wno-ignored-attributes \
+            -c "$GITHUB_WORKSPACE/build/upstream/src/physics/phys_mem_new.cpp" \
+            -o build/upstream-phys-mem-new-android.o
+          "$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-readelf" \
+            -h build/upstream-phys-mem-new-android.o | grep -Eq 'Class:[[:space:]]+ELF64'
+          "$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-readelf" \
+            -h build/upstream-phys-mem-new-android.o | grep -Eq 'Machine:[[:space:]]+AArch64'
+      - name: Compile CubeMapGen bounding-box headers on host and Android
+        run: |
+          c++ -std=c++20 '-D__int64=long long' \
+            -I build/upstream -I build/upstream/src \
+            -c tests/upstream_cubemap_headers.cpp \
+            -o build/upstream-cubemap-headers-host.o
+          "$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android26-clang++" \
+            -std=c++20 -fdeclspec \
+            -include "$GITHUB_WORKSPACE/tests/upstream_msvc_compat.h" \
+            -I build/upstream -I build/upstream/src \
+            -c tests/upstream_cubemap_headers.cpp \
+            -o build/upstream-cubemap-headers-android.o
+          "$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-readelf" -h build/upstream-cubemap-headers-android.o | grep -Eq 'Class:[[:space:]]+ELF64'
+          "$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-readelf" -h build/upstream-cubemap-headers-android.o | grep -Eq 'Machine:[[:space:]]+AArch64'
+      - name: Compile generic sound DSP headers and validate layouts on host and Android
+        run: |
+          common=(
+            -std=c++20 -fdeclspec
+            -include "$GITHUB_WORKSPACE/tests/upstream_msvc_compat.h"
+            -I build/upstream -I build/upstream/src
+          )
+          clang++ "${common[@]}" -Wall -Wextra \
+            -c tests/upstream_snd_dsp_types.cpp \
+            -o build/upstream-snd-dsp-types-host.o
+          "$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android26-clang++" \
+            "${common[@]}" -Wall -Wextra \
+            -c tests/upstream_snd_dsp_types.cpp \
+            -o build/upstream-snd-dsp-types-android.o
+          header="$("$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-readelf" -h build/upstream-snd-dsp-types-android.o)"
+          printf '%s\n' "$header" | grep -E 'Class:|Machine:'
+          printf '%s\n' "$header" | grep -Eq '^[[:space:]]*Class:[[:space:]]+ELF64[[:space:]]*$'
+          printf '%s\n' "$header" | grep -Eq '^[[:space:]]*Machine:[[:space:]]+AArch64[[:space:]]*$'
+      - name: Compile FX primitive declarations without D3D9 coupling
+        run: |
+          common=(
+            -std=c++20 -fdeclspec
+            -include "$GITHUB_WORKSPACE/tests/upstream_msvc_compat.h"
+            -I build/upstream -I build/upstream/src
+          )
+          clang++ "${common[@]}" -Wall -Wextra -Wno-ignored-attributes -c tests/upstream_fxprimitives_header.cpp -o build/upstream-fxprimitives-host.o
+          "$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android26-clang++" "${common[@]}" -Wall -Wextra -Wno-ignored-attributes -c tests/upstream_fxprimitives_header.cpp -o build/upstream-fxprimitives-android.o
+          header="$("$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-readelf" -h build/upstream-fxprimitives-android.o)"
+          printf '%s\n' "$header" | grep -E 'Class:|Machine:'
+          printf '%s\n' "$header" | grep -Eq '^[[:space:]]*Class:[[:space:]]+ELF64[[:space:]]*$'
+          printf '%s\n' "$header" | grep -Eq '^[[:space:]]*Machine:[[:space:]]+AArch64[[:space:]]*$'
+      - name: Compile DB registry material declarations without D3D9 coupling
+        run: |
+          common=(
+            -std=c++20 -fdeclspec -Wall -Wextra -Wno-ignored-attributes
+            -DKISAK_MP -DNDEBUG
+            -include "$GITHUB_WORKSPACE/tests/upstream_msvc_compat.h"
+            -I "$GITHUB_WORKSPACE/build/upstream"
+            -I "$GITHUB_WORKSPACE/build/upstream/src"
+            -I "$GITHUB_WORKSPACE/build/upstream/src/libs"
+            -I "$GITHUB_WORKSPACE/build/upstream/src/libs/libtomcrypt-1.17/src/headers"
+            -I "$GITHUB_WORKSPACE/build/upstream/src/libs/libtommath-1.0"
+            -I "$GITHUB_WORKSPACE/build/upstream/src/libs/libvpx-1.5.0/include"
+          )
+          clang++ "${common[@]}" -c tests/upstream_db_registry_header.cpp -o build/upstream-db-registry-header-host.o
+          "$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android26-clang++" "${common[@]}" -c tests/upstream_db_registry_header.cpp -o build/upstream-db-registry-header-android.o
+          readelf="$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-readelf"
+          header="$("$readelf" -h build/upstream-db-registry-header-android.o)"
+          grep -Eq '^[[:space:]]*Class:[[:space:]]+ELF64[[:space:]]*$' <<< "$header"
+          grep -Eq '^[[:space:]]*Machine:[[:space:]]+AArch64[[:space:]]*$' <<< "$header"
+      - name: Compile DynEntity renderer API declarations without D3D9 coupling
+        run: |
+          common=(
+            -std=c++20 -fdeclspec
+            -include "$GITHUB_WORKSPACE/tests/upstream_msvc_compat.h"
+            -I build/upstream -I build/upstream/src
+          )
+          clang++ "${common[@]}" -Wall -Wextra -Wno-ignored-attributes -c tests/upstream_dynent_scene_api.cpp -o build/upstream-dynent-scene-api-host.o
+          "$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android26-clang++" "${common[@]}" -Wall -Wextra -Wno-ignored-attributes -c tests/upstream_dynent_scene_api.cpp -o build/upstream-dynent-scene-api-android.o
+          header="$("$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-readelf" -h build/upstream-dynent-scene-api-android.o)"
+          printf '%s\n' "$header" | grep -E 'Class:|Machine:'
+          printf '%s\n' "$header" | grep -Eq '^[[:space:]]*Class:[[:space:]]+ELF64[[:space:]]*$'
+          printf '%s\n' "$header" | grep -Eq '^[[:space:]]*Machine:[[:space:]]+AArch64[[:space:]]*$'
+      - name: Compile rope and XAnim headers without D3D9 SDK coupling
+        run: |
+          common=(
+            -std=c++20 -fdeclspec -Wall -Wextra -Wno-ignored-attributes
+            -DKISAK_MP -DNDEBUG
+            -include "$GITHUB_WORKSPACE/tests/upstream_msvc_compat.h"
+            -I "$GITHUB_WORKSPACE/build/upstream"
+            -I "$GITHUB_WORKSPACE/build/upstream/src"
+            -I "$GITHUB_WORKSPACE/build/upstream/src/libs"
+            -I "$GITHUB_WORKSPACE/build/upstream/src/libs/libtomcrypt-1.17/src/headers"
+            -I "$GITHUB_WORKSPACE/build/upstream/src/libs/libtommath-1.0"
+            -I "$GITHUB_WORKSPACE/build/upstream/src/libs/libvpx-1.5.0/include"
+          )
+          clang++ "${common[@]}" -c tests/upstream_dynent_transitive_d3d9_headers.cpp -o build/upstream-dynent-transitive-d3d9-host.o
+          "$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android26-clang++" "${common[@]}" -c tests/upstream_dynent_transitive_d3d9_headers.cpp -o build/upstream-dynent-transitive-d3d9-android.o
+          header="$("$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-readelf" -h build/upstream-dynent-transitive-d3d9-android.o)"
+          printf '%s\n' "$header" | grep -E 'Class:|Machine:'
+          printf '%s\n' "$header" | grep -Eq '^[[:space:]]*Class:[[:space:]]+ELF64[[:space:]]*$'
+          printf '%s\n' "$header" | grep -Eq '^[[:space:]]*Machine:[[:space:]]+AArch64[[:space:]]*$'
+      - name: Compile renderer-independent shader constant-set data layout on host and Android
+        run: |
+          common=(
+            -std=c++20 -Wall -Wextra -Werror
+            -I "$GITHUB_WORKSPACE/build/upstream/src"
+          )
+          clang++ "${common[@]}" -c "$GITHUB_WORKSPACE/tests/upstream_shader_constant_set_types.cpp" -o build/upstream-shader-constant-set-host.o
+          "$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android26-clang++" "${common[@]}" -c "$GITHUB_WORKSPACE/tests/upstream_shader_constant_set_types.cpp" -o build/upstream-shader-constant-set-android.o
+          readelf="$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-readelf"
+          "$readelf" -h build/upstream-shader-constant-set-android.o | grep -Eq 'Class:[[:space:]]+ELF64'
+          "$readelf" -h build/upstream-shader-constant-set-android.o | grep -Eq 'Machine:[[:space:]]+AArch64'
+      - name: Compile and verify native LP64 GJK runtime layouts on host and Android
+        run: |
+          common=(
+            -std=c++20 -fdeclspec -Wall -Wextra -Wno-ignored-attributes
+            -include "$GITHUB_WORKSPACE/tests/upstream_msvc_compat.h"
+            -I "$GITHUB_WORKSPACE/build/upstream"
+            -I "$GITHUB_WORKSPACE/build/upstream/src"
+          )
+          clang++ "${common[@]}" -c "$GITHUB_WORKSPACE/tests/upstream_gjk_runtime_layout.cpp" -o build/upstream-gjk-runtime-layout-host.o
+          "$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android26-clang++" "${common[@]}" -c "$GITHUB_WORKSPACE/tests/upstream_gjk_runtime_layout.cpp" -o build/upstream-gjk-runtime-layout-android.o
+          header="$("$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-readelf" -h build/upstream-gjk-runtime-layout-android.o)"
+          printf '%s\n' "$header" | grep -E 'Class:|Machine:'
+          printf '%s\n' "$header" | grep -Eq '^[[:space:]]*Class:[[:space:]]+ELF64[[:space:]]*$'
+          printf '%s\n' "$header" | grep -Eq '^[[:space:]]*Machine:[[:space:]]+AArch64[[:space:]]*$'
+      - name: Compile and verify LP64 auto-activation callback layouts on host and Android
+        run: |
+          common=(
+            -std=c++20 -Wall -Wextra
+            -I "$GITHUB_WORKSPACE/build"
+          )
+          clang++ "${common[@]}" -c tests/upstream_auto_activate_layout.cpp -o build/upstream-auto-activate-layout-host.o
+          "$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android26-clang++" "${common[@]}" -c tests/upstream_auto_activate_layout.cpp -o build/upstream-auto-activate-layout-android.o
+          header="$("$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-readelf" -h build/upstream-auto-activate-layout-android.o)"
+          printf '%s\n' "$header" | grep -E 'Class:|Machine:'
+          printf '%s\n' "$header" | grep -Eq '^[[:space:]]*Class:[[:space:]]+ELF64[[:space:]]*$'
+          printf '%s\n' "$header" | grep -Eq '^[[:space:]]*Machine:[[:space:]]+AArch64[[:space:]]*$'
+      - name: Compile and verify LP64 physics collision-pair layout on host and Android
+        run: |
+          common=(
+            -std=c++20 -fdeclspec -Wall -Wextra -Wno-ignored-attributes
+            -include "$GITHUB_WORKSPACE/tests/upstream_msvc_compat.h"
+            -I "$GITHUB_WORKSPACE/build"
+            -I "$GITHUB_WORKSPACE/build/upstream"
+            -I "$GITHUB_WORKSPACE/build/upstream/src"
+          )
+          clang++ "${common[@]}" -c tests/upstream_phys_collision_pair_layout.cpp -o build/upstream-phys-collision-pair-layout-host.o
+          "$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android26-clang++" "${common[@]}" -c tests/upstream_phys_collision_pair_layout.cpp -o build/upstream-phys-collision-pair-layout-android.o
+          header="$("$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-readelf" -h build/upstream-phys-collision-pair-layout-android.o)"
+          printf '%s\n' "$header" | grep -E 'Class:|Machine:'
+          printf '%s\n' "$header" | grep -Eq '^[[:space:]]*Class:[[:space:]]+ELF64[[:space:]]*$'
+          printf '%s\n' "$header" | grep -Eq '^[[:space:]]*Machine:[[:space:]]+AArch64[[:space:]]*$'
+      - name: Compile and verify LP64 rigid-body contact free-list layout on host and Android
+        run: |
+          common=(
+            -std=c++20 -fdeclspec -Wall -Wextra -Wno-ignored-attributes
+            -DKISAK_MP -DNDEBUG
+            -include "$GITHUB_WORKSPACE/tests/upstream_msvc_compat.h"
+            -I "$GITHUB_WORKSPACE/build/upstream"
+            -I "$GITHUB_WORKSPACE/build/upstream/src"
+            -I "$GITHUB_WORKSPACE/build/upstream/src/libs"
+            -I "$GITHUB_WORKSPACE/build/upstream/src/libs/libtomcrypt-1.17/src/headers"
+            -I "$GITHUB_WORKSPACE/build/upstream/src/libs/libtommath-1.0"
+            -I "$GITHUB_WORKSPACE/build/upstream/src/libs/libvpx-1.5.0/include"
+          )
+          clang++ "${common[@]}" -c tests/upstream_rigid_body_contact_layout.cpp -o build/upstream-rbc-contact-layout-host.o
+          "$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android26-clang++" "${common[@]}" -c tests/upstream_rigid_body_contact_layout.cpp -o build/upstream-rbc-contact-layout-android.o
+          header="$("$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-readelf" -h build/upstream-rbc-contact-layout-android.o)"
+          printf '%s\n' "$header" | grep -E 'Class:|Machine:'
+          printf '%s\n' "$header" | grep -Eq '^[[:space:]]*Class:[[:space:]]+ELF64[[:space:]]*$'
+          printf '%s\n' "$header" | grep -Eq '^[[:space:]]*Machine:[[:space:]]+AArch64[[:space:]]*$'
+      - name: Compile native LP64 broad-phase memory layout on host and Android
+        run: |
+          common=(
+            -std=c++20 -fdeclspec -Wall -Wextra -Wno-ignored-attributes
+            -include "$GITHUB_WORKSPACE/tests/upstream_msvc_compat.h"
+            -I "$GITHUB_WORKSPACE/build/upstream"
+            -I "$GITHUB_WORKSPACE/build/upstream/src"
+          )
+          clang++ "${common[@]}" -c "$GITHUB_WORKSPACE/tests/upstream_broad_phase_memory_layout.cpp" -o build/upstream-broad-phase-memory-layout-host.o
+          "$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android26-clang++" "${common[@]}" -c "$GITHUB_WORKSPACE/tests/upstream_broad_phase_memory_layout.cpp" -o build/upstream-broad-phase-memory-layout-android.o
+          header="$("$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-readelf" -h build/upstream-broad-phase-memory-layout-android.o)"
+          printf '%s\n' "$header" | grep -E 'Class:|Machine:'
+          printf '%s\n' "$header" | grep -Eq '^[[:space:]]*Class:[[:space:]]+ELF64[[:space:]]*$'
+          printf '%s\n' "$header" | grep -Eq '^[[:space:]]*Machine:[[:space:]]+AArch64[[:space:]]*$'
+
+      - name: Compile native LP64 sweep-and-prune outer layout on host and Android
+        run: |
+          common=(
+            -std=c++20 -fdeclspec -Wall -Wextra -Wno-ignored-attributes
+            -include "$GITHUB_WORKSPACE/tests/upstream_msvc_compat.h"
+            -I "$GITHUB_WORKSPACE/build/upstream"
+            -I "$GITHUB_WORKSPACE/build/upstream/src"
+          )
+          clang++ "${common[@]}" -c "$GITHUB_WORKSPACE/tests/upstream_sap_outer_layout.cpp" -o build/upstream-sap-outer-layout-host.o
+          "$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android26-clang++" "${common[@]}" -c "$GITHUB_WORKSPACE/tests/upstream_sap_outer_layout.cpp" -o build/upstream-sap-outer-layout-android.o
+          header="$("$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-readelf" -h build/upstream-sap-outer-layout-android.o)"
+          printf '%s\n' "$header" | grep -E 'Class:|Machine:'
+          printf '%s\n' "$header" | grep -Eq '^[[:space:]]*Class:[[:space:]]+ELF64[[:space:]]*$'
+          printf '%s\n' "$header" | grep -Eq '^[[:space:]]*Machine:[[:space:]]+AArch64[[:space:]]*$'
+
+      - name: Compile shared ComPrimaryLight BSP layout on host and Android
+        run: |
+          common=(
+            -std=c++20 -fdeclspec -Wall -Wextra -Wno-ignored-attributes
+            -include "$GITHUB_WORKSPACE/tests/upstream_msvc_compat.h"
+            -I "$GITHUB_WORKSPACE/build/upstream"
+            -I "$GITHUB_WORKSPACE/build/upstream/src"
+          )
+          clang++ "${common[@]}" -c "$GITHUB_WORKSPACE/tests/upstream_com_primary_light_layout.cpp" -o build/upstream-com-primary-light-layout-host.o
+          "$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android26-clang++" "${common[@]}" -c "$GITHUB_WORKSPACE/tests/upstream_com_primary_light_layout.cpp" -o build/upstream-com-primary-light-layout-android.o
+          header="$("$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-readelf" -h build/upstream-com-primary-light-layout-android.o)"
+          printf '%s\n' "$header" | grep -E 'Class:|Machine:'
+          printf '%s\n' "$header" | grep -Eq '^[[:space:]]*Class:[[:space:]]+ELF64[[:space:]]*$'
+          printf '%s\n' "$header" | grep -Eq '^[[:space:]]*Machine:[[:space:]]+AArch64[[:space:]]*$'
+
+      - name: Compile generic job-queue declarations on host and Android
+        run: |
+          common=(
+            -std=c++20 -fdeclspec -Wall -Wextra -Wno-ignored-attributes
+            -include "$GITHUB_WORKSPACE/tests/upstream_msvc_compat.h"
+            -I "$GITHUB_WORKSPACE/build/upstream"
+            -I "$GITHUB_WORKSPACE/build/upstream/src"
+          )
+          clang++ "${common[@]}" -c "$GITHUB_WORKSPACE/tests/upstream_jobqueue_header.cpp" -o build/upstream-jobqueue-header-host.o
+          "$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android26-clang++" "${common[@]}" -c "$GITHUB_WORKSPACE/tests/upstream_jobqueue_header.cpp" -o build/upstream-jobqueue-header-android.o
+          header="$("$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-readelf" -h build/upstream-jobqueue-header-android.o)"
+          printf '%s\n' "$header" | grep -E 'Class:|Machine:'
+          printf '%s\n' "$header" | grep -Eq '^[[:space:]]*Class:[[:space:]]+ELF64[[:space:]]*$'
+          printf '%s\n' "$header" | grep -Eq '^[[:space:]]*Machine:[[:space:]]+AArch64[[:space:]]*$'
+      - name: Compile LP64 GJK cache-node layout on host and Android
+        run: |
+          common=(
+            -std=c++20 -fdeclspec -Wall -Wextra -Wno-ignored-attributes
+            -include "$GITHUB_WORKSPACE/tests/upstream_msvc_compat.h"
+            -I "$GITHUB_WORKSPACE/build/upstream"
+            -I "$GITHUB_WORKSPACE/build/upstream/src"
+          )
+          clang++ "${common[@]}" -c "$GITHUB_WORKSPACE/tests/upstream_phys_gjk_cache_layout.cpp" -o build/upstream-phys-gjk-cache-layout-host.o
+          "$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android26-clang++" "${common[@]}" -c "$GITHUB_WORKSPACE/tests/upstream_phys_gjk_cache_layout.cpp" -o build/upstream-phys-gjk-cache-layout-android.o
+          header="$("$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-readelf" -h build/upstream-phys-gjk-cache-layout-android.o)"
+          printf '%s\\n' "$header" | grep -E 'Class:|Machine:'
+          printf '%s\\n' "$header" | grep -Eq '^[[:space:]]*Class:[[:space:]]+ELF64[[:space:]]*$'
+          printf '%s\\n' "$header" | grep -Eq '^[[:space:]]*Machine:[[:space:]]+AArch64[[:space:]]*$'
+      - name: Compile variadic iassert compatibility in host and Android DEBUG/Release modes
+        run: |
+          common=(
+            -std=c++20 -fdeclspec
+            -include "$GITHUB_WORKSPACE/tests/upstream_msvc_compat.h"
+            -I build/upstream -I build/upstream/src
+          )
+          clang++ "${common[@]}" -D_DEBUG -c tests/upstream_iassert_variadic.cpp -o build/upstream-iassert-debug-host.o
+          clang++ "${common[@]}" -c tests/upstream_iassert_variadic.cpp -o build/upstream-iassert-release-host.o
+          "$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android26-clang++" "${common[@]}" -D_DEBUG -c tests/upstream_iassert_variadic.cpp -o build/upstream-iassert-debug-android.o
+          "$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android26-clang++" "${common[@]}" -c tests/upstream_iassert_variadic.cpp -o build/upstream-iassert-release-android.o
+          header="$("$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-readelf" -h build/upstream-iassert-debug-android.o)"
+          printf '%s\n' "$header" | grep -E 'Class:|Machine:'
+          printf '%s\n' "$header" | grep -Eq '^[[:space:]]*Class:[[:space:]]+ELF64[[:space:]]*$'
+          printf '%s\n' "$header" | grep -Eq '^[[:space:]]*Machine:[[:space:]]+AArch64[[:space:]]*$'
+      - name: Diagnose complete KisakBlack Android target (non-blocking)
+        shell: bash
+        run: |
+          set -uo pipefail
+          log="$GITHUB_WORKSPACE/build/upstream-android-root-diagnostic.log"
+          mkdir -p build/upstream-root-android
+          : > "$log"
+
+          set +e
+          cmake -S build/upstream -B build/upstream-root-android -G Ninja \
+            -DCMAKE_TOOLCHAIN_FILE="$ANDROID_NDK_HOME/build/cmake/android.toolchain.cmake" \
+            -DANDROID_ABI=arm64-v8a -DANDROID_PLATFORM=android-26 \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_CXX_FLAGS="-fdeclspec -include $GITHUB_WORKSPACE/tests/upstream_msvc_compat.h" 2>&1 | tee -a "$log"
+          configure_rc=${PIPESTATUS[0]}
+          set -e
+          printf 'ROOT_CONFIGURE_EXIT=%s\n' "$configure_rc" | tee -a "$log"
+
+          if [ "$configure_rc" -eq 0 ]; then
+            set +e
+            timeout 180s cmake --build build/upstream-root-android --target KisakBlack --parallel 2 \
+              2>&1 | tee -a "$log"
+            build_rc=${PIPESTATUS[0]}
+            set -e
+            printf 'ROOT_BUILD_EXIT=%s\n' "$build_rc" | tee -a "$log"
+            if [ "$build_rc" -ne 0 ]; then
+              echo "::warning::Full KisakBlack Android target did not build; diagnostic log uploaded."
+            fi
+          else
+            echo "::warning::Full KisakBlack Android root configure failed; diagnostic log uploaded."
+          fi
+          tail -n 100 "$log"
+      - name: Upload full-engine Android diagnostic
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: kisakblack-android-root-diagnostic
+          path: build/upstream-android-root-diagnostic.log
+          if-no-files-found: warn
+      - name: Upload upstream Android regression binaries
+        uses: actions/upload-artifact@v6
+        with:
+          name: nuke-upstream-regression-arm64
+          path: |
+            build/upstream-bitarray-android
+            build/upstream-atomic-android
+            build/upstream-bd-reference-android
+            build/upstream-bd-bytebuffer-length-android
+            build/upstream-bd-platform-mutex-android
+            build/upstream-snapfloat-rounding-android
+            build/upstream-msvc-extensions-android.o
+            build/upstream-auto-activate-layout-android.o
+            build/upstream-phys-collision-pair-layout-android.o
+            build/upstream-broad-phase-memory-layout-android.o
+            build/upstream-sap-outer-layout-host.o
+            build/upstream-sap-outer-layout-android.o
+            build/upstream-dynent-scene-api-android.o
+            build/upstream-dynent-transitive-d3d9-android.o
+            build/upstream-snd-dsp-types-android.o
+            build/upstream-iassert-debug-android.o
+            build/upstream-thread-android-cmake/nuke-upstream-thread-compat-test
+            build/upstream-base64-android-cmake/nuke-upstream-base64-test
+            build/nuke-upstream-angle-vectors-android.o
+            build/nuke-upstream-axis-to-quat-android.o
+            build/upstream-angle-android/nuke-upstream-angle-vectors-test
+            build/upstream-angle-android/nuke-upstream-fileaccess-test
+  host-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - name: Verify workflow template parity
+        run: cmp --silent .github/workflows/android-arm64.yml ci/android-arm64.workflow-template.yml
+      - run: cmake -S . -B build/host -G Ninja -DCMAKE_BUILD_TYPE=Debug
+      - run: cmake --build build/host
+      - run: ctest --test-dir build/host --output-on-failure
+ <<< "$header" || { echo "Expected MaterialMemory test to be AArch64" >&2; exit 1; }
       - name: Compile and run DemonWare reference-count regression
         run: |
           c++ -std=c++17 -Wall -Wextra -Werror \
