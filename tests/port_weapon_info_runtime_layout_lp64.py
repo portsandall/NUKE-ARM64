@@ -39,17 +39,20 @@ def verify(source: str) -> None:
         raise RuntimeError("expected exactly one complete pointer-width-aware weaponInfo_s layout block")
     if OLD_ASSERT in source:
         raise RuntimeError("obsolete 32-bit-only weaponInfo_s size assertion remains")
-    code = re.sub(r"/\*.*?\*/|//[^\\n]*", "", source, flags=re.DOTALL)
+    if OLD_COMMENT in source:
+        raise RuntimeError("obsolete 32-bit-only weaponInfo_s size comment remains")
+
+    code = re.sub(r"/\*.*?\*/|//[^\r\n]*", "", source, flags=re.DOTALL)
     fields = (
-        r"XModel\\s*\\*\\s*handModel\\s*;",
-        r"XModel\\s*\\*\\s*gogglesModel\\s*;",
-        r"XModel\\s*\\*\\s*rocketModel\\s*;",
-        r"unsigned\\s+__int8\\s+weapModelIdx\\s*;",
-        r"int\\s+registered\\s*;",
-        r"const\\s+struct\\s+gitem_s\\s*\\*\\s*item\\s*;",
-        r"const\\s+char\\s*\\*\\s*translatedDisplayName\\s*;",
-        r"const\\s+char\\s*\\*\\s*translatedModename\\s*;",
-        r"const\\s+char\\s*\\*\\s*translatedAIOverlayDescription\\s*;",
+        r"XModel\s*\*\s*handModel\s*;",
+        r"XModel\s*\*\s*gogglesModel\s*;",
+        r"XModel\s*\*\s*rocketModel\s*;",
+        r"unsigned\s+__int8\s+weapModelIdx\s*;",
+        r"int\s+registered\s*;",
+        r"const\s+struct\s+gitem_s\s*\*\s*item\s*;",
+        r"const\s+char\s*\*\s*translatedDisplayName\s*;",
+        r"const\s+char\s*\*\s*translatedModename\s*;",
+        r"const\s+char\s*\*\s*translatedAIOverlayDescription\s*;",
     )
     for pattern in fields:
         if re.search(pattern, code) is None:
