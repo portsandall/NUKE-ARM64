@@ -1,24 +1,27 @@
 # NUKE-ARM64 native engine audit
 
-Audit date: 2026-11-01  
+Audit snapshot: 2026-11-01 08:28 UTC (18:28 Brisbane)  
 Pinned upstream: [SwagSoftware/KisakBlack](https://github.com/SwagSoftware/KisakBlack) @ `306bb14a8e052a6244bd1df4e4df7d8504c04ef4`.
 
 ## Repository and CI boundary
 
 - Default branch `main`: `f778c1f4345588d2991942afed62f0483e72469e` (`2026-10-30`).
-- Open full-engine diagnostic PR: [#65](https://github.com/portsandall/NUKE-ARM64/pull/65), head `bbdfe2e1752ebd1392782d640d4fb4f7029bd1e1` on `ci/diagnose-kisakblack-android-root-20261030`.
-- [ARM64 bootstrap run 41249265199](https://github.com/portsandall/NUKE-ARM64/actions/runs/41249265199): all three workflow jobs passed (Android smoke, host tests, upstream patch checks).
-- [Angle/vector regression run 41249265254](https://github.com/portsandall/NUKE-ARM64/actions/runs/41249265254): passed.
-- The full `KisakBlack` root build is a deliberately non-blocking diagnostic step. Therefore, a green workflow does **not** mean that the complete engine compiled.
+- Open full-engine diagnostic PR: [#65](https://github.com/portsandall/NUKE-ARM64/pull/65), branch `ci/diagnose-kisakblack-android-root-20261030). The PR head at the start of this audit was `25c7c875fbd186b55a3fccfc7b398165a7a6226d`.
+- Latest inspected ARM64 bootstrap: [run #855 / ID 41254251351](https://github.com/portsandall/NUKE-ARM64/actions/runs/41254251351), all three jobs passed:
+  - Android AArch64: job `124693942190`.
+  - Host tests: job `124693942353`.
+  - Upstream portability and full-engine diagnostic: job `124693942407`.
+- Latest inspected angle/vector regression: [run #615 / ID 41254251356](https://github.com/portsandall/NUKE-ARM64/actions/runs/41254251356), passed.
+- The full `KisakBlack` root build is a deliberately non-blocking diagnostic step. Green workflow jobs do **not** mean that the complete engine compiled.
 
 ## Latest full-engine Android diagnostic
 
-Run 41249265199 reports:
+Run [#855 / ID 41254251351](https://github.com/portsandall/NUKE-ARM64/actions/runs/41254251351) reports:
 
 - Android NDK root CMake configure: `ROOT_CONFIGURE_EXIT=0`.
 - Full `KisakBlack` target build: `ROOT_BUILD_EXIT=1`.
-- First failed Ninja object: `src/DynEntity/DynEntity_client.cpp.o`.
-- Raw diagnostic artifact: [kisakblack-android-root-diagnostic](https://github.com/portsandall/NUKE-ARM64/actions/runs/41249265199/artifacts/13060333530).
+- First failed Ninja object: `src/DynEntity/DynEntity_client.cpp.o` at step `[26/1064]`.
+- Raw diagnostic artifact: [kisakblack-android-root-diagnostic, artifact 13062771392](https://github.com/portsandall/NUKE-ARM64/actions/runs/41254251351/artifacts/13062771392).
 
 Compiler errors in the captured first-wave build:
 
@@ -34,7 +37,7 @@ Compiler errors in the captured first-wave build:
 
 Do not fix these by changing static assertions to whatever size AArch64 produces.
 
-- `SndDriverGlobals` is read as a fixed 52-byte asset record: `Load_SndDriverGlobals` calls `Load_Stream(..., 52)`, and `DB_SizeofXAsset_SndDriverGlobals_` returns 52. A correct LP64 design needs an explicit fixed-width serialized representation and a native runtime representation/conversion; simply accepting 104 bytes would break the asset stream.
+- `SndDriverGlobals` is read as a fixed 52-byte asset record: `Load_SndDriverGlobals` calls `Load_Stream(..., 52)`, and `DB_SizeofXAsset_SndDriverGlobals_` returns 52. A correct LP64 design needs a fixed-width serialized representation and a separate native runtime representation/conversion. The loader also uses `Load_Stream`'s delayed-stream queue for some stream positions, so any serialized staging storage must outlive `Load_DelayStream`; a stack temporary is not safe.
 - `PhysConstraint::constraintHandle` is a runtime pointer token stored in an `int`, but `PhysConstraintsLoadFile` uses a fixed 168-byte element stride, a 2,696-byte allocation, and hard-coded byte offsets. Widening this field in place would invalidate that parser layout. Use a stable 32-bit handle table or separate the fixed-layout config record from runtime pointer state.
 - `Phys_ObjCreate` returns `PhysObjUserData *`; the current 32-bit code narrows it to `int`, and `Phys_GetUserData(int)` converts that integer directly back to a pointer. This needs a consistent pointer-safe physics-handle design across all callers, not a local cast suppression.
 - The earlier `Material_RegisterHandle`, incomplete `clientState_s`, and `Windows.h` diagnostics are absent from this run's compiler-error list. That is progress in the include-boundary transformations, not proof that the full source tree is platform-clean.
@@ -43,7 +46,12 @@ Do not fix these by changing static assertions to whatever size AArch64 produces
 
 The successful upstream-patch job compiles/tests a growing subset of the pinned source on host and/or Android AArch64, including Base64, angle/vector and extracted quaternion code, file access, threading, DemonWare reference/mutex/buffer helpers, and selected physics, database, renderer-independent declarations and LP64 layouts. Android objects are checked as ELF64/AArch64; host regressions execute on the CI runner.
 
-These checks are not a complete engine build and are not physical-device runtime tests. No playable APK is produced by this repository's default branch.
+The upstream job's full-engine diagnostic, summary generation, and artifact uploads all completed. These checks are not a complete engine build and are not physical-device runtime tests. No playable APK is produced by this repository's default branch.
+
+Artifacts from run #855:
+- Full-engine diagnostic: `13062771392`.
+- Upstream regression bundle: `13062716889`.
+- Android smoke binaries: `13062552596`.
 
 ## Blockers, in required priority
 
@@ -57,8 +65,8 @@ These checks are not a complete engine build and are not physical-device runtime
 
 ## Next acceptance gate
 
-Start with an explicit 52-byte `SndDriverGlobals` serialized-record type and a separate LP64 runtime representation. Add offset/size tests for the serialized record and a loader conversion test before changing the production loader. In a separate patch, design a pointer-safe physics-handle abstraction; do not widen `PhysConstraint` in place because its parser relies on fixed byte offsets and element stride.
+Start with a fixed-width 52-byte `SndDriverGlobals` serialized-record type and a separate LP64 runtime representation. Add offset/size tests for the serialized record and a loader-conversion test that exercises both immediate and delayed stream loading before changing the production loader. The staging record must remain valid until delayed data has been copied. In a separate patch, design a pointer-safe physics-handle abstraction; do not widen `PhysConstraint` in place because its parser relies on fixed byte offsets and element stride.
 
-The new CI diagnostic summarizer is being added to publish a concise Markdown error list alongside the raw root-build log. Its own workflow verification is pending at this audit revision.
+Upstream history was checked through 2026-11-01: `SwagSoftware/KisakBlack` still points to `306bb14a8e052a6244bd1df4e4df7d8504c04ef4` (2026-10-02). No newer Android/AArch64-specific upstream change was found.
 
 Before distributing upstream-derived binaries or source, confirm applicable licensing and redistribution rights. The repository does not distribute proprietary Black Ops assets.
