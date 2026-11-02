@@ -18,7 +18,7 @@ jobs:
         run: cmake --build build/android --verbose
       - name: Verify ELF architecture
         run: |
-          for binary in nuke-platform-probe nuke-atomic-test; do
+          for binary in nuke-platform-probe nuke-atomic-test nuke-physics-handle-table-test; do
             path="build/android/$binary"
             file "$path"
             header="$("$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-readelf" -h "$path")"
@@ -32,6 +32,7 @@ jobs:
           path: |
             build/android/nuke-platform-probe
             build/android/nuke-atomic-test
+            build/android/nuke-physics-handle-table-test
   upstream-patch-check:
     runs-on: ubuntu-latest
     steps:
