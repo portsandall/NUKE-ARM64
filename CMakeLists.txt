@@ -197,6 +197,15 @@ if(BUILD_TESTING)
   target_include_directories(nuke-physics-handle-table-test PRIVATE
     "${CMAKE_CURRENT_SOURCE_DIR}/include")
   target_link_libraries(nuke-physics-handle-table-test PRIVATE Threads::Threads)
+
+  add_executable(nuke-snd-driver-globals-record-test
+    tests/snd_driver_globals_record32.cpp)
+  target_include_directories(nuke-snd-driver-globals-record-test PRIVATE
+    "${CMAKE_CURRENT_SOURCE_DIR}/include")
+  if(CMAKE_CXX_COMPILER_ID MATCHES "Clang|GNU")
+    target_compile_options(nuke-snd-driver-globals-record-test PRIVATE
+      -Wall -Wextra -Wconversion -Werror)
+  endif()
   if(CMAKE_CXX_COMPILER_ID MATCHES "Clang|GNU")
     target_compile_options(nuke-physics-handle-table-test PRIVATE
       -Wall -Wextra -Wconversion -Werror)
@@ -204,6 +213,7 @@ if(BUILD_TESTING)
 
   if(NOT CMAKE_CROSSCOMPILING)
     add_test(NAME physics-handle-table COMMAND nuke-physics-handle-table-test)
+    add_test(NAME snd-driver-globals-record32 COMMAND nuke-snd-driver-globals-record-test)
     add_test(NAME physics-atomic-compat COMMAND nuke-atomic-test)
     add_test(NAME probe-accepts-mp-nuked-scope COMMAND nuke-platform-probe mp_nuked)
     add_test(NAME reject-other-map

@@ -420,6 +420,15 @@ jobs:
           readelf="$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-readelf"
           "$readelf" -h build/upstream-stringtable-lp64-android | grep -Eq 'Class:[[:space:]]+ELF64'
           "$readelf" -h build/upstream-stringtable-lp64-android | grep -Eq 'Machine:[[:space:]]+AArch64'
+      - name: Compile and run fixed-width SndDriverGlobals record regression on host and Android
+        run: |
+          common=(-std=c++17 -Wall -Wextra -Wconversion -Werror -I "$GITHUB_WORKSPACE/include")
+          clang++ "${common[@]}" "$GITHUB_WORKSPACE/tests/snd_driver_globals_record32.cpp" -o build/snd-driver-globals-record32-host
+          ./build/snd-driver-globals-record32-host
+          "$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android26-clang++" "${common[@]}" "$GITHUB_WORKSPACE/tests/snd_driver_globals_record32.cpp" -o build/snd-driver-globals-record32-android
+          readelf="$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-readelf"
+          "$readelf" -h build/snd-driver-globals-record32-android | grep -Eq 'Class:[[:space:]]+ELF64'
+          "$readelf" -h build/snd-driver-globals-record32-android | grep -Eq 'Machine:[[:space:]]+AArch64'
       - name: Compile and run native database pointer relocation regression on host and Android
         run: |
           c++ -std=c++17 -Wall -Wextra -Werror -include "$GITHUB_WORKSPACE/tests/upstream_msvc_compat.h" -I "$GITHUB_WORKSPACE/build/upstream/src" "$GITHUB_WORKSPACE/tests/upstream_db_pointer_relocation.cpp" -o build/upstream-db-pointer-relocation-host
