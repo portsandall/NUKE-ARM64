@@ -1,9 +1,40 @@
 # NUKE-ARM64 native engine audit
 
-Audit snapshot: 2026-11-01 11:39 UTC (21:39 Brisbane)  
+Audit snapshot: 2026-11-03 00:39 UTC (10:39 Brisbane)  
 Pinned upstream: [SwagSoftware/KisakBlack](https://github.com/SwagSoftware/KisakBlack) @ `306bb14a8e052a6244bd1df4e4df7d8504c04ef4`.
 
-## Repository and CI boundary
+## Current review — 2026-11-03 00:39 UTC
+
+### Repository and CI
+
+- Default branch main remains at f778c1f (2026-10-30). Its latest main pushes passed: ARM64 bootstrap run [#558](https://github.com/portsandall/NUKE-ARM64/actions/runs/40979382826) and angle/vector regression run [#288](https://github.com/portsandall/NUKE-ARM64/actions/runs/40979382603).
+- PR [#65](https://github.com/portsandall/NUKE-ARM64/pull/65) remains open on ci/diagnose-kisakblack-android-root-20261030 at b6bc71f3 (2026-11-02); it contains 182 commits and changes 88 files.
+- Latest PR ARM64 bootstrap run [#861](https://github.com/portsandall/NUKE-ARM64/actions/runs/41366144792): all three jobs passed — Android AArch64, host tests, and upstream portability checks. Latest angle/vector regression [#621](https://github.com/portsandall/NUKE-ARM64/actions/runs/41366144667) also passed.
+- The full-engine root build is intentionally non-blocking inside the green upstream job. Its diagnostic command records ROOT_BUILD_EXIT=1 and still allows the job to succeed. A green workflow is not a full-engine build.
+
+### Latest full-engine Android result — 2026-11-02
+
+- Android NDK root CMake configure: ROOT_CONFIGURE_EXIT=0.
+- Full KisakBlack target: ROOT_BUILD_EXIT=1; first failed object is src/DynEntity/DynEntity_client.cpp.o at [26/1064].
+- Compiler blockers reproduced: SndDriverGlobals is 104 bytes versus the 52-byte serialized assertion; centity_s is 856 versus 808; playerState_s is 10,152 versus 9,892; DynEntity_client.cpp narrows constraint pointers at lines 1113/1127 and the Phys_ObjCreate pointer at line 1306 to int.
+- Raw log artifact: [kisakblack-android-root-diagnostic, artifact 13107585963](https://github.com/portsandall/NUKE-ARM64/actions/runs/41366144792/artifacts/13107585963).
+- The earlier Material_RegisterHandle, incomplete clientState_s and Windows.h errors are absent from this run. This is genuine include-boundary progress; the first observed build failure has moved to LP64 layout and pointer-token semantics.
+
+### Newly verified component
+
+- PR head b6bc71f3 adds include/nuke/physics_handle_table.h and tests/physics_handle_table.cpp. The isolated handle-table regression is included in host CTest, and its Android AArch64 executable is built and architecture-checked. It is not yet connected to the engine PhysConstraint or Phys_ObjCreate / Phys_GetUserData call sites, so the remaining pointer-narrowing errors are unresolved.
+- Latest upstream SwagSoftware/KisakBlack commit remains 306bb14a8e052a6244bd1df4e4df7d8504c04ef4, dated 2026-10-02 13:01 UTC. No newer upstream commits or Android/AArch64 work were found through 2026-11-03.
+
+### Next smallest high-value change
+
+Implement a fixed-width 52-byte SndDriverGlobals serialized record, separate from its LP64 runtime representation. Add field-offset/size tests and loader-conversion coverage for both immediate and delayed stream loading before changing production loading code; delayed staging must outlive Load_DelayStream. Do not relax the assertion or simply accept the 104-byte native layout.
+
+After that, integrate the already-tested PhysicsHandleTable at both constraint-pointer and Phys_ObjCreate / Phys_GetUserData conversion boundaries, with explicit lifetime and physics-lock rules. Preserve the 168-byte PhysConstraint parser layout. The centity_s and playerState_s layouts still need field/offset, serialization and network-consumer audits.
+
+---
+
+
+## Previous repository and CI snapshot — 2026-11-01 (superseded by current review above)
 
 - Default branch `main`: `f778c1f4345588d2991942afed62f0483e72469e` (`2026-10-30`).
 - Open full-engine diagnostic PR: [#65](https://github.com/portsandall/NUKE-ARM64/pull/65), branch `ci/diagnose-kisakblack-android-root-20261030`, current head `7678a5119ecdcad0049e2325bd1b49aebbb80610`.
@@ -14,7 +45,7 @@ Pinned upstream: [SwagSoftware/KisakBlack](https://github.com/SwagSoftware/Kisak
 - Latest inspected angle/vector regression: [run #617 / ID 41289200531](https://github.com/portsandall/NUKE-ARM64/actions/runs/41289200531), passed.
 - The full `KisakBlack` root build is a deliberately non-blocking diagnostic step. Green workflow jobs do **not** mean that the complete engine compiled.
 
-## Latest full-engine Android diagnostic
+## Previous full-engine Android diagnostic — 2026-11-01 (superseded by current review above)
 
 Run [#857 / ID 41289200540](https://github.com/portsandall/NUKE-ARM64/actions/runs/41289200540) reports:
 
@@ -63,7 +94,7 @@ Artifacts from run #857:
 6. **Multiplayer:** no playable session creation/joining, server/client gameplay or network spawn validation.
 7. **Performance:** no representative game frame-time, memory, GPU or network benchmarks.
 
-## Next acceptance gate
+## Previous next acceptance gate — 2026-11-01 (superseded by current review above)
 
 Start with a fixed-width 52-byte `SndDriverGlobals` serialized-record type and a separate LP64 runtime representation. Add offset/size tests for the serialized record and a loader-conversion test that exercises both immediate and delayed stream loading before changing the production loader. The staging record must remain valid until delayed data has been copied. In a separate patch, design a pointer-safe physics-handle abstraction; do not widen `PhysConstraint` in place because its parser relies on fixed byte offsets and element stride.
 
