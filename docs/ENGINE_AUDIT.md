@@ -3,6 +3,40 @@
 Audit snapshot: 2026-11-03 00:39 UTC (10:39 Brisbane)  
 Pinned upstream: [SwagSoftware/KisakBlack](https://github.com/SwagSoftware/KisakBlack) @ `306bb14a8e052a6244bd1df4e4df7d8504c04ef4`.
 
+## Current review — 2026-11-05
+
+### Repository and CI
+
+- Default branch `main` remains at `f778c1f4345588d2991942afed62f0483e72469e` (2026-10-30). PR [#65](https://github.com/portsandall/NUKE-ARM64/pull/65) remains open on `ci/diagnose-kisakblack-android-root-20261030`; latest PR-branch commit is `dc2fe5efa0fc4d3017fa36ada6798ff20bb3eb86`.
+- Focused code commits: [`8af53e9`](https://github.com/portsandall/NUKE-ARM64/commit/8af53e9d459a4188e9508f6d866525419a6c1dc0) bounds-checks FastFile offset relocation; [`dc2fe5e`](https://github.com/portsandall/NUKE-ARM64/commit/dc2fe5efa0fc4d3017fa36ada6798ff20bb3eb86) adds host regression coverage.
+- ARM64 bootstrap [run #870](https://github.com/portsandall/NUKE-ARM64/actions/runs/41937327189) passed all three jobs: `host-tests`, `upstream-patch-check`, and `android-arm64`. Angle/vector regression [run #630](https://github.com/portsandall/NUKE-ARM64/actions/runs/41937327180) passed.
+- The new native database pointer-relocation regression passed on the host and compiled for Android AArch64; the Android binary passed ELF64/AArch64 checks. It tests FastFile block indices 0, 1 and 6, final-byte and native pointer-slot bounds, null/reserved tokens, and out-of-range block indices.
+
+### Focused LP64 iteration completed
+
+- Extended `tests/port_db_offset_pointer_lp64.py` with a bounds-checked resolver for the FastFile token format: 3-bit stream-block index plus 29-bit byte offset. It rejects null/reserved tokens, missing blocks, offsets outside a block, and pointer-alias slots that do not fit in full.
+- `DB_ConvertOffsetToPointer` now resolves into a native-width pointer slot only after validating the target byte; `DB_ConvertOffsetToAlias` validates the entire native pointer slot. `DB_InsertPointer` already reserves native pointer width and alignment.
+- This improves the existing generic LP64 relocation transform. It does not convert the `SndDriverGlobals` asset record or integrate the physics handle table into gameplay call sites.
+
+### Latest full-engine Android diagnostic — 2026-11-05
+
+- Android NDK root CMake configure: `ROOT_CONFIGURE_EXIT=0`.
+- Full `KisakBlack` target: `ROOT_BUILD_EXIT=1`; first failed object remains `src/DynEntity/DynEntity_client.cpp.o` at Ninja step [26/1064].
+- Reproduced blockers:
+  - `SndDriverGlobals`: 104-byte LP64 runtime structure versus 52-byte serialized-layout assertion.
+  - `centity_s`: 856 bytes versus 808 expected.
+  - `playerState_s`: 10,152 bytes versus 9,892 expected.
+  - Pointer-to-`int` narrowing at `DynEntity_client.cpp:1113,1127,1306`.
+- Diagnostic artifact: [run #870 artifact 13374252611](https://github.com/portsandall/NUKE-ARM64/actions/runs/41937327189/artifacts/13374252611). The diagnostic is deliberately non-blocking; green CI does not mean the engine compiled.
+
+### Upstream and next production gate
+
+- `SwagSoftware/KisakBlack` remains pinned at `306bb14a8e052a6244bd1df4e4df7d8504c04ef4` (2026-10-02); no newer upstream commit was found.
+- Next smallest production change: adapt `Load_SndDriverGlobals` to consume the fixed 52-byte record and populate the LP64 runtime object without changing serialized field order. The loader must handle inline-string and offset tokens and ensure any deferred `Load_DelayStream` destination remains alive until the delayed copy completes. Do not merely change the 52-byte assertion.
+- Then integrate the tested `PhysicsHandleTable` at the constraint and `Phys_ObjCreate`/user-data boundaries, preserving fixed parser layouts. Audit `centity_s` and `playerState_s` offsets and all network/demo consumers before altering their layouts.
+
+Graphics bootstrap, real `mp_nuked` asset/collision/spawn loading, multiplayer sessions, and gameplay performance benchmarks remain unimplemented. No playable APK was produced by this iteration.
+
 ## Current review — 2026-11-04 00:00 UTC
 
 ### Repository and CI
