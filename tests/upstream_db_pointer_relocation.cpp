@@ -1,3 +1,5 @@
+#include <array>
+#include <cstddef>
 #include <cstdint>
 #include <cstring>
 #include <database/db_stream_load.h>
@@ -73,6 +75,57 @@ int main()
         if (highWord != expectedHighWord)
             return 4;
     }
+
+
+    struct TestBlock {
+        unsigned char *data;
+        unsigned int size;
+    };
+    std::array<std::array<unsigned char, 16>, 7> blockStorage{};
+    std::array<TestBlock, 7> blocks{};
+    for (std::size_t i = 0; i < blocks.size(); ++i) {
+        blocks[i] = {
+            blockStorage[i].data(),
+            static_cast<unsigned int>(blockStorage[i].size())
+        };
+    }
+
+    if (DB_ResolveStreamOffset32(1u, blocks.data(), blocks.size(), 1u) !=
+        blockStorage[0].data())
+        return 11;
+    if (DB_ResolveStreamOffset32(2u, blocks.data(), blocks.size(), 1u) !=
+        &blockStorage[0][1])
+        return 12;
+    constexpr std::uint32_t blockOneStart = (1u << 29) + 1u;
+    if (DB_ResolveStreamOffset32(blockOneStart, blocks.data(), blocks.size(), 1u) !=
+        blockStorage[1].data())
+        return 13;
+    constexpr std::uint32_t blockSixOffsetFour = (6u << 29) + 5u;
+    if (DB_ResolveStreamOffset32(blockSixOffsetFour, blocks.data(), blocks.size(), 1u) !=
+        &blockStorage[6][4])
+        return 14;
+
+    if (DB_ResolveStreamOffset32(16u, blocks.data(), blocks.size(), 1u) !=
+        &blockStorage[0][15])
+        return 15;
+    if (DB_ResolveStreamOffset32(16u, blocks.data(), blocks.size(), 2u) != nullptr)
+        return 16;
+    if (DB_ResolveStreamOffset32(17u, blocks.data(), blocks.size(), 1u) != nullptr)
+        return 17;
+    if (DB_ResolveStreamOffset32(9u, blocks.data(), blocks.size(), sizeof(void *)) !=
+        &blockStorage[0][8])
+        return 18;
+    if (DB_ResolveStreamOffset32(10u, blocks.data(), blocks.size(), sizeof(void *)) != nullptr)
+        return 19;
+    if (DB_ResolveStreamOffset32(0u, blocks.data(), blocks.size(), 1u) != nullptr)
+        return 20;
+    if (DB_ResolveStreamOffset32(0xFFFFFFFEu, blocks.data(), blocks.size(), 1u) != nullptr)
+        return 21;
+    if (DB_ResolveStreamOffset32(0xFFFFFFFFu, blocks.data(), blocks.size(), 1u) != nullptr)
+        return 22;
+    constexpr std::uint32_t blockSevenStart = (7u << 29) + 1u;
+    if (DB_ResolveStreamOffset32(blockSevenStart, blocks.data(), blocks.size(), 1u) != nullptr)
+        return 23;
 
     return 0;
 }
