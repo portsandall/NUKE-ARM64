@@ -16,35 +16,64 @@ OLD_FUNCTION = """void __cdecl DB_ConvertOffsetToPointer(unsigned int *data)
 NEW_ALIAS_FUNCTION = """void __cdecl DB_ConvertOffsetToAlias(void *data)
 {
     const uint32_t offset = DB_ReadSerializedPointerOffset32(data);
-
-    if ((offset == 0 || offset >= 0xFFFFFFFEu)
-        && !Assert_MyHandler(
-            "C:\\projects_pc\\cod\\codsrc\\src\\database\\db_stream_load.cpp",
-            67,
-            0,
-            "%s\\n\\t(offset) = %i",
-            "(offset && (offset != 0xFFFFFFFF) && (offset != 0xFFFFFFFE))",
-            offset))
+    if (offset == 0u || offset >= 0xFFFFFFFEu)
     {
-        __debugbreak();
+        if (!Assert_MyHandler(
+            __FILE__,
+            __LINE__,
+            0,
+            "%s",
+            "invalid FastFile alias offset"))
+        {
+            __debugbreak();
+        }
+        return;
     }
 
-    const void *aliasSlot =
-        &g_streamBlocks[(offset - 1) >> 29].data[(offset - 1) & 0x1FFFFFFF];
+    void *aliasSlot =
+        DB_ResolveStreamOffset32(offset, g_streamBlocks, 7u, sizeof(void *));
+    if (aliasSlot == 0)
+    {
+        if (!Assert_MyHandler(
+            __FILE__,
+            __LINE__,
+            0,
+            "%s",
+            "FastFile alias pointer slot is outside its stream block"))
+        {
+            __debugbreak();
+        }
+        return;
+    }
+
     void *aliasPointer = DB_ReadNativePointerSlot(aliasSlot);
     DB_WriteNativePointerSlot(data, aliasPointer);
 }"""
 NEW_FUNCTION = """void __cdecl DB_ConvertOffsetToPointer(void *data)
 {
     const uint32_t offset = DB_ReadSerializedPointerOffset32(data);
-    void *pointer =
-        &g_streamBlocks[(offset - 1) >> 29].data[(offset - 1) & 0x1FFFFFFF];
+    void *pointer = DB_ResolveStreamOffset32(offset, g_streamBlocks, 7u, 1u);
+    if (pointer == 0)
+    {
+        if (!Assert_MyHandler(
+            __FILE__,
+            __LINE__,
+            0,
+            "%s",
+            "FastFile pointer offset is outside its stream block"))
+        {
+            __debugbreak();
+        }
+        return;
+    }
+
     DB_WriteNativePointerSlot(data, pointer);
 }"""
 HELPER_INCLUDE = '#include "db_stream_pointer_relocation.h"'
 STREAM_HELPER_INCLUDE = '#include "db_stream_pointer_relocation.h"'
 HELPER_CONTENT = """#pragma once
 
+#include <stddef.h>
 #include <stdint.h>
 #include <string.h>
 
@@ -67,6 +96,32 @@ static inline void *DB_ReadNativePointerSlot(const void *slot)
     void *pointer = 0;
     memcpy(&pointer, slot, sizeof(pointer));
     return pointer;
+}
+
+// Resolve the FastFile's 3-bit block index and 29-bit byte offset. Require the
+// entire requested slot to fit inside the selected block before pointer math.
+template <typename Block>
+static inline void *DB_ResolveStreamOffset32(
+    uint32_t offset,
+    const Block *blocks,
+    size_t blockCount,
+    size_t requiredSize)
+{
+    if (offset == 0u || offset >= 0xFFFFFFFEu || blocks == 0)
+        return 0;
+
+    const uint32_t encodedOffset = offset - 1u;
+    const size_t blockIndex = static_cast<size_t>(encodedOffset >> 29);
+    const size_t blockOffset =
+        static_cast<size_t>(encodedOffset & 0x1FFFFFFFu);
+    if (blockIndex >= blockCount || blocks[blockIndex].data == 0)
+        return 0;
+
+    const size_t blockSize = static_cast<size_t>(blocks[blockIndex].size);
+    if (blockOffset > blockSize || requiredSize > blockSize - blockOffset)
+        return 0;
+
+    return static_cast<void *>(blocks[blockIndex].data + blockOffset);
 }
 
 // DB_AllocStreamPos takes an alignment mask, not an alignment byte count.
