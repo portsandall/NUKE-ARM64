@@ -7,7 +7,7 @@ Pinned upstream: [SwagSoftware/KisakBlack](https://github.com/SwagSoftware/Kisak
 
 ### Repository and CI
 
-- Default branch `main` remains at `f778c1f4345588d2991942afed62f0483e72469e` (2026-10-30). PR [#65](https://github.com/portsandall/NUKE-ARM64/pull/65) remains open on `ci/diagnose-kisakblack-android-root-20261030`; latest PR-branch commit is `dc2fe5efa0fc4d3017fa36ada6798ff20bb3eb86`.
+- Default branch `main` remains at `f778c1f4345588d2991942afed62f0483e72469e` (2026-10-30). PR [#65](https://github.com/portsandall/NUKE-ARM64/pull/65) remains open on `ci/diagnose-kisakblack-android-root-20261030`; latest implementation commit is `dc2fe5efa0fc4d3017fa36ada6798ff20bb3eb86` (the subsequent audit update is documentation-only).
 - Focused code commits: [`8af53e9`](https://github.com/portsandall/NUKE-ARM64/commit/8af53e9d459a4188e9508f6d866525419a6c1dc0) bounds-checks FastFile offset relocation; [`dc2fe5e`](https://github.com/portsandall/NUKE-ARM64/commit/dc2fe5efa0fc4d3017fa36ada6798ff20bb3eb86) adds host regression coverage.
 - ARM64 bootstrap [run #870](https://github.com/portsandall/NUKE-ARM64/actions/runs/41937327189) passed all three jobs: `host-tests`, `upstream-patch-check`, and `android-arm64`. Angle/vector regression [run #630](https://github.com/portsandall/NUKE-ARM64/actions/runs/41937327180) passed.
 - The new native database pointer-relocation regression passed on the host and compiled for Android AArch64; the Android binary passed ELF64/AArch64 checks. It tests FastFile block indices 0, 1 and 6, final-byte and native pointer-slot bounds, null/reserved tokens, and out-of-range block indices.
