@@ -3,6 +3,34 @@
 Audit snapshot: 2026-11-03 00:39 UTC (10:39 Brisbane)  
 Pinned upstream: [SwagSoftware/KisakBlack](https://github.com/SwagSoftware/KisakBlack) @ `306bb14a8e052a6244bd1df4e4df7d8504c04ef4`.
 
+## Current review — 2026-11-04 00:00 UTC
+
+### Repository and CI
+
+- Default branch `main` remains at `f778c1f4345588d2991942afed62f0483e72469e` (2026-10-30). The active engineering changes are on open PR [#65](https://github.com/portsandall/NUKE-ARM64/pull/65), branch `ci/diagnose-kisakblack-android-root-20261030`.
+- PR head `d8b086d52f1793df52c4951078145c3a0cbec0d9` adds a standalone fixed-width `SndDriverGlobalsRecord32` schema guard and host/Android regression.
+- Bootstrap run [#864](https://github.com/portsandall/NUKE-ARM64/actions/runs/41743417858) passed all three jobs: host tests, Android AArch64 smoke checks, and upstream-patch checks. Host CTest passed 5/5, including `snd-driver-globals-record32`. The dedicated upstream step also compiled the regression for Android AArch64 and completed its ELF64/AArch64 checks. Angle/vector run [#624](https://github.com/portsandall/NUKE-ARM64/actions/runs/41743417829) passed.
+- Active workflow and reusable template parity passed. A green bootstrap still does not mean the complete engine compiled: the full-engine build remains a non-blocking diagnostic.
+
+### Latest full-engine Android result — 2026-11-04
+
+- Android NDK root CMake configure: `ROOT_CONFIGURE_EXIT=0`.
+- Full KisakBlack target: `ROOT_BUILD_EXIT=1`; first failed object remains `src/DynEntity/DynEntity_client.cpp.o` at Ninja step [26/1064].
+- The same first-wave LP64 blockers remain: `SndDriverGlobals` 104 bytes vs 52; `centity_s` 856 vs 808; `playerState_s` 10,152 vs 9,892; pointer-to-`int` narrowing at `DynEntity_client.cpp:1113,1127,1306`.
+- Raw diagnostic: [artifact 13281224600](https://github.com/portsandall/NUKE-ARM64/actions/runs/41743417858/artifacts/13281224600). The diagnostic is deliberately non-blocking, so the overall workflow remains green.
+
+### Newly completed focused iteration
+
+- Added `include/nuke/snd_driver_globals_record32.h` and `tests/snd_driver_globals_record32.cpp`. The 13-word fixed-width record asserts 52-byte size, 4-byte alignment, standard-layout/trivially-copyable properties and every field offset; its test validates the ordered 32-bit words.
+- Registered it in CMake/CTest and the Android workflow. CI output confirms the host regression passed, the AArch64 binary compiled and its ELF architecture checks passed. Workflow/template parity also passed.
+- This is a schema/layout regression guard only. It does **not** alter `Load_SndDriverGlobals`, resolve stream tokens, or fix the current production engine assertion. No production engine loader code was changed.
+
+### Next smallest production change
+
+Design and implement the loader-side conversion from the 52-byte record into the native LP64 `SndDriverGlobals` runtime object. First prove the stream-token and pointer-relocation semantics, and make any intermediate record storage survive deferred `Load_DelayStream` copies; a stack temporary is unsafe. Then integrate the existing `PhysicsHandleTable` at the constraint-pointer and `Phys_ObjCreate`/`Phys_GetUserData` boundaries without changing the fixed 168-byte `PhysConstraint` parser layout. Audit `centity_s` and `playerState_s` field offsets and serialization/network consumers rather than accepting native sizes.
+
+Upstream `SwagSoftware/KisakBlack` remains pinned at `306bb14a8e052a6244bd1df4e4df7d8504c04ef` (2026-10-02); no newer upstream commit was found.
+
 ## Current review — 2026-11-03 00:39 UTC
 
 ### Repository and CI
