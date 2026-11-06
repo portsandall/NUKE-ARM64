@@ -127,5 +127,21 @@ int main()
     if (DB_ResolveStreamOffset32(blockSevenStart, blocks.data(), blocks.size(), 1u) != nullptr)
         return 23;
 
+
+    // Reject an absent block table, an empty table, and a selected block
+    // whose backing data pointer is null before performing pointer arithmetic.
+    if (DB_ResolveStreamOffset32(
+            1u, static_cast<const TestBlock *>(nullptr), blocks.size(), 1u) != nullptr)
+        return 24;
+    if (DB_ResolveStreamOffset32(1u, blocks.data(), 0u, 1u) != nullptr)
+        return 25;
+
+    auto nullDataBlocks = blocks;
+    nullDataBlocks[2].data = nullptr;
+    constexpr std::uint32_t blockTwoStart = (2u << 29) + 1u;
+    if (DB_ResolveStreamOffset32(
+            blockTwoStart, nullDataBlocks.data(), nullDataBlocks.size(), 1u) != nullptr)
+        return 26;
+
     return 0;
 }
