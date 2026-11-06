@@ -3,6 +3,43 @@
 Audit snapshot: 2026-11-03 00:39 UTC (10:39 Brisbane)  
 Pinned upstream: [SwagSoftware/KisakBlack](https://github.com/SwagSoftware/KisakBlack) @ `306bb14a8e052a6244bd1df4e4df7d8504c04ef4`.
 
+## Current review — 2026-11-06 00:41 UTC (10:41 Brisbane)
+
+### Repository and latest verified iteration
+
+- Default branch `main` remains at `f778c1f4345588d2991942afed62f0483e72469e` (2026-10-30). PR [#65](https://github.com/portsandall/NUKE-ARM64/pull/65) remains open and unmerged; head is `18b6f564f799d0633577ea0d0689812a706b9010`.
+- New focused test commit [`18b6f56`](https://github.com/portsandall/NUKE-ARM64/commit/18b6f564f799d0633577ea0d0689812a706b9010) adds regression cases proving FastFile offset resolution rejects a null block table, a zero-length block table, and a selected block with a null data pointer before pointer arithmetic.
+- The source file was refetched after the commit and the new cases were confirmed present.
+
+### CI verification for the new commit
+
+- ARM64 bootstrap [run #876](https://github.com/portsandall/NUKE-ARM64/actions/runs/42138473060): all three jobs passed — `host-tests`, `android-arm64`, and `upstream-patch-check`.
+- Host CTest: 5/5 passed.
+- Android NDK smoke targets compiled and linked; ELF checks confirmed ELF64/AArch64.
+- Upstream-patch step 27, “Compile and run native database pointer relocation regression on host and Android”, passed.
+- Angle/vector regression [run #636](https://github.com/portsandall/NUKE-ARM64/actions/runs/42138473109) passed.
+- The new test commit changes test coverage only; it does not change production engine code.
+
+### Latest full-engine Android diagnostic — 2026-11-06
+
+- Android NDK root configure: `ROOT_CONFIGURE_EXIT=0`.
+- Full KisakBlack target: `ROOT_BUILD_EXIT=1`; first failed object remains `src/DynEntity/DynEntity_client.cpp.o`, Ninja step [26/1064].
+- Current first-wave errors remain:
+  - `SndDriverGlobals`: 104-byte LP64 runtime type versus the 52-byte FastFile record assertion.
+  - `centity_s`: 856 bytes versus 808.
+  - `playerState_s`: 10,152 bytes versus 9,892.
+  - Pointer-to-`int` narrowing in `DynEntity_client.cpp:1113,1127,1306`.
+- Raw diagnostic artifact: [artifact 13466671804](https://github.com/portsandall/NUKE-ARM64/actions/runs/42138473060/artifacts/13466671804).
+- The diagnostic remains non-blocking; the green workflow is not a successful full-engine build.
+
+### Upstream and next production gate
+
+- `SwagSoftware/KisakBlack` remains pinned at `306bb14a8e052a6244bd1df4e4df7d8504c04ef4` (2026-10-02); no newer upstream commit was found.
+- Next production change remains the LP64 `Load_SndDriverGlobals` conversion: load the 52-byte fixed-width record into storage that survives any deferred `Load_DelayStream` copy, then explicitly populate the native runtime structure and preserve XString/array-token semantics. Do not copy the record directly into the pointer-bearing LP64 object or merely relax its assertion.
+- After that, integrate `PhysicsHandleTable` into the real constraint and physics user-data call sites. Keep `PhysConstraint`'s 168-byte parser layout intact.
+- Graphics bootstrap, Nuketown asset/collision/spawn loading, multiplayer sessions, and performance measurements remain unimplemented.
+
+
 ## Current review — 2026-11-05
 
 ### Repository and CI
