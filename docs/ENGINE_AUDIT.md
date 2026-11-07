@@ -1,3 +1,46 @@
+## Current review — 2026-11-07 00:07 UTC (10:07 Brisbane)
+
+### Repository and upstream state
+
+- Default branch `main` remains at `f778c1f4345588d2991942afed62f0483e72469e` (2026-10-30).
+- PR [#65](https://github.com/portsandall/NUKE-ARM64/pull/65) remains open and unmerged. Its engineering branch is 191 commits ahead of `main` and has no commits behind it.
+- Latest production/test commit remains [`18b6f56`](https://github.com/portsandall/NUKE-ARM64/commit/18b6f564f799d0633577ea0d0689812a706b9010) (2026-11-06 00:39:52 UTC). Latest branch commit is audit-only [`6d80668`](https://github.com/portsandall/NUKE-ARM64/commit/6d806684c96987b68215d9cdd3a39c6b41b75eff) (00:41:55 UTC). No newer NUKE-ARM64 commit was found in this review.
+- Pinned upstream remains `SwagSoftware/KisakBlack@306bb14a8e052a6244bd1df4e4df7d8504c04ef4` (2026-10-02). No newer upstream commit was returned by repository commit search.
+
+### Latest verified GitHub Actions result
+
+- ARM64 bootstrap [run #878](https://github.com/portsandall/NUKE-ARM64/actions/runs/42138721671): all three jobs passed — `host-tests`, `android-arm64`, and `upstream-patch-check`.
+- Host job passed diagnostic-summary tests, workflow/template parity, CMake build and CTest.
+- Android job configured with the NDK, compiled/linked smoke binaries and passed ELF64/AArch64 verification.
+- Upstream job passed the focused portability/layout regressions, including fixed-width `SndDriverGlobalsRecord32` and FastFile pointer relocation.
+- The upstream job's final full-engine diagnostic step completed but reported `ROOT_BUILD_EXIT=1`; its non-blocking status is why the workflow remains green.
+
+### Additional blocker detail from the raw #878 job log
+
+The complete Android root configure passed (`ROOT_CONFIGURE_EXIT=0`), but the engine stopped at `src/DynEntity/DynEntity_client.cpp.o`, Ninja step [26/1064].
+
+The first-wave hard errors remain:
+- `SndDriverGlobals`: 104-byte native LP64 type versus the 52-byte FastFile record assertion.
+- `centity_s`: 856 bytes versus 808 expected.
+- `playerState_s`: 10,152 bytes versus 9,892 expected.
+- Pointer-to-`int) narrowing at `DynEntity_client.cpp:1113,1127,1306`.
+
+The raw log also exposes warning-only integer-to-pointer casts that broaden the physics handle integration surface:
+- `ragdoll.h:206` (`RagdollBody*`).
+- `DynEntity_client.cpp:907,919` (constraint destruction).
+- `DynEntity_client.cpp:1048,1189,1310` (`PhysObjUserData*`).
+
+Diagnostic artifact: [13467570026](https://github.com/portsandall/NUKE-ARM64/actions/runs/42138721671/artifacts/13467570026), SHA-256 `a26cb5c643856849feca637d056c4cbc76b6bf1b64273f461badfc592c7876d2`.
+
+### Today's iteration and next production gate
+
+- Re-fetched the PR branch audit and source, compared it with `main`, inspected all three #878 jobs and extracted the full-engine compiler diagnostics. No production source change was made during this review.
+- Next smallest production change remains the `Load_SndDriverGlobals` LP64 conversion: consume the 52-byte fixed-width record, resolve its XString/array tokens, and populate the native runtime object while preserving delayed-stream staging lifetime. Do not relax the assertion or memcpy the disk record into the 104-byte runtime type.
+- Then integrate `PhysicsHandleTable` across every constraint, ragdoll and `PhysObjUserData` conversion site identified above. Preserve fixed parser/network layouts; audit `centity_s` and `playerState_s` offsets and consumers rather than changing assertions to native sizes.
+- Graphics bootstrap, real `mp_nuked` asset/collision/spawn loading, multiplayer sessions and gameplay performance measurements remain unimplemented. No linked game executable or playable APK is claimed.
+
+---
+
 # NUKE-ARM64 native engine audit
 
 Audit snapshot: 2026-11-03 00:39 UTC (10:39 Brisbane)  
