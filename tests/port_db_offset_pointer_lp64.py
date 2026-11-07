@@ -1,0 +1,269 @@
+#!/usr/bin/env python3
+"""Make FastFile offset relocation write complete native pointers on LP64."""
+from __future__ import annotations
+
+import sys
+from pathlib import Path
+
+OLD_DECL = "void __cdecl DB_ConvertOffsetToPointer(unsigned int *data);"
+NEW_DECL = "void __cdecl DB_ConvertOffsetToPointer(void *data);"
+OLD_ALIAS_DECL = "void __cdecl DB_ConvertOffsetToAlias(unsigned int *data);"
+NEW_ALIAS_DECL = "void __cdecl DB_ConvertOffsetToAlias(void *data);"
+OLD_FUNCTION = """void __cdecl DB_ConvertOffsetToPointer(unsigned int *data)
+{
+    *data = (unsigned int)&g_streamBlocks[(unsigned int)(*data - 1) >> 29].data[(*data - 1) & 0x1FFFFFFF];
+}"""
+NEW_ALIAS_FUNCTION = """void __cdecl DB_ConvertOffsetToAlias(void *data)
+{
+    const uint32_t offset = DB_ReadSerializedPointerOffset32(data);
+    if (offset == 0u || offset >= 0xFFFFFFFEu)
+    {
+        if (!Assert_MyHandler(
+            __FILE__,
+            __LINE__,
+            0,
+            "%s",
+            "invalid FastFile alias offset"))
+        {
+            __debugbreak();
+        }
+        return;
+    }
+
+    void *aliasSlot =
+        DB_ResolveStreamOffset32(offset, g_streamBlocks, 7u, sizeof(void *));
+    if (aliasSlot == 0)
+    {
+        if (!Assert_MyHandler(
+            __FILE__,
+            __LINE__,
+            0,
+            "%s",
+            "FastFile alias pointer slot is outside its stream block"))
+        {
+            __debugbreak();
+        }
+        return;
+    }
+
+    void *aliasPointer = DB_ReadNativePointerSlot(aliasSlot);
+    DB_WriteNativePointerSlot(data, aliasPointer);
+}"""
+NEW_FUNCTION = """void __cdecl DB_ConvertOffsetToPointer(void *data)
+{
+    const uint32_t offset = DB_ReadSerializedPointerOffset32(data);
+    void *pointer = DB_ResolveStreamOffset32(offset, g_streamBlocks, 7u, 1u);
+    if (pointer == 0)
+    {
+        if (!Assert_MyHandler(
+            __FILE__,
+            __LINE__,
+            0,
+            "%s",
+            "FastFile pointer offset is outside its stream block"))
+        {
+            __debugbreak();
+        }
+        return;
+    }
+
+    DB_WriteNativePointerSlot(data, pointer);
+}"""
+HELPER_INCLUDE = '#include "db_stream_pointer_relocation.h"'
+STREAM_HELPER_INCLUDE = '#include "db_stream_pointer_relocation.h"'
+HELPER_CONTENT = """#pragma once
+
+#include <stddef.h>
+#include <stdint.h>
+#include <string.h>
+
+// FastFile pointer slots store a 32-bit offset even when runtime pointers are
+// native-width. Read the wire value separately from the resolved pointer.
+static inline uint32_t DB_ReadSerializedPointerOffset32(const void *slot)
+{
+    uint32_t offset;
+    memcpy(&offset, slot, sizeof(offset));
+    return offset;
+}
+
+static inline void DB_WriteNativePointerSlot(void *slot, void *pointer)
+{
+    memcpy(slot, &pointer, sizeof(pointer));
+}
+
+static inline void *DB_ReadNativePointerSlot(const void *slot)
+{
+    void *pointer = 0;
+    memcpy(&pointer, slot, sizeof(pointer));
+    return pointer;
+}
+
+// Resolve the FastFile's 3-bit block index and 29-bit byte offset. Require the
+// entire requested slot to fit inside the selected block before pointer math.
+template <typename Block>
+static inline void *DB_ResolveStreamOffset32(
+    uint32_t offset,
+    const Block *blocks,
+    size_t blockCount,
+    size_t requiredSize)
+{
+    if (offset == 0u || offset >= 0xFFFFFFFEu || blocks == 0)
+        return 0;
+
+    const uint32_t encodedOffset = offset - 1u;
+    const size_t blockIndex = static_cast<size_t>(encodedOffset >> 29);
+    const size_t blockOffset =
+        static_cast<size_t>(encodedOffset & 0x1FFFFFFFu);
+    if (blockIndex >= blockCount || blocks[blockIndex].data == 0)
+        return 0;
+
+    const size_t blockSize = static_cast<size_t>(blocks[blockIndex].size);
+    if (blockOffset > blockSize || requiredSize > blockSize - blockOffset)
+        return 0;
+
+    return static_cast<void *>(blocks[blockIndex].data + blockOffset);
+}
+
+// DB_AllocStreamPos takes an alignment mask, not an alignment byte count.
+static inline int DB_NativePointerSlotAlignmentMask(void)
+{
+    return (int)(alignof(void *) - 1);
+}
+
+static inline int DB_NativePointerSlotSize(void)
+{
+    return (int)sizeof(void *);
+}
+"""
+
+
+def replace_once(source: str, old: str, new: str, label: str) -> str:
+    count = source.count(old)
+    if count != 1:
+        raise RuntimeError(f"{label}: expected exactly one match, found {count}")
+    return source.replace(old, new, 1)
+
+
+def main() -> int:
+    if len(sys.argv) != 4:
+        print(
+            f"usage: {Path(sys.argv[0]).name} <db_stream_load.h> "
+            "<db_stream_load.cpp> <new-helper-header>",
+            file=sys.stderr,
+        )
+        return 2
+
+    header_path, source_path, helper_path = map(Path, sys.argv[1:])
+    header = header_path.read_text(encoding="utf-8")
+    source = source_path.read_text(encoding="utf-8")
+
+    if OLD_DECL in header:
+        header = replace_once(header, OLD_DECL, NEW_DECL, "pointer conversion declaration")
+    elif header.count(NEW_DECL) != 1:
+        raise RuntimeError("expected the original or already-transformed pointer declaration")
+    if OLD_DECL in header or header.count(NEW_DECL) != 1:
+        raise RuntimeError("pointer conversion declaration did not reach the expected state")
+
+    if OLD_ALIAS_DECL in header:
+        header = replace_once(header, OLD_ALIAS_DECL, NEW_ALIAS_DECL, "alias conversion declaration")
+    elif header.count(NEW_ALIAS_DECL) != 1:
+        raise RuntimeError("expected the original or already-transformed alias declaration")
+    if OLD_ALIAS_DECL in header or header.count(NEW_ALIAS_DECL) != 1:
+        raise RuntimeError("alias conversion declaration did not reach the expected state")
+
+    if helper_path.exists():
+        if helper_path.read_text(encoding="utf-8") != HELPER_CONTENT:
+            raise RuntimeError("existing db_stream_pointer_relocation.h has unexpected contents")
+    else:
+        helper_path.parent.mkdir(parents=True, exist_ok=True)
+        helper_path.write_text(HELPER_CONTENT, encoding="utf-8")
+
+    if HELPER_INCLUDE not in source:
+        source = replace_once(
+            source,
+            '#include "db_stream_load.h"\n',
+            '#include "db_stream_load.h"\n' + HELPER_INCLUDE + "\n",
+            "pointer relocation helper include",
+        )
+    if source.count(HELPER_INCLUDE) != 1:
+        raise RuntimeError("db_stream_load.cpp must include the helper exactly once")
+
+    if OLD_FUNCTION in source:
+        source = replace_once(source, OLD_FUNCTION, NEW_FUNCTION, "pointer conversion function")
+    elif source.count(NEW_FUNCTION) != 1:
+        raise RuntimeError("expected the original or already-transformed pointer conversion function")
+    if OLD_FUNCTION in source or source.count(NEW_FUNCTION) != 1:
+        raise RuntimeError("pointer conversion function did not reach the expected state")
+
+    old_alias_start = "void __cdecl DB_ConvertOffsetToAlias(unsigned int *data)\n{"
+    new_alias_start = "void __cdecl DB_ConvertOffsetToAlias(void *data)\n{"
+    alias_marker = "\nvoid __cdecl DB_ConvertOffsetToPointer("
+    if source.count(old_alias_start) == 1:
+        start = source.index(old_alias_start)
+        end = source.index(alias_marker, start)
+        source = source[:start] + NEW_ALIAS_FUNCTION + source[end:]
+    elif source.count(new_alias_start) != 1:
+        raise RuntimeError("expected the original or already-transformed alias conversion function")
+    if source.count(old_alias_start) or source.count(new_alias_start) != 1:
+        raise RuntimeError("alias conversion function did not reach the expected state")
+
+    stream_path = source_path.with_name("db_stream.cpp")
+    stream_source = stream_path.read_text(encoding="utf-8")
+    if STREAM_HELPER_INCLUDE not in stream_source:
+        stream_source = replace_once(
+            stream_source,
+            '#include "db_stream.h"\n',
+            '#include "db_stream.h"\n' + STREAM_HELPER_INCLUDE + "\n",
+            "DB_InsertPointer helper include",
+        )
+    if stream_source.count(STREAM_HELPER_INCLUDE) != 1:
+        raise RuntimeError("db_stream.cpp must include the pointer relocation helper exactly once")
+
+    old_insert_pointer = """const void **__cdecl DB_InsertPointer()
+{
+    const void **pData; // [esp+0h] [ebp-4h]
+
+    DB_PushStreamPos(4u);
+    pData = (const void **)DB_AllocStreamPos(3);
+    DB_IncStreamPos(4);
+    DB_PopStreamPos();
+    return pData;
+}"""
+    new_insert_pointer = """const void **__cdecl DB_InsertPointer()
+{
+    const void **pData; // [esp+0h] [ebp-4h]
+
+    DB_PushStreamPos(4u);
+    pData = (const void **)DB_AllocStreamPos(DB_NativePointerSlotAlignmentMask());
+    DB_IncStreamPos(DB_NativePointerSlotSize());
+    DB_PopStreamPos();
+    return pData;
+}"""
+    if old_insert_pointer in stream_source:
+        stream_source = replace_once(
+            stream_source, old_insert_pointer, new_insert_pointer,
+            "DB_InsertPointer native-width reservation",
+        )
+    elif stream_source.count(new_insert_pointer) != 1:
+        raise RuntimeError("expected original or transformed DB_InsertPointer function")
+    if old_insert_pointer in stream_source or stream_source.count(new_insert_pointer) != 1:
+        raise RuntimeError("DB_InsertPointer did not reach native pointer-width reservation")
+
+    if helper_path.read_text(encoding="utf-8") != HELPER_CONTENT:
+        raise RuntimeError("generated pointer relocation helper differs from expected content")
+    header_path.write_text(header, encoding="utf-8")
+    source_path.write_text(source, encoding="utf-8")
+    stream_path.write_text(stream_source, encoding="utf-8")
+    print(
+        "Verified 32-bit FastFile offsets are resolved at native pointer width "
+        "and DB_InsertPointer reserves an aligned native-width backpatch slot."
+    )
+    return 0
+
+
+if __name__ == "__main__":
+    try:
+        raise SystemExit(main())
+    except Exception as error:
+        print(f"DB pointer-width transform failed: {error}", file=sys.stderr)
+        raise SystemExit(1)
