@@ -4,7 +4,7 @@
 
 - Default branch `main` remains at `f778c1f4345588d2991942afed62f0483e72469e` (2026-10-30).
 - PR [#65](https://github.com/portsandall/NUKE-ARM64/pull/65) remains open and unmerged. Its engineering branch is 191 commits ahead of `main` and has no commits behind it.
-- Latest production/test commit remains [`18b6f56`](https://github.com/portsandall/NUKE-ARM64/commit/18b6f564f799d0633577ea0d0689812a706b9010) (2026-11-06 00:39:52 UTC). Latest branch commit is audit-only [`6d80668`](https://github.com/portsandall/NUKE-ARM64/commit/6d806684c96987b68215d9cdd3a39c6b41b75eff) (00:41:55 UTC). No newer NUKE-ARM64 commit was found in this review.
+- Latest production/test commit remains [`18b6f56`](https://github.com/portsandall/NUKE-ARM64/commit/18b6f564f799d0633577ea0d0689812a706b9010) (2026-11-06 00:39:52 UTC). At review start, the latest branch commit was audit-only [`6d80668`](https://github.com/portsandall/NUKE-ARM64/commit/6d806684c96987b68215d9cdd3a39c6b41b75eff) (00:41:55 UTC). This review's audit update is [`0305252`](https://github.com/portsandall/NUKE-ARM64/commit/03052522f02bff454bb6e28b8b4f23336b09f72b). No newer production-code commit was found.
 - Pinned upstream remains `SwagSoftware/KisakBlack@306bb14a8e052a6244bd1df4e4df7d8504c04ef4` (2026-10-02). No newer upstream commit was returned by repository commit search.
 
 ### Latest verified GitHub Actions result
@@ -23,7 +23,7 @@ The first-wave hard errors remain:
 - `SndDriverGlobals`: 104-byte native LP64 type versus the 52-byte FastFile record assertion.
 - `centity_s`: 856 bytes versus 808 expected.
 - `playerState_s`: 10,152 bytes versus 9,892 expected.
-- Pointer-to-`int) narrowing at `DynEntity_client.cpp:1113,1127,1306`.
+- Pointer-to-`int` narrowing at `DynEntity_client.cpp:1113,1127,1306`.
 
 The raw log also exposes warning-only integer-to-pointer casts that broaden the physics handle integration surface:
 - `ragdoll.h:206` (`RagdollBody*`).
