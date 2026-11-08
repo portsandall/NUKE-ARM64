@@ -3,7 +3,7 @@
 ### Repository and upstream state
 
 - Default branch `main` remains at `f778c1f4345588d2991942afed62f0483e72469e` (2026-10-30).
-- PR [#65](https://github.com/portsandall/NUKE-ARM64/pull/65) remains open, mergeable and unmerged. Its branch is 194 commits ahead of `main`, zero behind. Current head: [`22c58d6`](https://github.com/portsandall/NUKE-ARM64/commit/22c58d68ea8d84469c896ec71c5a91165666baec).
+- PR [#65](https://github.com/portsandall/NUKE-ARM64/pull/65) remains open, mergeable and unmerged; its branch is ahead of `main` with no commits behind. Latest implementation commit: [`22c58d6`](https://github.com/portsandall/NUKE-ARM64/commit/22c58d68ea8d84469c896ec71c5a91165666baec). This review's follow-on commit is documentation-only.
 - Latest upstream history search still returns `SwagSoftware/KisakBlack@306bb14a8e052a6244bd1df4e4df7d8504c04ef4` (2026-10-02); no newer upstream commit was found.
 
 ### Focused iteration completed
