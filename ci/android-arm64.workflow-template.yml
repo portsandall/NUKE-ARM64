@@ -117,6 +117,7 @@ jobs:
           python3 "$GITHUB_WORKSPACE/tests/port_snapfloat_rounding.py" "$GITHUB_WORKSPACE/build/upstream/src/qcommon/common.h"
           python3 "$GITHUB_WORKSPACE/tests/drop_unused_phys_traverse_d3d_include.py" "$GITHUB_WORKSPACE/build/upstream/src/physics/phys_traverse.h"
           python3 "$GITHUB_WORKSPACE/tests/add_cm_trace_string_include.py" "$GITHUB_WORKSPACE/build/upstream/src/qcommon/cm_trace.h"
+          python3 "$GITHUB_WORKSPACE/tests/port_phys_matrix_row_index.py" "$GITHUB_WORKSPACE/build/upstream/src/physics/phys_local.h" "$GITHUB_WORKSPACE/build/upstream/src/vehicle/nitrous_vehicle.cpp" "$GITHUB_WORKSPACE/tests/upstream_phys_matrix_row_index.cpp" "$GITHUB_WORKSPACE/build/upstream-phys-matrix-row-index.cpp"
           python3 "$GITHUB_WORKSPACE/tests/gate_upstream_windows_links.py" "$GITHUB_WORKSPACE/build/upstream/CMakeLists.txt"
           grep -B1 -F 'WIN32_EXECUTABLE TRUE' build/upstream/CMakeLists.txt | grep -Fq 'if(WIN32)'
           grep -B3 -F 'VS_DEBUGGER_WORKING_DIRECTORY' build/upstream/CMakeLists.txt | grep -Fq 'if(MSVC AND WIN32)'
@@ -437,6 +438,18 @@ jobs:
           readelf="$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-readelf"
           "$readelf" -h build/upstream-db-pointer-relocation-android | grep -Eq 'Class:[[:space:]]+ELF64'
           "$readelf" -h build/upstream-db-pointer-relocation-android | grep -Eq 'Machine:[[:space:]]+AArch64'
+      - name: Compile and run physics matrix row-index regression on host and Android
+        run: |
+          common=(
+            -std=c++17 -Wall -Wextra -Werror -Warray-bounds -Werror=array-bounds
+            -include "$GITHUB_WORKSPACE/tests/upstream_msvc_compat.h"
+          )
+          clang++ "${common[@]}" "$GITHUB_WORKSPACE/build/upstream-phys-matrix-row-index.cpp" -o build/upstream-phys-matrix-row-index-host
+          ./build/upstream-phys-matrix-row-index-host
+          "$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android26-clang++" "${common[@]}" "$GITHUB_WORKSPACE/build/upstream-phys-matrix-row-index.cpp" -o build/upstream-phys-matrix-row-index-android
+          readelf="$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-readelf"
+          "$readelf" -h build/upstream-phys-matrix-row-index-android | grep -Eq 'Class:[[:space:]]+ELF64'
+          "$readelf" -h build/upstream-phys-matrix-row-index-android | grep -Eq 'Machine:[[:space:]]+AArch64'
       - name: Compile and run renderer-independent vidConfig_t layout on host and Android
         run: |
           common=(
@@ -826,6 +839,7 @@ jobs:
             build/nuke-upstream-axis-to-quat-android.o
             build/upstream-angle-android/nuke-upstream-angle-vectors-test
             build/upstream-angle-android/nuke-upstream-fileaccess-test
+            build/upstream-phys-matrix-row-index-android
   host-tests:
     runs-on: ubuntu-latest
     steps:
