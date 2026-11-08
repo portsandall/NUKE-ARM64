@@ -1,3 +1,54 @@
+## Current review — 2026-11-08
+
+### Repository and upstream state
+
+- Default branch `main` remains at `f778c1f4345588d2991942afed62f0483e72469e` (2026-10-30).
+- PR [#65](https://github.com/portsandall/NUKE-ARM64/pull/65) remains open, mergeable and unmerged. Its branch is 194 commits ahead of `main`, zero behind. Current head: [`22c58d6`](https://github.com/portsandall/NUKE-ARM64/commit/22c58d68ea8d84469c896ec71c5a91165666baec).
+- Latest upstream history search still returns `SwagSoftware/KisakBlack@306bb14a8e052a6244bd1df4e4df7d8504c04ef4` (2026-10-02); no newer upstream commit was found.
+
+### Focused iteration completed
+
+The full-engine compiler log from the previous run exposed an out-of-bounds row-index warning in the physics matrix adapters. The pointer parameters are pointers to `float[3]` rows, but the original code indexed beyond the first row with expressions such as `&(*axis)[6]`.
+
+Commit [`22c58d6`](https://github.com/portsandall/NUKE-ARM64/commit/22c58d68ea8d84469c896ec71c5a91165666baec) adds a fail-closed transformation for the disposable pinned upstream checkout:
+
+- `Phys_AxisToNitrousMat`: explicit rows `axis[0..2]`.
+- `Phys_Mat4ToNitrousMat`: explicit rows `inMat[0..3]`.
+- `Phys_NitrousMat44ToVec33`: explicit `outAxis[row][column]` writes.
+
+The regression fixture is generated from the transformed upstream function bodies, then checks 3x3 conversion, 4x3 conversion and reverse conversion. The host and Android builds compile it with `-Warray-bounds -Werror=array-bounds`. This is a CI-only transformation/regression; it does not change the pinned upstream repository or implement the Android renderer.
+
+### Verification
+
+- ARM64 bootstrap [run #884 / ID 42431023560](https://github.com/portsandall/NUKE-ARM64/actions/runs/42431023560): all three jobs passed — `host-tests`, `android-arm64`, and `upstream-patch-check`.
+- Host CTest: 5/5 passed.
+- Android NDK smoke binaries compiled/linked and passed ELF64/AArch64 checks.
+- Upstream step 28, “Compile and run physics matrix row-index regression on host and Android”, passed; output: `physics matrix row adapters: 3x3, 4x3 and reverse conversion passed`.
+- Angle/vector regression [PR run #644 / ID 42431023530](https://github.com/portsandall/NUKE-ARM64/actions/runs/42431023530): passed.
+- Artifacts: upstream regression bundle [13597701358](https://github.com/portsandall/NUKE-ARM64/actions/runs/42431023560); full-engine diagnostic [13597472559](https://github.com/portsandall/NUKE-ARM64/actions/runs/42431023560); Android smoke binaries [13596723816](https://github.com/portsandall/NUKE-ARM64/actions/runs/42431023560).
+
+### Full-engine diagnostic remains red inside a green workflow
+
+- Android NDK root configure: `ROOT_CONFIGURE_EXIT=0`.
+- Complete KisakBlack build: `ROOT_BUILD_EXIT=1`; first failed object remains `src/DynEntity/DynEntity_client.cpp.o`, Ninja step [26/1064].
+- The previous `phys_local.h:1850` array-bounds warning is absent after the row-index transform.
+- Remaining hard errors are unchanged:
+  - `SndDriverGlobals`: 104-byte LP64 runtime object versus 52-byte serialized assertion.
+  - `centity_s`: 856 versus 808 bytes.
+  - `playerState_s`: 10,152 versus 9,892 bytes.
+  - Pointer-to-`int` narrowing at `DynEntity_client.cpp:1113,1127,1306`.
+- The root diagnostic remains non-blocking. Green workflow status does not mean the full engine compiled or linked.
+
+### Next smallest high-value production change
+
+Implement the real `Load_SndDriverGlobals` conversion: read the fixed-width 52-byte FastFile record, resolve XString/array tokens, populate the native LP64 runtime structure, and preserve staging memory across deferred `Load_DelayStream` copies. Do not relax the 52-byte assertion or memcpy the disk record into the 104-byte runtime object.
+
+Then integrate `PhysicsHandleTable` at every constraint/ragdoll/physics-user-data conversion boundary, preserving fixed parser layouts. Audit `centity_s` and `playerState_s` field offsets and serialization/network consumers.
+
+Graphics bootstrap, real `mp_nuked` asset/collision/spawn loading, multiplayer sessions and gameplay performance measurements remain unimplemented. No linked game executable or playable APK is claimed.
+
+---
+
 ## Current review — 2026-11-07 00:07 UTC (10:07 Brisbane)
 
 ### Repository and upstream state
