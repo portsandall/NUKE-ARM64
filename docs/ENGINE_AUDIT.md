@@ -1,3 +1,59 @@
+## Current review — 2026-11-09
+
+### Repository and upstream state
+
+- Default branch `main` remains at `f778c1f4345588d2991942afed62f0483e72469e` (2026-10-30).
+- PR [#65](https://github.com/portsandall/NUKE-ARM64/pull/65) is open, mergeable and unmerged. Head: `1c5eb263257e1b9a127009c996986e8935abac46`; comparison with main: 196 commits ahead, zero behind.
+- Latest implementation commit remains [`22c58d6`](https://github.com/portsandall/NUKE-ARM64/commit/22c58d68ea8d84469c896ec71c5a91165666baec), which fixes three physics matrix row-index adapters in the disposable CI checkout and adds extracted-function regressions. Head `1c5eb263` is documentation-only.
+- Upstream comparison confirms `SwagSoftware/KisakBlack` HEAD is identical to pinned `306bb14a8e052a6244bd1df4e4df7d8504c04ef4`; no upstream commits are ahead.
+
+### Latest Actions verification
+
+- ARM64 bootstrap [run #888](https://github.com/portsandall/NUKE-ARM64/actions/runs/42431206550): all three jobs passed — `host-tests`, `android-arm64`, and `upstream-patch-check`.
+- Host CTest: 5/5 passed, including physics-handle-table, fixed-width SndDriverGlobals record, Android map-scope guard, and atomic compatibility tests.
+- Android smoke binaries compiled/linked and passed ELF64/AArch64 checks.
+- Upstream regression steps 25–31 passed, including StringTable LP64, SndDriverGlobals record32, FastFile pointer relocation, physics matrix row indexing, vidConfig, material lookup, and physics allocator tests.
+- Angle/vector regression [run #648](https://github.com/portsandall/NUKE-ARM64/actions/runs/42431206537) passed.
+
+### Latest complete-engine diagnostic — 2026-11-08
+
+- Android NDK root configure: `ROOT_CONFIGURE_EXIT=0`.
+- Full KisakBlack target: `ROOT_BUILD_EXIT=1`; first failed object is `src/DynEntity/DynEntity_client.cpp.o`, Ninja step [26/1064].
+- Hard errors remain:
+  - `SndDriverGlobals`: 104-byte LP64 runtime structure versus 52-byte FastFile record assertion.
+  - `centity_s`: 856 bytes versus 808 expected.
+  - `playerState_s`: 10,152 bytes versus 9,892 expected.
+  - Pointer-to-`int` narrowing at `DynEntity_client.cpp:1113,1127,1306`.
+- The previous `phys_local.h` matrix row-index array-bounds warning is absent after commit `22c58d6`.
+- Newly itemized integer-to-pointer warnings expose a broader LP64 handle problem:
+  - `cscr_animtree.h:36,48`: `int` converted to `const char *` / `XAnim_s *`.
+  - `ragdoll.h:206`: integer ragdoll handle converted to `RagdollBody *`.
+  - `DynEntity_client.cpp:907,919,922,1048,1189,1310`: integer fields converted back to constraint / `PhysObjUserData` pointers.
+  - Constraint switches at lines 904 and 1105 also report unhandled enum values.
+- The pointer warnings are not all necessarily interchangeable: script animation values may be serialized tokens, while physics/ragdoll IDs have runtime lifetime semantics. Do not apply a blanket `intptr_t` cast or widen fixed-layout fields. The tested `PhysicsHandleTable` remains an isolated component, not yet integrated into production call sites.
+- Raw diagnostic is attached to bootstrap #888 as artifact [13597775679](https://github.com/portsandall/NUKE-ARM64/actions/runs/42431206550). The root build is deliberately non-blocking; green workflow status does not mean the full engine compiled.
+
+### Loader semantics confirmed from pinned upstream
+
+- `Load_SndDriverGlobals` calls `Load_Stream(..., 52)` directly on `varSndDriverGlobals`, then consumes the fields as runtime pointers/counts.
+- `DB_SizeofXAsset_SndDriverGlobals_()` also returns 52; this is the serialized FastFile size and must remain fixed.
+- `Load_Stream` can enqueue destination pointer and byte count in `g_streamDelayArray`; `Load_DelayStream` later writes into those destinations. Therefore the 52-byte record staging must remain alive until the delayed stream flush completes. A stack-local record is unsafe.
+- Next production change: give the serialized 52-byte record persistent database-arena lifetime, convert it explicitly into the native runtime object, resolve XString/array semantics, and add immediate/deferred-load tests. Do not memcpy the record into the 104-byte runtime structure or change the asset-size constant.
+
+### Priority and remaining gates
+
+1. **Compilability:** full engine still fails at first gameplay translation unit.
+2. **Platform isolation:** Android-specific include/link isolation continues to pass targeted checks; no full platform-clean build yet.
+3. **LP64:** serialized/runtime layouts and pointer-token boundaries remain unresolved; integrate handles only where runtime object lifetime semantics justify it.
+4. **Graphics bootstrap:** no integrated native Android renderer.
+5. **Nuketown loading:** no actual `mp_nuked` asset, collision or spawn loading.
+6. **Multiplayer:** no playable multiplayer session.
+7. **Performance:** no representative gameplay benchmarks.
+
+No linked engine executable, device launch, Nuketown gameplay or APK is claimed by this review.
+
+---
+
 ## Current review — 2026-11-08
 
 ### Repository and upstream state
