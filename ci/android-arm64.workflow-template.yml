@@ -148,7 +148,7 @@ jobs:
           config_start = next(i for i, line in enumerate(lines) if line.startswith("# DirectX SDK (June 2010):"))
           phys_start = lines.index("# phys_gjk.cpp specific flag (experimental)")
           assert lines[config_start - 1].strip() == "if(WIN32)", "DirectX SDK discovery must be Windows-only"
-          assert lines[phys_start - 1].strip() == "endif()", "DirectX SDK discovery guard must close before physics flags"
+          assert lines[phys_start - 2].strip() == "endif()" and not lines[phys_start - 1].strip(), "DirectX SDK discovery guard must close before physics flags"
           include_marker = 'target_include_directories(KisakBlack PUBLIC "${DXSDK_DIR}/Include")'
           library_marker = 'target_link_directories(KisakBlack PUBLIC "${DXSDK_DIR}/Lib/x86")'
           for marker in (include_marker, library_marker):
