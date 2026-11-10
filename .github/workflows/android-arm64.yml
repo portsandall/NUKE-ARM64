@@ -41,7 +41,7 @@ jobs:
         uses: actions/checkout@v5
         with:
           repository: SwagSoftware/KisakBlack
-          ref: 306bb14a8e052a6244bd1df4e4df7d8504c04ef4
+          ref: 6276ed21bc6fbaeab6f2ac6357ff22b82d3c4487
           path: build/upstream
           persist-credentials: false
       - name: Verify portability patches apply cleanly
@@ -145,15 +145,17 @@ jobs:
           from pathlib import Path
 
           lines = Path("build/upstream/CMakeLists.txt").read_text().splitlines()
-          dx_paths = [
-              i for i, line in enumerate(lines)
-              if "Microsoft DirectX SDK (June 2010)" in line
-          ]
-          assert len(dx_paths) == 2, f"expected two DirectX SDK paths, found {len(dx_paths)}"
-          for i in dx_paths:
-              assert lines[i - 1].strip() == "if(WIN32)", f"DirectX SDK path is not Windows-gated at line {i + 1}"
-              assert lines[i + 1].strip() == "endif()", f"DirectX SDK path guard is malformed at line {i + 1}"
-          print("Verified DirectX SDK include and x86 library paths are Windows-only")
+          config_start = lines.index("# DirectX SDK (June 2010): -DDXSDK_DIR=<folder with Include\\\\ and Lib\\\\>, or the DXSDK_DIR environment variable")
+          phys_start = lines.index("# phys_gjk.cpp specific flag (experimental)")
+          assert lines[config_start - 1].strip() == "if(WIN32)", "DirectX SDK discovery must be Windows-only"
+          assert lines[phys_start - 1].strip() == "endif()", "DirectX SDK discovery guard must close before physics flags"
+          include_marker = 'target_include_directories(KisakBlack PUBLIC "${DXSDK_DIR}/Include")'
+          library_marker = 'target_link_directories(KisakBlack PUBLIC "${DXSDK_DIR}/Lib/x86")'
+          for marker in (include_marker, library_marker):
+              i = lines.index(marker)
+              assert lines[i - 1].strip() == "if(WIN32)", f"DirectX SDK path is not Windows-gated: {marker}"
+              assert lines[i + 1].strip() == "endif()", f"DirectX SDK guard is malformed: {marker}"
+          print("Verified DirectX SDK discovery, validation, include and x86 library paths are Windows-only")
           PY
           python3 - <<'PY'
           from pathlib import Path
