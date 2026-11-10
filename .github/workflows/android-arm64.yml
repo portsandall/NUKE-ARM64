@@ -152,7 +152,7 @@ jobs:
           include_marker = 'target_include_directories(KisakBlack PUBLIC "${DXSDK_DIR}/Include")'
           library_marker = 'target_link_directories(KisakBlack PUBLIC "${DXSDK_DIR}/Lib/x86")'
           for marker in (include_marker, library_marker):
-              i = lines.index(marker)
+              i = next(i for i, line in enumerate(lines) if line.strip() == marker)
               assert lines[i - 1].strip() == "if(WIN32)", f"DirectX SDK path is not Windows-gated: {marker}"
               assert lines[i + 1].strip() == "endif()", f"DirectX SDK guard is malformed: {marker}"
           print("Verified DirectX SDK discovery, validation, include and x86 library paths are Windows-only")
