@@ -1,3 +1,40 @@
+## Current review — 2026-11-10 post-run verification
+
+### Fresh upstream pin and Windows/DirectX isolation
+
+- PR #65 head is `1b641ad05ca4459a4962e2488ec5ddf24e185b4d`, 216 commits ahead of `main`, zero behind; PR remains open, unmerged and mergeable.
+- Upstream `SwagSoftware/KisakBlack` advanced two commits from the previous pin to `6276ed21bc6fbaeab6f2ac6357ff22b82d3c4487` on 2026-11-09:
+  - `eaf624c`: makes the DirectX SDK path configurable, but the SDK is still Windows-only.
+  - `6276ed2`: adds the missing `<setjmp.h>` include in `db_registry.cpp`.
+- Refreshed the pin in both the active workflow and reusable template. Updated patch `0012` to gate DirectX SDK discovery, header validation, include path and x86 library path under `if(WIN32)`; workflow assertions verify all four boundaries. The patch applies cleanly to the refreshed upstream checkout.
+
+### Latest verification — ARM64 bootstrap run #928
+
+- [Run #928](https://github.com/portsandall/NUKE-ARM64/actions/runs/42733146967), commit `1b641ad`: all three jobs passed.
+  - `host-tests`: CMake build, CTest and workflow-template parity passed.
+  - `android-arm64`: NDK configure, smoke-binary compilation/linking and ELF64/AArch64 checks passed.
+  - `upstream-patch-check`: portability patches applied and focused host/Android regressions passed, including DirectX isolation, database layouts, physics layouts, and renderer-independent headers.
+- Angle/vector regression [run #688](https://github.com/portsandall/NUKE-ARM64/actions/runs/42733146910) passed.
+- Full-engine diagnostic artifact: [13724769198](https://github.com/portsandall/NUKE-ARM64/actions/runs/42733146967/artifacts/13724769198).
+
+### Exact full-engine diagnostic from artifact 13724769198
+
+- Android NDK CMake configure: PASS, `ROOT_CONFIGURE_EXIT=0`.
+- Full `KisakBlack` target: FAIL, `ROOT_BUILD_EXIT=1`.
+- First failed object: `src/DynEntity/DynEntity_client.cpp.o`, Ninja step `[26/1064]`.
+- Artifact summary reports **6 compiler errors and 41 warnings**:
+  - `SndDriverGlobals`: 104-byte native LP64 structure conflicts with the fixed 52-byte serialized-record assertion.
+  - `centity_s`: 856 bytes versus 808 expected.
+  - `playerState_s`: 10,152 bytes versus 9,892 expected.
+  - Pointer-to-`int` narrowing at `DynEntity_client.cpp:1113,1127,1306`.
+- Additional integer-to-pointer warnings remain in `cscr_animtree.h`, `ragdoll.h`, and DynEntity constraint/user-data paths; constraint switches also report unhandled enum values.
+- Correction: the downloaded run #928 log does **not** contain the previously noted `phys_gjk.h:1005` non-trivial-`memset` warning. Do not treat that warning as a current finding without a newer reproducing artifact.
+- Workflow success is not full-engine success: the complete-engine diagnostic is explicitly non-blocking.
+
+### Next smallest production change
+
+Implement the `SndDriverGlobals` wire-record/runtime-object split in the actual loader. Preserve the 52-byte FastFile record, convert it into the native LP64 object, resolve the XString and six array fields using their counts, and ensure any staging destination remains valid through deferred `Load_DelayStream` processing. Add immediate/deferred loader tests before replacing the production path. Do not relax the 52-byte asset-size assertion or memcpy the wire record into the native object.
+
 ## Current review — 2026-11-10
 
 ### Upstream refresh and Android CMake isolation
@@ -28,7 +65,7 @@
   - `playerState_s`: 10,152 bytes versus 9,892 expected.
   - Pointer-to-`int` narrowing at `DynEntity_client.cpp:1113,1127,1306`.
 - Integer-to-pointer warnings remain in `cscr_animtree.h`, `ragdoll.h` and the DynEntity constraint/user-data paths. Constraint switches also report unhandled enum values.
-- A new warning appears at `phys_gjk.h:1005`: `memset` is applied to non-trivially-copyable `phys_gjk_info`. It is not the current build-stopping diagnostic, but should be audited before treating physics as clean.
+- The latest downloaded diagnostic artifact does not contain the previously noted `phys_gjk.h:1005` class-memaccess warning; that item is not confirmed for the current run and is removed from the active blocker list.
 - The DirectX SDK discovery/configuration no longer blocks Android configure. The full-engine diagnostic remains non-blocking; green workflow status does not mean the engine compiled.
 
 ### Next smallest high-value production change
