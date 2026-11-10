@@ -145,7 +145,7 @@ jobs:
           from pathlib import Path
 
           lines = Path("build/upstream/CMakeLists.txt").read_text().splitlines()
-          config_start = lines.index("# DirectX SDK (June 2010): -DDXSDK_DIR=<folder with Include\\\\ and Lib\\\\>, or the DXSDK_DIR environment variable")
+          config_start = next(i for i, line in enumerate(lines) if line.startswith("# DirectX SDK (June 2010):"))
           phys_start = lines.index("# phys_gjk.cpp specific flag (experimental)")
           assert lines[config_start - 1].strip() == "if(WIN32)", "DirectX SDK discovery must be Windows-only"
           assert lines[phys_start - 1].strip() == "endif()", "DirectX SDK discovery guard must close before physics flags"
