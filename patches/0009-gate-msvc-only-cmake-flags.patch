@@ -1,7 +1,7 @@
 diff --git a/CMakeLists.txt b/CMakeLists.txt
 --- a/CMakeLists.txt
 +++ b/CMakeLists.txt
-@@ -27,6 +27,8 @@
+@@ -27,9 +27,11 @@
  # phys_gjk.cpp specific flag (experimental)
 -set_source_files_properties(
 -    "${SRC_DIR}/physics/phys_gjk.cpp"
