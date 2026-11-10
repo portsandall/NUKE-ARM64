@@ -1,3 +1,60 @@
+## Current review — 2026-11-10
+
+### Upstream refresh and Android CMake isolation
+
+- Upstream `SwagSoftware/KisakBlack` advanced two commits beyond the previous pin `306bb14a8e052a6244bd1df4e4df7d8504c04ef4`. Current upstream HEAD is `6276ed21bc6fbaeab6f2ac6357ff22b82d3c4487` (2026-11-09).
+- Commit `eaf624c2dcc63344561f383abccd65ecbf74cd8c` makes the DirectX SDK path configurable through `DXSDK_DIR`, but still checks for `d3dx9.h` and selects an x86 DirectX library directory. Commit `6276ed2` adds `<setjmp.h>` to `db_registry.cpp`. Neither adds Android rendering/runtime support.
+- Updated the pinned ref in both the active workflow and reusable template to `6276ed21...`.
+- Rebased patch `0009` so its MSVC-only `phys_gjk.cpp` flag guard applies after the new upstream DirectX configuration block.
+- Updated patch `0012` to gate DirectX SDK discovery, the `d3dx9.h` existence check, include directory and `Lib/x86` link directory under `if(WIN32)`. Added workflow assertions for all four boundaries.
+- The changes affect only the disposable upstream checkout used by CI; no upstream repository files were modified. Active workflow and template are byte-identical (blob `3aa256cca116d47126c99b4bbc5991b18d732023`).
+
+### Verified CI for the refreshed pin
+
+- ARM64 bootstrap [run #924](https://github.com/portsandall/NUKE-ARM64/actions/runs/42732790011), commit [`d81a576`](https://github.com/portsandall/NUKE-ARM64/commit/d81a576683484556c0a9a21d92047bed717f8442): all three jobs passed.
+  - `host-tests`: CTest 5/5 passed; workflow-template parity passed.
+  - `android-arm64`: platform probe, atomic test and physics-handle-table test linked as Android ELF64/AArch64.
+  - `upstream-patch-check`: patches 0001–0014 applied; Windows/DirectX isolation assertions and focused upstream regressions passed.
+- Angle/vector regression [run #684](https://github.com/portsandall/NUKE-ARM64/actions/runs/42732789987): passed.
+- Diagnostic artifact [13725935885](https://github.com/portsandall/NUKE-ARM64/actions/runs/42732790011/artifacts/13725935885), SHA-256 `fba38e83c5c9635ceefe062abfa0e8409a4bc7738b56623a49178c02c03e0e7a`.
+
+### Full-engine diagnostic after upstream refresh
+
+- Android NDK root configure: `ROOT_CONFIGURE_EXIT=0`.
+- Complete `KisakBlack` build: `ROOT_BUILD_EXIT=1`; first failed object remains `src/DynEntity/DynEntity_client.cpp.o`, Ninja step `[26/1064]`.
+- Hard errors remain:
+  - `SndDriverGlobals`: native LP64 structure 104 bytes versus fixed 52-byte FastFile record assertion.
+  - `centity_s`: 856 bytes versus 808 expected.
+  - `playerState_s`: 10,152 bytes versus 9,892 expected.
+  - Pointer-to-`int` narrowing at `DynEntity_client.cpp:1113,1127,1306`.
+- Integer-to-pointer warnings remain in `cscr_animtree.h`, `ragdoll.h` and the DynEntity constraint/user-data paths. Constraint switches also report unhandled enum values.
+- A new warning appears at `phys_gjk.h:1005`: `memset` is applied to non-trivially-copyable `phys_gjk_info`. It is not the current build-stopping diagnostic, but should be audited before treating physics as clean.
+- The DirectX SDK discovery/configuration no longer blocks Android configure. The full-engine diagnostic remains non-blocking; green workflow status does not mean the engine compiled.
+
+### Next smallest high-value production change
+
+Implement the actual `SndDriverGlobals` wire-record/runtime-object split:
+1. Keep the FastFile record exactly 52 bytes.
+2. Give staging storage database-arena lifetime through `Load_DelayStream`.
+3. Resolve XString and six array tokens/counts into a separate native LP64 runtime object.
+4. Test immediate and deferred loading before replacing the production loader path.
+
+Do not change the 52-byte asset-size constant, relax the assertion to 104, or copy the wire record directly into the runtime structure. Then address the constraint/physics pointer-token conversions with explicit lifetime rules and audit `centity_s`/`playerState_s` consumers.
+
+### Remaining gates
+
+1. **Compilability:** full engine still fails at the first DynEntity gameplay translation unit.
+2. **Platform isolation:** DirectX SDK and Windows-only CMake paths are now gated for the refreshed upstream; renderer/runtime isolation is incomplete.
+3. **LP64:** sound, entity and player-state layouts plus pointer-token conversions remain unresolved.
+4. **Graphics bootstrap:** no integrated native Android renderer.
+5. **Nuketown loading:** no actual `mp_nuked` asset, collision or spawn loading.
+6. **Multiplayer:** no playable multiplayer session.
+7. **Performance:** no representative gameplay benchmarks.
+
+No linked game executable, device launch, Nuketown gameplay or playable APK is claimed.
+
+---
+
 ## Current review — 2026-11-09
 
 ### Repository and upstream state
