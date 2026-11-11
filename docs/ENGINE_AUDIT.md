@@ -444,3 +444,43 @@ Start with a fixed-width 52-byte `SndDriverGlobals` serialized-record type and a
 Upstream history was checked through 2026-11-01: `SwagSoftware/KisakBlack` still points to `306bb14a8e052a6244bd1df4e4df7d8504c04ef4` (2026-10-02). No newer Android/AArch64-specific upstream change was found.
 
 Before distributing upstream-derived binaries or source, confirm applicable licensing and redistribution rights. The repository does not distribute proprietary Black Ops assets.
+
+## Current review — 2026-11-11
+
+### Repository and upstream state
+
+- PR [#65](https://github.com/portsandall/NUKE-ARM64/pull/65) remains open, mergeable and unmerged. Its current head after today's focused code change is `2a69ebb085e25fd3c2054bca059cd8e388a687eb`; comparison with `main` is 218 commits ahead, zero behind. The default branch remains `f778c1f4345588d2991942afed62f0483e72469e` (2026-10-30).
+- This corrects the preceding 2026-11-10 audit header, which recorded an earlier head (`1b641ad`, 216 ahead) even though the PR had subsequently advanced to `b8ad296` (217 ahead).
+- Upstream `SwagSoftware/KisakBlack` HEAD remains `6276ed21bc6fbaeab6f2ac6357ff22b82d3c4487` (2026-11-09). The two new upstream commits are `eaf624c` (configurable DirectX SDK path) and `6276ed2` (include `<setjmp.h>` in `db_registry.cpp`). The DirectX change remains Windows-specific; the Android workflow gates SDK discovery, validation, include and x86 library paths under `WIN32`.
+
+### Focused LP64 integration regression completed
+
+- Added `tests/verify_bd_byte_buffer_lp64.py` and invoked it immediately after patch `0014-fix-bdbytebuffer-lp64-pointer-arithmetic.patch` is applied to the disposable upstream checkout.
+- The new source-level check verifies that patched `bdByteBuffer::writeString` includes the compatibility header, rejects a null input before calling `nuke::boundedCStringLength`, calls the adapter exactly once, and no longer contains the legacy pointer-to-`int) / pointer-subtraction expressions. It also checks the header retains bounded `std::memchr` semantics.
+- Code commit: [`2a69ebb`](https://github.com/portsandall/NUKE-ARM64/commit/2a69ebb085e25fd3c2054bca059cd8e388a687eb), “Verify patched bdByteBuffer LP64 call-site integration”.
+- The test printed: “Verified patched bdByteBuffer::writeString uses the bounded LP64 adapter after its null guard.” The new step passed in the upstream-patch-check job.
+- Active workflow and reusable template remain byte-identical (blob `a2f3db466c9e7c0759d0c199244d26ebba1c35c4`).
+
+### Verification on the new code commit
+
+- ARM64 bootstrap [push run #931](https://github.com/portsandall/NUKE-ARM64/actions/runs/42928995070) and [PR run #932](https://github.com/portsandall/NUKE-ARM64/actions/runs/42929004649) both completed successfully; all three jobs passed: `host-tests`, `android-arm64`, and `upstream-patch-check`.
+- The new bdByteBuffer integration assertion passed. Host CMake build and CTest passed; Android NDK smoke binaries compiled/linked and passed ELF64/AArch64 checks; upstream portability regressions and workflow-template parity passed.
+- Angle/vector regression [push run #691](https://github.com/portsandall/NUKE-ARM64/actions/runs/42928994971) and [PR run #692](https://github.com/portsandall/NUKE-ARM64/actions/runs/42929004613) both passed.
+- Full-engine diagnostic artifact from run #931: [artifact 13815112871](https://github.com/portsandall/NUKE-ARM64/actions/runs/42928995070/artifacts/13815112871).
+
+### Full-engine result remains unchanged
+
+- Android NDK CMake configure: `ROOT_CONFIGURE_EXIT=0`.
+- Complete KisakBlack build: `ROOT_BUILD_EXIT=1`; first failed object remains `src/DynEntity/DynEntity_client.cpp.o`.
+- Six hard errors remain in the first observed translation unit:
+  - `SndDriverGlobals`: native LP64 type conflicts with the 52-byte serialized-record assertion.
+  - `centity_s`: 856 bytes versus 808 expected.
+  - `playerState_s`: 10,152 bytes versus 9,892 expected.
+  - Pointer-to-`int) narrowing at `DynEntity_client.cpp:1113,1127,1306`.
+- Integer-to-pointer warnings remain in script animation, ragdoll, constraint and physics user-data paths. The diagnostic is deliberately non-blocking; green Actions do not mean the complete engine compiled.
+
+### Next production gate
+
+Implement the actual `Load_SndDriverGlobals` wire-record/runtime-object split. Keep the FastFile record exactly 52 bytes; preserve staging storage through deferred `Load_DelayStream`; resolve the XString and six array tokens/counts; and populate a separate native LP64 runtime object. Add immediate and delayed loader tests before replacing the production path. Do not relax the serialized-size assertion or copy the wire record directly into the native object.
+
+Then integrate the existing `PhysicsHandleTable` into real constraint and physics-user-data call sites, preserving fixed parser layouts. Graphics bootstrap, actual `mp_nuked` asset/collision/spawn loading, playable multiplayer and performance benchmarking remain unimplemented. No linked game executable or playable APK is claimed.
