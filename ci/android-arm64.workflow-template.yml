@@ -74,6 +74,7 @@ jobs:
           git -C build/upstream apply --ignore-whitespace "$GITHUB_WORKSPACE/patches/0013-port-demonware-bdreference-android-atomics.patch"
           git -C build/upstream apply --ignore-whitespace --check "$GITHUB_WORKSPACE/patches/0014-fix-bdbytebuffer-lp64-pointer-arithmetic.patch"
           git -C build/upstream apply --ignore-whitespace "$GITHUB_WORKSPACE/patches/0014-fix-bdbytebuffer-lp64-pointer-arithmetic.patch"
+          python3 "$GITHUB_WORKSPACE/tests/verify_bd_byte_buffer_lp64.py" "$GITHUB_WORKSPACE/build/upstream/DemonWare/bdCore/bdContainers/bdByteBuffer.cpp" "$GITHUB_WORKSPACE/build/upstream/src/nuke/bd_byte_buffer_compat.h"
           python3 "$GITHUB_WORKSPACE/tests/include_client_mp_state_for_demo_records.py" "$GITHUB_WORKSPACE/build/upstream/src/demo/demo_common.h" "$GITHUB_WORKSPACE/build/upstream/src/client_mp/client_mp.h"
           python3 "$GITHUB_WORKSPACE/tests/port_bd_cypher3des.py" "$GITHUB_WORKSPACE/build/upstream/DemonWare/bdCore/bdCrypto/bdCypher3Des.cpp"
           ! grep -Fq 'static void des3_done' build/upstream/DemonWare/bdCore/bdCrypto/bdCypher3Des.cpp
