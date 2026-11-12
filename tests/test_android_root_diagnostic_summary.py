@@ -30,7 +30,7 @@ class AndroidRootDiagnosticSummaryTests(unittest.TestCase):
 
     def test_reports_successful_build_without_errors(self):
         summary = MODULE.render_summary(
-            "ROOT_CONFIGURE_EXIT=0\\nROOT_BUILD_EXIT=0\\n"
+            "ROOT_CONFIGURE_EXIT=0\nROOT_BUILD_EXIT=0\n"
         )
         self.assertIn("Full KisakBlack target build: **PASS (exit 0)**", summary)
         self.assertIn("Compiler errors: **0**", summary)
@@ -42,7 +42,7 @@ class AndroidRootDiagnosticSummaryTests(unittest.TestCase):
         self.assertIn("Full KisakBlack target build: **not recorded**", summary)
 
     def test_deduplicates_repeated_timestamped_diagnostics_from_ci_log(self):
-        sample = """\\
+        sample = """
 2026-11-11T00:11:28Z ROOT_CONFIGURE_EXIT=0
 2026-11-11T00:11:28Z FAILED: [code=1] CMakeFiles/KisakBlack.dir/src/DynEntity/DynEntity_client.cpp.o
 2026-11-11T00:11:29Z /work/src/DynEntity/DynEntity_client.cpp:1306:14: error: cast from pointer to smaller type 'int' loses information
