@@ -520,3 +520,46 @@ Then integrate the existing `PhysicsHandleTable` into real constraint and physic
 Implement the actual `Load_SndDriverGlobals` wire-record/runtime-object conversion. Keep the FastFile record exactly 52 bytes, preserve staging storage through deferred `Load_DelayStream`, resolve the XString and six array tokens/counts, and populate a separate native LP64 object. Add immediate and delayed loader tests before replacing the production path. Do not relax the serialized-size assertion or copy the wire record directly into the native object.
 
 Then integrate pointer-safe physics handles at real constraint and physics-user-data call sites while preserving parser layouts. The required priority remains: complete engine compilation, platform isolation, LP64, graphics bootstrap, real `mp_nuked` asset/collision/spawn loading, multiplayer, then performance. No linked game executable or playable APK is claimed.
+
+
+## Current review — 2026-11-13
+
+### NUKE-ARM64 repository and CI
+
+- PR [#65](https://github.com/portsandall/NUKE-ARM64/pull/65) remains open and unmerged. Branch comparison currently reports **222 commits ahead of main, zero behind**. Main remains `f778c1f4345588d2991942afed62f0483e72469e`.
+- Latest reviewed NUKE test/code commit remains [`18d8a8f`](https://github.com/portsandall/NUKE-ARM64/commit/18d8a8f974c2314e258866f37d2838ec12645cf0), which fixes the diagnostic-summary fixture and adds duplicate-diagnostic coverage. Latest production/source-integration change remains `2a69ebb` (bdByteBuffer bounded LP64 adapter verification). No new production engine change was verified in this review.
+- PR ARM64 bootstrap [run #940](https://github.com/portsandall/NUKE-ARM64/actions/runs/43128241433): all three jobs completed successfully — host tests, Android AArch64 smoke build, and upstream patch checks. Angle/vector PR regression [run #700](https://github.com/portsandall/NUKE-ARM64/actions/runs/43128241502) passed.
+- Run #940's upstream job completed the focused host/Android regressions and ELF64/AArch64 checks. The full-engine diagnostic is intentionally non-blocking; its success status must not be read as a successful engine build.
+
+### Exact full-engine diagnostic from run #940
+
+- Android NDK root configure: `ROOT_CONFIGURE_EXIT=0`.
+- Complete `KisakBlack` target: `ROOT_BUILD_EXIT=1`; first failed object is `src/DynEntity/DynEntity_client.cpp.o`, Ninja step `[26/1064]`.
+- Six hard errors remain: three layout assertions and three pointer-to-`int` narrowing sites.
+  - `SndDriverGlobals`: native LP64 size 104 bytes versus 52-byte serialized record.
+  - `centity_s`: 856 bytes versus expected 808.
+  - `playerState_s`: 10,152 bytes versus expected 9,892.
+  - `DynEntity_client.cpp:1113,1127,1306`: pointer values narrowed to `int`.
+- Additional integer-to-pointer warnings remain in DynEntity constraint and physics user-data paths. The raw job log confirms the same first failing translation unit; no linked engine or APK was produced.
+
+### New upstream drift — important integration change
+
+- Upstream `SwagSoftware/KisakBlack` has advanced from the NUKE workflow's pinned `6276ed21bc6fbaeab6f2ac6357ff22b82d3c4487` to `0d05604b21325776ab660382a8d0ae7171d322c2` (2026-11-12 19:40 UTC). The compare endpoint reports four commits ahead.
+- The material change is `fad35b1` (2026-11-12): physics code moved out of the old `src/physics` tree into a new `TreyBO` Git submodule. The upstream root CMake now requires `TreyBO/CMakeLists.txt`, adds that subdirectory, and links `treybo`. The submodule is pinned at `c6a65796ba7c4fe8f5f03d8715fde333f522fa5f`.
+- Upstream `69f4fd3` increases multiplayer stats buffers to 40,960 bytes and adjusts client/server/live-storage buffer sizes. `0d05604` enables bot movement, attack and melee defaults. These are upstream gameplay/server changes, not Android-port fixes.
+- The current NUKE workflow still checks out the old `6276ed2` pin without recursive submodules. Its physics layout/allocator transformations and regression scripts target old `src/physics/*` paths. A blind pin bump would therefore be unsafe: it would require recursive submodule checkout and migration/replacement of those transformations and tests.
+- The TreyBO README states that the submodule is derived from proprietary Black Ops material and Spider-Man 3 headers. Do not vendor, redistribute or ship this submodule until its provenance and applicable rights have been reviewed.
+
+### Next smallest high-value changes
+
+1. Keep the known-good `6276ed2` CI baseline pinned for now. Add a separate non-blocking upstream-head compatibility lane at `0d05604` with `submodules: recursive`; assert the exact TreyBO submodule SHA and report which existing patch scripts no longer match. Do not silently move the production pin.
+2. On the stable baseline, implement the production `Load_SndDriverGlobals` wire-record/runtime-object split: preserve the 52-byte FastFile record, resolve XString and six array tokens/counts, and retain staging storage through deferred `Load_DelayStream`. Add immediate/deferred loader tests before replacing the production path.
+3. Then integrate pointer-safe handles at the actual constraint and physics user-data boundaries, while preserving fixed parser layouts. Audit `centity_s` and `playerState_s` field offsets and serialization/network consumers rather than accepting native sizes.
+
+### Review completion
+
+- Inspected the latest upstream commit list and compared current upstream HEAD with the NUKE pin.
+- Read the new `.gitmodules`, upstream root CMake and TreyBO CMake/README; confirmed the submodule requirement and provenance warning.
+- Inspected run #940 jobs and the raw upstream job log; confirmed all CI jobs passed while the complete engine build failed.
+- This review adds an upstream-compatibility finding and does not claim a production code fix, complete engine build, renderer, Nuketown loading, multiplayer session or playable APK.
+
