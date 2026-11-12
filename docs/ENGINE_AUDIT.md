@@ -484,3 +484,39 @@ Before distributing upstream-derived binaries or source, confirm applicable lice
 Implement the actual `Load_SndDriverGlobals` wire-record/runtime-object split. Keep the FastFile record exactly 52 bytes; preserve staging storage through deferred `Load_DelayStream`; resolve the XString and six array tokens/counts; and populate a separate native LP64 runtime object. Add immediate and delayed loader tests before replacing the production path. Do not relax the serialized-size assertion or copy the wire record directly into the native object.
 
 Then integrate the existing `PhysicsHandleTable` into real constraint and physics-user-data call sites, preserving fixed parser layouts. Graphics bootstrap, actual `mp_nuked` asset/collision/spawn loading, playable multiplayer and performance benchmarking remain unimplemented. No linked game executable or playable APK is claimed.
+
+## Current review — 2026-11-12
+
+### Repository and upstream state
+
+- PR [#65](https://github.com/portsandall/NUKE-ARM64/pull/65) remains open and unmerged. Its head is `18d8a8f974c2314e258866f37d2838ec12645cf0`; comparison with `main` is 221 commits ahead and zero behind. `main` remains `f778c1f4345588d2991942afed62f0483e72469e` (2026-10-30).
+- Latest production/source-integration change remains `2a69ebb` (2026-11-11), adding a source-level assertion for the patched `bdByteBuffer::writeString` bounded LP64 adapter. Today's commit `18d8a8f` adds a regression for duplicate timestamped diagnostics in the non-blocking full-engine log summary.
+- Upstream `SwagSoftware/KisakBlack` remains at `6276ed21bc6fbaeab6f2ac6357ff22b82d3c4487` (2026-11-09). No newer upstream commit was found. The two 2026-11-09 changes remain the configurable DirectX SDK path and the missing `<setjmp.h>` include; neither adds Android rendering or gameplay.
+
+### Focused diagnostic-regression iteration completed
+
+- Added `test_deduplicates_repeated_timestamped_diagnostics_from_ci_log` to `tests/test_android_root_diagnostic_summary.py`.
+- The fixture reproduces the current root-build log shape: timestamped output, a failed Ninja object, a pointer-narrowing error and warning repeated after `ROOT_BUILD_EXIT=1`, and a repeated build-exit marker.
+- It asserts that the summary reports configure PASS/build FAIL and counts each repeated diagnostic and failed target once.
+- Commit: [`18d8a8f`](https://github.com/portsandall/NUKE-ARM64/commit/18d8a8f974c2314e258866f37d2838ec12645cf0).
+- ARM64 bootstrap [run #938](https://github.com/portsandall/NUKE-ARM64/actions/runs/43127931104) completed successfully. All three jobs passed: `host-tests`, `android-arm64`, and `upstream-patch-check`.
+- Host diagnostic-summary tests: 4/4 passed; CTest: 5/5 passed. Android NDK built the platform probe, atomic test, physics-handle-table test and fixed-width sound-record test; the three packaged smoke executables were verified as ELF64/AArch64. All 53 upstream-patch-check steps completed successfully.
+- The new test verifies log-summary deduplication only; it does not alter the upstream engine or make the full-engine diagnostic blocking.
+
+### Latest full-engine diagnostic — run #938
+
+- Android NDK root configure: `ROOT_CONFIGURE_EXIT=0`.
+- Complete KisakBlack build: `ROOT_BUILD_EXIT=1`; first failed object remains `CMakeFiles/KisakBlack.dir/src/DynEntity/DynEntity_client.cpp.o`.
+- Six unique compiler errors remain:
+  - `SndDriverGlobals` serialized-size assertion (52-byte wire record versus native LP64 structure).
+  - `centity_s` serialized/runtime size assertion (808-byte expected layout).
+  - `playerState_s` serialized/runtime size assertion (9,892-byte expected layout).
+  - Pointer-to-`int` narrowing at `DynEntity_client.cpp:1113`, `1127`, and `1306`.
+- The raw diagnostic repeats some compiler output; the current log parser deduplicates it. The log contains 109 unique warning location/message pairs. The root-build diagnostic remains explicitly non-blocking, so the green workflow does not mean the full engine compiled.
+- The earlier DirectX CMake isolation remains verified. No new production renderer, map loader or multiplayer implementation landed today.
+
+### Next production gate
+
+Implement the actual `Load_SndDriverGlobals` wire-record/runtime-object conversion. Keep the FastFile record exactly 52 bytes, preserve staging storage through deferred `Load_DelayStream`, resolve the XString and six array tokens/counts, and populate a separate native LP64 object. Add immediate and delayed loader tests before replacing the production path. Do not relax the serialized-size assertion or copy the wire record directly into the native object.
+
+Then integrate pointer-safe physics handles at real constraint and physics-user-data call sites while preserving parser layouts. The required priority remains: complete engine compilation, platform isolation, LP64, graphics bootstrap, real `mp_nuked` asset/collision/spawn loading, multiplayer, then performance. No linked game executable or playable APK is claimed.
