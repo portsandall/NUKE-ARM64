@@ -563,3 +563,47 @@ Then integrate pointer-safe physics handles at real constraint and physics-user-
 - Inspected run #940 jobs and the raw upstream job log; confirmed all CI jobs passed while the complete engine build failed.
 - This review adds an upstream-compatibility finding and does not claim a production code fix, complete engine build, renderer, Nuketown loading, multiplayer session or playable APK.
 
+
+
+## Current review — 2026-11-14 upstream-head compatibility check
+
+### NUKE-ARM64 repository and verification boundary
+
+- PR #65 remains listed by the open-PR search. The branch comparison reports 223 commits ahead of `main`, zero behind.
+- The audit text already present in this file is dated 2026-11-10 and records head `1b641ad05ca4459a4962e2488ec5ddf24e185b4d` at 216 commits ahead. The GitHub connector's commit-search index for this repository currently returns only default-branch history through 2026-10-30 and does not expose the current PR branch tip SHA. Therefore the exact latest PR commit and any later CI runs cannot be independently named in this review.
+- Latest independently retrievable Actions for the last documented PR head: ARM64 bootstrap run [#928](https://github.com/portsandall/NUKE-ARM64/actions/runs/42733146967) and angle/vector run [#688](https://github.com/portsandall/NUKE-ARM64/actions/runs/42733146910), both completed successfully on 2026-11-10. Bootstrap jobs `host-tests`, `android-arm64`, and `upstream-patch-check` all passed.
+- The same bootstrap's diagnostic artifact [13724769198](https://github.com/portsandall/NUKE-ARM64/actions/runs/42733146967/artifacts/13724769198) reports Android NDK configure PASS but full KisakBlack build FAIL at `src/DynEntity/DynEntity_client.cpp.o`, Ninja step 26/1064; 6 compiler errors and 41 warnings. This is the diagnostic for the pinned upstream baseline, not a build of the newer upstream HEAD described below.
+
+### Upstream moved substantially after NUKE's pin
+
+- Pinned CI upstream remains `6276ed21bc6fbaeab6f2ac6357ff22b82d3c4487`.
+- Current `SwagSoftware/KisakBlack` HEAD is `2acb3ad707bdf8c55ddd4e3d5565621614770cfc` (2026-11-13), eight commits ahead of the pin.
+- Important changes since the pin:
+  - `fad35b1`: physics moved out of `src/physics` into the `TreyBO` Git submodule, pinned upstream at `c6a65796ba7c4fe8f5f03d8715fde333f522fa5f`. Upstream README now instructs recursive clone; root CMake fails if `TreyBO/CMakeLists.txt` is absent and adds the subdirectory.
+  - `69f4fd3`: multiplayer stats buffer changed to 40,960 bytes; audit serialization/buffer consumers before adopting.
+  - `0d05604`: bot movement and attack enabled by default; useful for later local test coverage, not proof of an Android bot session.
+  - `2acb3ad`: removes the in-tree `DemonWare/` and `src/live/` trees and changes many multiplayer/client/server files. This is a substantial online-service and build-graph change; matchmaking, authentication, session and stats dependencies must be re-audited rather than assumed to remain functional.
+- Despite those changes, current upstream README still lists Windows, Visual Studio 2022, DirectX SDK 2010 and Steam. Root CMake still defines `WIN32`, uses MSVC `/MT` and `/machine:x86` flags, adds DirectX `Lib/x86`, and links Windows/D3D/Steam/Bink/NVAPI libraries. The new `TreyBO` submodule is not an Android port.
+- The latest upstream diff therefore must not be merged into the current CI pin blindly. It is eight commits ahead and changes both physics architecture and multiplayer service composition.
+
+### Next smallest high-value change
+
+Add a separate, non-blocking upstream-HEAD compatibility lane:
+1. Checkout KisakBlack recursively and assert the exact KisakBlack and TreyBO SHAs.
+2. Apply only the platform-isolation transforms needed to reach Android CMake configure; do not yet port the new physics implementation.
+3. Report configure blockers separately from compile blockers and retain the existing pinned-baseline lane unchanged.
+4. Add a source-presence/build-graph audit for the removed DemonWare/Live code and the 40,960-byte stats buffer before any networking or multiplayer claim.
+
+For the pinned baseline, the production LP64 priority remains the real `Load_SndDriverGlobals` wire-record/runtime-object conversion: preserve the 52-byte FastFile record, resolve its XString and six array tokens, and keep staging alive through deferred `Load_DelayStream` processing. Do not relax the serialized-size assertion or copy the wire record into the native 104-byte structure.
+
+### Current priority gates
+
+1. **Compilability:** pinned baseline configure passes; complete engine build fails. New upstream HEAD has not been built by NUKE CI.
+2. **Platform isolation:** DirectX/Windows CMake guards pass on the pinned baseline; current upstream still contains Windows, x86 and D3D assumptions.
+3. **LP64:** pinned baseline still has sound/entity/player-state layout and pointer-token failures; TreyBO requires a fresh independent audit.
+4. **Graphics bootstrap:** no integrated native Android renderer.
+5. **Nuketown loading:** no verified `mp_nuked` asset, collision or spawn loading.
+6. **Multiplayer:** no playable Android multiplayer session; upstream service-tree removal makes this an additional revalidation item.
+7. **Performance:** no representative Android gameplay benchmarks.
+
+No complete engine link, device launch, Nuketown gameplay or playable APK is verified by this review.
