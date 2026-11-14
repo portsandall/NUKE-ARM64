@@ -843,6 +843,21 @@ jobs:
             build/upstream-angle-android/nuke-upstream-angle-vectors-test
             build/upstream-angle-android/nuke-upstream-fileaccess-test
             build/upstream-phys-matrix-row-index-android
+  upstream-head-compatibility:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - name: Checkout current upstream head and recursive physics submodule
+        run: |
+          mkdir -p build
+          git clone https://github.com/SwagSoftware/KisakBlack.git build/upstream-head
+          git -C build/upstream-head checkout --detach 2acb3ad707bdf8c55ddd4e3d5565621614770cfc
+          git -C build/upstream-head submodule update --init --recursive
+          test "$(git -C build/upstream-head rev-parse HEAD)" = "2acb3ad707bdf8c55ddd4e3d5565621614770cfc"
+          test "$(git -C build/upstream-head rev-parse HEAD:TreyBO)" = "c6a65796ba7c4fe8f5f03d8715fde333f522fa5f"
+          test -f build/upstream-head/TreyBO/CMakeLists.txt
+      - name: Verify upstream head build-graph and platform blocker snapshot
+        run: python3 tests/verify_upstream_head_compatibility.py build/upstream-head
   host-tests:
     runs-on: ubuntu-latest
     steps:
