@@ -607,3 +607,58 @@ For the pinned baseline, the production LP64 priority remains the real `Load_Snd
 7. **Performance:** no representative Android gameplay benchmarks.
 
 No complete engine link, device launch, Nuketown gameplay or playable APK is verified by this review.
+
+
+## Daily engineering review — 2026-11-15
+
+### Repository and CI
+
+- PR #65 remains open and unmerged. Main is `f778c1f`; the engineering branch is 230 commits ahead and zero behind.
+- This review's compatibility update ends at code commit `2094b5564dc29febc0a08e703b6429f16bf75d1f`.
+- ARM64 bootstrap run [#953](https://github.com/portsandall/NUKE-ARM64/actions/runs/43659404371) completed successfully: host tests, Android AArch64, pinned upstream portability checks, and upstream-head compatibility all passed.
+- Angle/vector regression [#713](https://github.com/portsandall/NUKE-ARM64/actions/runs/43659404395) passed.
+- Host CTest: 5/5 passed. Android smoke configure/build and ELF64/AArch64 verification passed.
+- The new upstream-head inventory emitted 13 PASS assertions, including recursive TreyBO checkout at `c6a65796ba7c4fe8f5f03d8715fde333f522fa5f`. This is a source/build-graph inventory, not a full Android build.
+
+### Upstream refresh
+
+- The production/pinned build remains on KisakBlack `6276ed21bc6fbaeab6f2ac6357ff22b82d3c4487`.
+- Current upstream HEAD is `c2091160254ae56a16a296a0b2d49492362286d2`, 15 commits ahead of the stable pin and zero behind.
+- Since the previous upstream-head snapshot `2acb3ad`, seven commits were added. Important changes include:
+  - `c209116`: restores retail `float4` alignment and adds size assertions for `IKState`, `trace_t`, `colgeom_visitor_t`, and `vehicle_cache_t`.
+  - `5d7abd9`: corrects rounding/floor/ceil behaviour to match retail x87 semantics.
+  - `cb91e8d` and `e851f98`: replace raw actor/player corpse offset arithmetic with typed `entnum` fields.
+  - `3358f7a`: restores decompiled vehicle controller logic.
+  - `7c11b8e`: avoids death-grenade drop when no grenade weapon is held.
+  - `80866c4`: bounds profile-timer sorting within its array.
+- The physics TreyBO submodule gitlink remains `c6a65796ba7c4fe8f5f03d8715fde333f522fa5f`. The compatibility lane now pins `c209116` and checks the same exact submodule SHA.
+- The latest upstream root CMake still contains Windows/MSVC, x86 DirectX, D3D9, Steam, Bink and NVAPI assumptions. The compatibility lane inventories these; it does not make them Android-compatible.
+
+### Focused iteration completed
+
+- Updated the active upstream-head compatibility checkout from `2acb3ad` to `c209116`.
+- Kept the stable production/pinned checkout at `6276ed21`.
+- Extended `tests/verify_upstream_head_compatibility.py` with five checks for retail vector alignment, IK/trace/collision visitor sizes, vehicle-cache sizing, and typed actor-corpse entity numbers.
+- Synchronized `.github/workflows/android-arm64.yml` and `ci/android-arm64.workflow-template.yml`; their contents remain byte-identical.
+- The resulting run #953 passed all 13 upstream-head inventory checks and all bootstrap jobs. This was a CI/test update only; no production engine source was changed.
+
+### Full-engine diagnostic — unchanged blocker
+
+Run #953's non-blocking root diagnostic confirms:
+- Android NDK CMake configure: `ROOT_CONFIGURE_EXIT=0`.
+- Complete pinned KisakBlack target: `ROOT_BUILD_EXIT=1`.
+- First failed object: `src/DynEntity/DynEntity_client.cpp.o`.
+- Six hard errors: `SndDriverGlobals` 104 vs 52 bytes; `centity_s` 856 vs 808; `playerState_s` 10,152 vs 9,892; and pointer-to-`int` narrowing at `DynEntity_client.cpp:1113,1127,1306`.
+- No complete engine link, device launch, or APK was produced.
+
+### Next work and priority gates
+
+1. **Compilability:** implement the production `Load_SndDriverGlobals` split between the 52-byte FastFile record and native LP64 object. Keep staging memory alive through deferred `Load_DelayStream`; do not widen the serialized record.
+2. **Platform isolation:** run an Android NDK CMake configure experiment against upstream `c209116` in the non-blocking lane; report the first platform-specific failure without moving the stable pin.
+3. **LP64:** resolve the remaining entity/player-state layouts and pointer-token call sites based on field-offset and serialization/network audits.
+4. **Graphics:** no native Android renderer/bootstrap is integrated.
+5. **Map:** no verified `mp_nuked` asset, collision, or spawn loading.
+6. **Multiplayer:** no playable Android session; upstream service-tree changes still require revalidation.
+7. **Performance:** no representative Android gameplay benchmark exists.
+
+No playable Nuketown build or APK is claimed by this review.
