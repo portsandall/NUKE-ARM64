@@ -851,9 +851,9 @@ jobs:
         run: |
           mkdir -p build
           git clone https://github.com/SwagSoftware/KisakBlack.git build/upstream-head
-          git -C build/upstream-head checkout --detach 2acb3ad707bdf8c55ddd4e3d5565621614770cfc
+          git -C build/upstream-head checkout --detach c2091160254ae56a16a296a0b2d49492362286d2
           git -C build/upstream-head submodule update --init --recursive
-          test "$(git -C build/upstream-head rev-parse HEAD)" = "2acb3ad707bdf8c55ddd4e3d5565621614770cfc"
+          test "$(git -C build/upstream-head rev-parse HEAD)" = "c2091160254ae56a16a296a0b2d49492362286d2"
           test "$(git -C build/upstream-head rev-parse HEAD:TreyBO)" = "c6a65796ba7c4fe8f5f03d8715fde333f522fa5f"
           test -f build/upstream-head/TreyBO/CMakeLists.txt
       - name: Verify upstream head build-graph and platform blocker snapshot
