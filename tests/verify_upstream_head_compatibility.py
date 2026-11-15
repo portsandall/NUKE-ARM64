@@ -20,6 +20,25 @@ def main() -> int:
     cmake = cmake_path.read_text(encoding="utf-8")
     modules = modules_path.read_text(encoding="utf-8")
 
+    snapshot_paths = {
+        "math": root / "src" / "universal" / "com_math.h",
+        "ik": root / "src" / "ik" / "ik.h",
+        "trace": root / "src" / "qcommon" / "cm_trace.h",
+        "traverse": root / "src" / "physics" / "phys_traverse.h",
+        "vehicle_source": root / "src" / "cgame" / "cg_vehicle.cpp",
+        "vehicle_snapshot": root / "src" / "cgame_mp" / "cg_snapshot_mp.cpp",
+        "vehicle_header": root / "src" / "game" / "g_scr_vehicle.h",
+        "actor_corpse": root / "src" / "game" / "actor_corpse.cpp",
+    }
+    missing = [str(path.relative_to(root)) for path in snapshot_paths.values() if not path.is_file()]
+    if missing:
+        print("FAIL: latest upstream snapshot files missing: " + ", ".join(missing), file=sys.stderr)
+        return 2
+    source = {
+        name: path.read_text(encoding="utf-8")
+        for name, path in snapshot_paths.items()
+    }
+
     checks = {
         "TreyBO is declared as a Git submodule": (
             '[submodule "TreyBO"]' in modules
@@ -46,6 +65,27 @@ def main() -> int:
         "Steam, Bink and NVAPI link assumptions remain": all(
             token in cmake
             for token in ("steam_api.lib", "binkw32.lib", "nvapi.lib")
+        ),
+        "float4 keeps the retail 4-byte alignment": (
+            "union float4" in source["math"]
+            and "union alignas(16) float4" not in source["math"]
+            and "static_assert(alignof(hybrid_vector) == 4);" in source["math"]
+        ),
+        "IKState keeps its 0xE60 size assertion": (
+            "static_assert(sizeof(IKState) == 0xE60);" in source["ik"]
+        ),
+        "trace and collision visitor keep retail size assertions": (
+            "static_assert(sizeof(trace_t) == 0x38);" in source["trace"]
+            and "static_assert(sizeof(colgeom_visitor_t) == 0x70);" in source["traverse"]
+        ),
+        "vehicle cache allocation and free use the declared type size": (
+            "MT_Alloc(sizeof(vehicle_cache_t)" in source["vehicle_source"]
+            and "sizeof(vehicle_cache_t)" in source["vehicle_snapshot"]
+            and "static_assert(sizeof(vehicle_cache_t) == 0x788);" in source["vehicle_header"]
+        ),
+        "actor corpse references use typed entnum fields": (
+            ".entnum" in source["actor_corpse"]
+            and "1504 *" not in source["actor_corpse"]
         ),
     }
 
