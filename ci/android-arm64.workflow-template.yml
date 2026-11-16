@@ -890,6 +890,50 @@ jobs:
           name: upstream-head-android-configure
           path: build/upstream-head-android-configure.log
           if-no-files-found: warn
+      - name: Apply DirectX isolation patch and re-probe upstream-head configure (non-blocking)
+        run: |
+          : > build/upstream-head-directx-configure.log
+          set +e
+          git -C build/upstream-head apply --ignore-whitespace --check "$GITHUB_WORKSPACE/patches/0012-gate-directx-sdk-paths.patch" > build/upstream-head-directx-configure.log 2>&1
+          patch_check_rc=$?
+          patch_apply_rc=125
+          configure_rc=125
+          if [ "$patch_check_rc" -eq 0 ]; then
+            git -C build/upstream-head apply --ignore-whitespace "$GITHUB_WORKSPACE/patches/0012-gate-directx-sdk-paths.patch" >> build/upstream-head-directx-configure.log 2>&1
+            patch_apply_rc=$?
+            if [ "$patch_apply_rc" -eq 0 ]; then
+              if [ -z "${ANDROID_NDK_HOME:-}" ]; then
+                echo "ANDROID_NDK_HOME is not set on this runner" >> build/upstream-head-directx-configure.log
+                configure_rc=127
+              else
+                cmake -S build/upstream-head -B build/upstream-head-android-directx -G Ninja \
+                  -DCMAKE_TOOLCHAIN_FILE="$ANDROID_NDK_HOME/build/cmake/android.toolchain.cmake" \
+                  -DANDROID_ABI=arm64-v8a -DANDROID_PLATFORM=android-26 \
+                  -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTING=OFF \
+                  >> build/upstream-head-directx-configure.log 2>&1
+                configure_rc=$?
+              fi
+            fi
+          fi
+          set -e
+          cat build/upstream-head-directx-configure.log
+          echo "UPSTREAM_HEAD_DIRECTX_PATCH_CHECK_EXIT=$patch_check_rc" | tee -a "$GITHUB_STEP_SUMMARY"
+          echo "UPSTREAM_HEAD_DIRECTX_PATCH_APPLY_EXIT=$patch_apply_rc" | tee -a "$GITHUB_STEP_SUMMARY"
+          echo "UPSTREAM_HEAD_DIRECTX_CONFIGURE_EXIT=$configure_rc" | tee -a "$GITHUB_STEP_SUMMARY"
+          if [ "$patch_check_rc" -eq 0 ] && [ "$patch_apply_rc" -eq 0 ] && [ "$configure_rc" -eq 0 ]; then
+            echo "Upstream-head configure after DirectX isolation patch: PASS" >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "::warning::Upstream-head DirectX isolation/reconfigure probe did not complete cleanly; this is a non-blocking diagnostic."
+            echo "Upstream-head configure after DirectX isolation patch: BLOCKED (diagnostic only)" >> "$GITHUB_STEP_SUMMARY"
+          fi
+          exit 0
+      - name: Upload upstream-head DirectX-isolated configure log
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: upstream-head-directx-configure
+          path: build/upstream-head-directx-configure.log
+          if-no-files-found: warn
   host-tests:
     runs-on: ubuntu-latest
     steps:
