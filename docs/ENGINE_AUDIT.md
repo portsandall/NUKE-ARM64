@@ -662,3 +662,56 @@ Run #953's non-blocking root diagnostic confirms:
 7. **Performance:** no representative Android gameplay benchmark exists.
 
 No playable Nuketown build or APK is claimed by this review.
+
+
+## Daily engineering review — 2026-11-16
+
+### Repository and CI
+
+- PR #65 remains open and unmerged. The branch head was advanced from `3603323ba48abd4b46670a63fff154aeb5413a17` to `9d78f404581b29bf4160b6408bebb9ef6fcd388d`.
+- Commit `9d78f40` adds a non-blocking Android NDK configure probe for the current upstream-head checkout. The active workflow and reusable template were updated together and verified byte-identical before commit.
+- ARM64 bootstrap [run #956](https://github.com/portsandall/NUKE-ARM64/actions/runs/43781685557) completed successfully: host tests, Android AArch64 smoke build, pinned upstream patch checks, and upstream-head compatibility job all passed.
+- Angle/vector regression [run #716](https://github.com/portsandall/NUKE-ARM64/actions/runs/43781685562) passed.
+- The Android smoke binaries remain separate probes/tests; they are not a linked game executable.
+
+### New upstream-head Android configure result
+
+- The compatibility job checked out KisakBlack `c2091160254ae56a16a296a0b2d49492362286d2` and TreyBO submodule `c6a65796ba7c4fe8f5f03d8715fde333f522fa5f`.
+- Android NDK 27.3.13750724 and the NDK Clang toolchain were found and invoked.
+- **Unmodified upstream-head CMake configure failed**, with `UPSTREAM_HEAD_ANDROID_CONFIGURE_EXIT=1`.
+- First fatal error: `CMakeLists.txt:24` requires the DirectX SDK (June 2010) at the hard-coded Windows path `C:/Program Files (x86)/Microsoft DirectX SDK (June 2010)`.
+- The log and summary were uploaded as artifact [14188363639](https://github.com/portsandall/NUKE-ARM64/actions/runs/43781685557/artifacts/14188363639).
+- This is a newly verified platform-isolation blocker on upstream HEAD. The compatibility inventory passing does not mean the upstream CMake project configures for Android.
+
+### Upstream and stable baseline
+
+- Current KisakBlack HEAD remains `c2091160254ae56a16a296a0b2d49492362286d2`; the stable production/pinned workflow remains on `6276ed21bc6fbaeab6f2ac6357ff22b82d3c4487`.
+- The upstream-head changes include retail vector alignment/structure assertions, retail-compatible rounding, typed corpse entity-number lookups, vehicle controller restoration, and the TreyBO physics submodule.
+- No upstream production changes were imported into the stable Android baseline today.
+
+### Stable full-engine diagnostic
+
+- Latest stable-baseline diagnostic [run #955](https://github.com/portsandall/NUKE-ARM64/actions/runs/43659535654) has Android NDK configure `ROOT_CONFIGURE_EXIT=0`, but full KisakBlack compilation fails with `ROOT_BUILD_EXIT=1`.
+- First failed object remains `src/DynEntity/DynEntity_client.cpp.o`, Ninja step `[26/1064]`.
+- Six hard errors remain: `SndDriverGlobals` 104 vs 52 bytes; `centity_s` 856 vs 808; `playerState_s` 10,152 vs 9,892; and pointer-to-`int` narrowing at `DynEntity_client.cpp:1113,1127,1306`.
+- No complete engine link, device launch, Nuketown gameplay or APK is verified.
+
+### Next smallest high-value change
+
+1. Test whether existing patch `0012-gate-directx-sdk-paths.patch` applies cleanly to upstream HEAD `c209116` in the disposable compatibility checkout.
+2. If it applies, apply it only in that checkout and rerun the Android NDK configure probe.
+3. Record the next first-fatal platform blocker. The current root CMake also contains unconditional MSVC flags, Windows defines, x86 link options, and Windows library names; these need separate guards/portability decisions rather than blanket removal.
+4. Keep the stable production pin unchanged until the upstream-head platform boundary is understood.
+5. For the stable baseline, the production LP64 priority remains the real `Load_SndDriverGlobals` split: retain the 52-byte FastFile record, build a separate native runtime object, and keep deferred stream staging alive through `Load_DelayStream`.
+
+### Priority gates
+
+1. **Compilability:** pinned full engine still fails; unmodified upstream HEAD currently fails CMake configuration at DirectX SDK discovery.
+2. **Platform isolation:** new upstream-head DirectX path failure now reproduced.
+3. **LP64:** three major runtime layout mismatches and three pointer-narrowing errors remain on the pinned baseline.
+4. **Graphics:** no native Android renderer/bootstrap is integrated.
+5. **Map:** no verified `mp_nuked` asset, collision or spawn loading.
+6. **Multiplayer:** no playable Android session; upstream service dependencies require revalidation.
+7. **Performance:** no representative Android gameplay benchmarks.
+
+No complete engine link, device launch, Nuketown gameplay or playable APK is claimed by this review.
