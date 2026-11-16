@@ -715,3 +715,20 @@ No playable Nuketown build or APK is claimed by this review.
 7. **Performance:** no representative Android gameplay benchmarks.
 
 No complete engine link, device launch, Nuketown gameplay or playable APK is claimed by this review.
+
+
+### Follow-up — DirectX isolation against current upstream HEAD (2026-11-16)
+
+- Code commit: [`26ba91d`](https://github.com/portsandall/NUKE-ARM64/commit/26ba91ddeda518fed114eb069ca9af1606476c0b).
+- The unmodified upstream-head configure still reproduces the DirectX SDK fatal error at `CMakeLists.txt:24` (`UPSTREAM_HEAD_ANDROID_CONFIGURE_EXIT=1`).
+- Existing patch `0012-gate-directx-sdk-paths.patch` passed `git apply --check` and applied cleanly to the disposable `c209116` checkout (both exit 0).
+- Re-running Android NDK CMake configure after applying patch 0012 completed successfully: `Configuring done`, `Generating done`, `UPSTREAM_HEAD_DIRECTX_CONFIGURE_EXIT=0`.
+- Log artifact: [14188955422](https://github.com/portsandall/NUKE-ARM64/actions/runs/43781960270/artifacts/14188955422).
+- ARM64 bootstrap [run #960](https://github.com/portsandall/NUKE-ARM64/actions/runs/43781960270) completed successfully across all four jobs; angle/vector regression [run #720](https://github.com/portsandall/NUKE-ARM64/actions/runs/43781960262) passed.
+- This proves only that CMake configure/generate succeeds after the DirectX path guard. No upstream-head C++ compilation, link, executable or device launch was attempted.
+
+### Next platform-isolation work
+
+- Apply and verify the remaining Windows/MSVC guards against the current upstream-head CMake in the disposable lane. In particular, audit the unconditional `WIN32` definitions, MSVC `/MT` and `/MP` flags, x86 linker options, Windows library names, and Windows executable/debugger properties.
+- Do not blindly reuse patch 0009: its current hunk also references the old `src/physics/phys_gjk.cpp` path, while current upstream moved physics into the TreyBO submodule. Rebase that hunk separately after checking the remaining CMake contexts.
+- Keep the production pin at `6276ed21` until the complete current-head patch stack and compile boundary are verified.
