@@ -858,6 +858,38 @@ jobs:
           test -f build/upstream-head/TreyBO/CMakeLists.txt
       - name: Verify upstream head build-graph and platform blocker snapshot
         run: python3 tests/verify_upstream_head_compatibility.py build/upstream-head
+      - name: Probe Android NDK configure against current upstream head (non-blocking)
+        run: |
+          : > build/upstream-head-android-configure.log
+          set +e
+          if [ -z "${ANDROID_NDK_HOME:-}" ]; then
+            echo "ANDROID_NDK_HOME is not set on this runner" > build/upstream-head-android-configure.log
+            status=127
+          else
+            cmake -S build/upstream-head -B build/upstream-head-android -G Ninja \
+              -DCMAKE_TOOLCHAIN_FILE="$ANDROID_NDK_HOME/build/cmake/android.toolchain.cmake" \
+              -DANDROID_ABI=arm64-v8a -DANDROID_PLATFORM=android-26 \
+              -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTING=OFF \
+              > build/upstream-head-android-configure.log 2>&1
+            status=$?
+          fi
+          set -e
+          cat build/upstream-head-android-configure.log
+          echo "UPSTREAM_HEAD_ANDROID_CONFIGURE_EXIT=$status" | tee -a "$GITHUB_STEP_SUMMARY"
+          if [ "$status" -eq 0 ]; then
+            echo "Upstream-head Android NDK CMake configure: PASS" >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "::warning::Upstream-head Android NDK configure failed with exit $status; this is a non-blocking diagnostic."
+            echo "Upstream-head Android NDK CMake configure: BLOCKED (exit $status; diagnostic only)" >> "$GITHUB_STEP_SUMMARY"
+          fi
+          exit 0
+      - name: Upload upstream-head Android configure log
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: upstream-head-android-configure
+          path: build/upstream-head-android-configure.log
+          if-no-files-found: warn
   host-tests:
     runs-on: ubuntu-latest
     steps:
