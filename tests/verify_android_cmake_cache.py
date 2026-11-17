@@ -15,46 +15,46 @@ def read_cache(path: Path) -> dict[str, str]:
         if not line or line.startswith("#") or line.startswith("//"):
             continue
         key, separator, value = line.partition("=")
-        if not separator:
-            continue
-        name = key.split(":", 1)[0]
-        values[name] = value
+        if separator:
+            values[key.split(":", 1)[0]] = value
     return values
 
 
 def verify_android_arm64_cache(cache_path: Path) -> dict[str, str]:
     values = read_cache(cache_path)
 
+    # CMAKE_SYSTEM_NAME is not guaranteed to be persisted in CMakeCache.txt
+    # by every NDK/CMake version. If present, it must identify Android.
     system = values.get("CMAKE_SYSTEM_NAME", "")
-    abi = values.get("CMAKE_ANDROID_ARCH_ABI", "")
-    ndk_value = values.get("CMAKE_ANDROID_NDK", "")
-    toolchain_value = values.get("CMAKE_TOOLCHAIN_FILE", "")
-
-    if system != "Android":
+    if system and system != "Android":
         raise ValueError(f"expected CMAKE_SYSTEM_NAME=Android, got {system!r}")
+
+    abi = values.get("CMAKE_ANDROID_ARCH_ABI") or values.get("ANDROID_ABI", "")
     if abi != "arm64-v8a":
-        raise ValueError(f"expected CMAKE_ANDROID_ARCH_ABI=arm64-v8a, got {abi!r}")
-    if not ndk_value:
-        raise ValueError("CMAKE_ANDROID_NDK is missing from the CMake cache")
+        raise ValueError(f"expected Android ABI arm64-v8a, got {abi!r}")
+
+    toolchain_value = values.get("CMAKE_TOOLCHAIN_FILE", "")
     if not toolchain_value:
         raise ValueError("CMAKE_TOOLCHAIN_FILE is missing from the CMake cache")
 
-    ndk = Path(ndk_value).resolve()
     toolchain = Path(toolchain_value).resolve()
-    expected_toolchain = (ndk / "build/cmake/android.toolchain.cmake").resolve()
+    expected_suffix = Path("build/cmake/android.toolchain.cmake")
+    if toolchain.name != expected_suffix.name or toolchain.parent.name != "cmake" or toolchain.parent.parent.name != "build":
+        raise ValueError(f"unexpected Android NDK toolchain path: {toolchain}")
 
-    if not ndk.is_dir():
-        raise ValueError(f"Android NDK directory does not exist: {ndk}")
-    if not expected_toolchain.is_file():
-        raise ValueError(f"Android NDK toolchain does not exist: {expected_toolchain}")
-    if toolchain != expected_toolchain:
+    ndk = toolchain.parents[2]
+    if not (ndk / "source.properties").is_file():
+        raise ValueError(f"toolchain parent does not contain an Android NDK: {ndk}")
+
+    cached_ndk = values.get("CMAKE_ANDROID_NDK") or values.get("ANDROID_NDK")
+    if cached_ndk and Path(cached_ndk).resolve() != ndk.resolve():
         raise ValueError(
-            "CMake toolchain does not belong to CMAKE_ANDROID_NDK: "
-            f"{toolchain} != {expected_toolchain}"
+            "CMake NDK and toolchain paths disagree: "
+            f"{Path(cached_ndk).resolve()} != {ndk.resolve()}"
         )
 
     return {
-        "system": system,
+        "system": system or "Android (verified by NDK toolchain)",
         "abi": abi,
         "ndk": str(ndk),
         "toolchain": str(toolchain),

@@ -873,7 +873,7 @@ jobs:
               > build/upstream-head-android-configure.log 2>&1
             status=$?
             if [ "$status" -eq 0 ]; then
-              python3 tests/verify_android_cmake_cache.py build/upstream-head-android/CMakeCache.txt || status=$?
+              python3 tests/verify_android_cmake_cache.py build/upstream-head-android/CMakeCache.txt >> build/upstream-head-android-configure.log 2>&1 || status=$?
             fi
           fi
           set -e
@@ -916,7 +916,7 @@ jobs:
                   >> build/upstream-head-directx-configure.log 2>&1
                 configure_rc=$?
                 if [ "$configure_rc" -eq 0 ]; then
-                  python3 tests/verify_android_cmake_cache.py build/upstream-head-android-directx/CMakeCache.txt || configure_rc=$?
+                  python3 tests/verify_android_cmake_cache.py build/upstream-head-android-directx/CMakeCache.txt >> build/upstream-head-directx-configure.log 2>&1 || configure_rc=$?
                 fi
               fi
             fi
