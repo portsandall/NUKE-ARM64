@@ -61,6 +61,12 @@ class VerifyAndroidCMakeCacheTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "unexpected Android NDK toolchain"):
             verify_android_arm64_cache(self.cache)
 
+    def test_rejects_missing_ndk_toolchain_file(self):
+        self.toolchain.unlink()
+        self.write_cache()
+        with self.assertRaisesRegex(ValueError, "Android NDK toolchain does not exist"):
+            verify_android_arm64_cache(self.cache)
+
     def test_rejects_missing_ndk_metadata(self):
         (self.ndk / "source.properties").unlink()
         self.write_cache()
