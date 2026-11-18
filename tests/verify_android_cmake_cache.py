@@ -41,6 +41,8 @@ def verify_android_arm64_cache(cache_path: Path) -> dict[str, str]:
     expected_suffix = Path("build/cmake/android.toolchain.cmake")
     if toolchain.name != expected_suffix.name or toolchain.parent.name != "cmake" or toolchain.parent.parent.name != "build":
         raise ValueError(f"unexpected Android NDK toolchain path: {toolchain}")
+    if not toolchain.is_file():
+        raise ValueError(f"Android NDK toolchain does not exist: {toolchain}")
 
     ndk = toolchain.parents[2]
     if not (ndk / "source.properties").is_file():
