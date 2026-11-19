@@ -794,7 +794,7 @@ No complete engine link, device launch, Nuketown gameplay or playable APK is cla
 
 ### Repository freshness
 
-- PR #65 remains open. Before this review the branch was at `6298ece`; this audit is recorded by the new documentation-only commit `61fd9dc`. The branch remains 240 commits ahead of `main` and zero behind.
+- PR #65 remains open. Before this review the branch was at `6298ece`; the pre-audit comparison showed 240 commits ahead of `main` and zero behind. This review was recorded in documentation-only commits `61fd9dc` and `e86e289`; neither changes engine code.
 - Default branch `main` remains at `f778c1f4345588d2991942afed62f0483e72469e` from 2026-10-30.
 - The latest branch commit is the 2026-11-19 audit-only commit `6298ece`. The latest code/test commits remain `f38e9cf` and `7280665` from 2026-11-18. No production engine source changed in this interval.
 
