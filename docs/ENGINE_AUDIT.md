@@ -788,3 +788,72 @@ No complete engine link, device launch, Nuketown gameplay or playable APK is cla
 - Apply and verify the remaining Windows/MSVC guards against the current upstream-head CMake in the disposable lane. In particular, audit the unconditional `WIN32` definitions, MSVC `/MT` and `/MP` flags, x86 linker options, Windows library names, and Windows executable/debugger properties.
 - Do not blindly reuse patch 0009: its current hunk also references the old `src/physics/phys_gjk.cpp` path, while current upstream moved physics into the TreyBO submodule. Rebase that hunk separately after checking the remaining CMake contexts.
 - Keep the production pin at `6276ed21` until the complete current-head patch stack and compile boundary are verified.
+
+
+## Daily engineering review — 2026-11-20
+
+### Repository freshness
+
+- PR #65 remains open. Its head branch `ci/diagnose-kisakblack-android-root-20261030` is at `6298ece95ea62e2a0640e042c72f9d701be16242`, identical to the current branch ref; it is 240 commits ahead of `main` and zero behind.
+- Default branch `main` remains at `f778c1f4345588d2991942afed62f0483e72469e` from 2026-10-30.
+- The latest branch commit is the 2026-11-19 audit-only commit `6298ece`. The latest code/test commits remain `f38e9cf` and `7280665` from 2026-11-18. No production engine source changed in this interval.
+
+### Latest verified Actions
+
+- PR bootstrap [run #973](https://github.com/portsandall/NUKE-ARM64/actions/runs/44430770831): all four jobs passed — host tests, Android AArch64 smoke, pinned upstream patch checks, and upstream-head compatibility.
+- Angle/vector [run #733](https://github.com/portsandall/NUKE-ARM64/actions/runs/44430770771): passed.
+- Host results: diagnostic-summary tests 4/4; NDK-cache verifier tests 8/8; CTest 5/5.
+- Android job built `nuke-platform-probe`, `nuke-atomic-test`, and `nuke-physics-handle-table-test`; all three were verified ELF64/AArch64 for Android API 26. These are smoke/test binaries, not the game.
+- The latest root diagnostic artifact is [14487390163](https://github.com/portsandall/NUKE-ARM64/actions/runs/44430770831/artifacts/14487390163).
+
+### Full pinned-engine diagnostic
+
+- Android NDK configure succeeds: `ROOT_CONFIGURE_EXIT=0`.
+- Full KisakBlack compilation fails: `ROOT_BUILD_EXIT=1`.
+- First failed object: `src/DynEntity/DynEntity_client.cpp.o`.
+- Six hard errors remain:
+  - `SndDriverGlobals`: 104-byte LP64 runtime structure versus the 52-byte assertion.
+  - `centity_s`: 856 bytes versus 808 expected.
+  - `playerState_s`: 10,152 bytes versus 9,892 expected.
+  - Pointer-to-`int` narrowing at `DynEntity_client.cpp:1113,1127,1306`.
+- The diagnostic is non-blocking; green Actions do not establish a complete engine compile or link.
+
+### Upstream status and platform boundary
+
+- Current KisakBlack HEAD remains [`c209116`](https://github.com/SwagSoftware/KisakBlack/commit/c2091160254ae56a16a296a0b2d49492362286d2), dated 2026-11-14; no newer upstream commit was found.
+- It is 15 commits ahead of the stable NUKE pin `6276ed21bc6fbaeab6f2ac6357ff22b82d3c4487`.
+- The delta includes the TreyBO physics submodule, removal of the in-tree DemonWare/Live networking and service trees, the 40,960-byte stats buffer change, retail vector-layout restoration, rounding corrections, typed corpse entity lookups, and vehicle-controller restoration.
+- The upstream-head inventory passes 13 structural assertions. Unmodified Android CMake configure fails at the hard-coded DirectX SDK path; patch `0012-gate-directx-sdk-paths.patch` applies and the Android NDK configure/generate then passes. This is configure-only; no current-upstream C++ build is verified.
+- Current upstream still carries Windows/MSVC, x86, DirectX/D3D9, Steam, Bink and NVAPI assumptions. The Android README/build requirements remain Windows-oriented.
+
+### Focused source audit completed today
+
+- Inspected the exact pinned loader at `src/database/db_load.cpp:1192-1235`. `Load_SndDriverGlobals` still reads 52 bytes directly into `varSndDriverGlobals`, then dereferences the name and six array fields. The separate `SndDriverGlobalsRecord32` helper is only tested for its 13 ordered 32-bit words; the production loader does not consume it. The LP64 loader conversion is therefore not implemented.
+- Inspected the physics ID boundary. `Phys_ObjCreate` returns `PhysObjUserData*`; `DynEntity_client.cpp` narrows returned pointers into 32-bit ID fields. `Phys_GetUserData(int)` still performs a direct `(PhysObjUserData *)id` cast, and `Phys_ObjDestroy` resolves through that function before destruction.
+- The existing `PhysicsHandleTable` is compiled and tested as a standalone helper, not integrated into the production create/resolve/destroy path. Search results show `physObjId` consumers across DynEntity, game, game_mp, cgame, glass and EffectsCore. The two `constraintHandle` pointer conversions are a separate constraint-object lifetime problem.
+- Safe outcome: do not patch only the three visible casts or replace them with `uintptr_t`; the 32-bit engine fields cannot hold arbitrary AArch64 pointers. A correct handle registry must be integrated at the central physics creation, lookup and destruction boundary, with lifetime locking and unregister-before-destroy semantics. Constraint handles need their own audited mapping.
+
+### Next smallest high-value production change
+
+Implement the production `Load_SndDriverGlobals` wire-record/runtime-object split:
+
+1. Keep the FastFile record exactly 52 bytes.
+2. Read into `SndDriverGlobalsRecord32`, not the pointer-bearing LP64 runtime structure.
+3. Resolve the XString token and six array tokens/counts.
+4. Populate a distinct native runtime object.
+5. Preserve staging memory for all deferred `Load_DelayStream` operations.
+6. Add immediate and deferred loader tests before switching the production path.
+
+Then integrate the tested physics handle table at the central `Phys_ObjCreate` / `Phys_GetUserData` / `Phys_ObjDestroy` boundary and separately audit constraint handles.
+
+### Priority gates
+
+1. **Compilability:** pinned engine configure passes; full engine build fails with six hard errors.
+2. **Platform isolation:** current-upstream configure passes only after DirectX isolation; full Android source/runtime isolation remains incomplete.
+3. **LP64:** sound/entity/player-state layouts and pointer-ID conversions remain unresolved; helper tests are not production integration.
+4. **Graphics bootstrap:** no integrated native Android renderer.
+5. **Nuketown loading:** no verified `mp_nuked` asset, collision or spawn loading.
+6. **Multiplayer:** no playable Android session; upstream service-tree removal requires a replacement/re-integration plan.
+7. **Performance:** no representative Android gameplay benchmarks.
+
+No complete engine link, device launch, Nuketown gameplay or playable APK is verified.
