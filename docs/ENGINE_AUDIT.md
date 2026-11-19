@@ -1,3 +1,59 @@
+## Daily engineering review — 2026-11-19
+
+### Repository and freshness
+
+- Repository: [portsandall/NUKE-ARM64](https://github.com/portsandall/NUKE-ARM64). Default branch `main` remains at `f778c1f4345588d2991942afed62f0483e72469e` (2026-10-30).
+- [PR #65](https://github.com/portsandall/NUKE-ARM64/pull/65) remains open, unmerged and mergeable. Head: `72806653d18b879866656f2f1ba01fb9051a2b9e`; compare: 239 commits ahead, zero behind.
+- No branch commit newer than 2026-11-18 00:15 UTC was present at this review. Latest commits are `f38e9cf` (reject stale NDK toolchain paths) and `7280665` (regression for a missing NDK toolchain file). Both are verifier/test-only; neither changes engine code.
+- No new KisakBlack commit was present after 2026-11-14. Current upstream remains `c2091160254ae56a16a296a0b2d49492362286d2`, 15 commits ahead of the stable pin `6276ed21bc6fbaeab6f2ac6357ff22b82d3c4487`.
+
+### Latest Actions verification
+
+- ARM64 bootstrap [push run #970](https://github.com/portsandall/NUKE-ARM64/actions/runs/44206306154) and [PR run #971](https://github.com/portsandall/NUKE-ARM64/actions/runs/44206314866), both on `7280665`: all four jobs passed (`host-tests`, `android-arm64`, `upstream-patch-check`, `upstream-head-compatibility`).
+- Host logs: Android root-diagnostic tests 4/4; NDK-cache verifier tests 8/8; CTest 5/5.
+- Android smoke job built three small probe/test binaries and verified each as ELF64/AArch64. These are not game executables.
+- Angle/vector runs [#730](https://github.com/portsandall/NUKE-ARM64/actions/runs/44206306143) and [#731](https://github.com/portsandall/NUKE-ARM64/actions/runs/44206314848) passed.
+
+### Upstream-head platform probe
+
+- Compatibility job checked out KisakBlack `c209116` and TreyBO submodule `c6a65796ba7c4fe8f5f03d8715fde333f522fa5f`; the upstream-head source/build-graph checks passed.
+- Unmodified upstream Android configure failed at `CMakeLists.txt:24` on the hard-coded DirectX SDK June 2010 path (`UPSTREAM_HEAD_ANDROID_CONFIGURE_EXIT=1`).
+- Patch `0012-gate-directx-sdk-paths.patch` applied cleanly; the subsequent Android NDK CMake configure/generate passed (`UPSTREAM_HEAD_DIRECTX_CONFIGURE_EXIT=0`). This is configure-only; no upstream-head C++ compile or link was attempted.
+- The upstream delta from the stable pin includes the TreyBO physics submodule and deletion of in-tree DemonWare / `src/DW` matchmaking, networking and stats code. The old multiplayer integration surface therefore cannot be assumed to exist unchanged.
+
+### Exact full-engine diagnostic on the pinned baseline
+
+- The non-blocking root diagnostic in run #971 reports Android NDK configure `ROOT_CONFIGURE_EXIT=0`, but full KisakBlack build `ROOT_BUILD_EXIT=1`.
+- First failed object: `CMakeFiles/KisakBlack.dir/src/DynEntity/DynEntity_client.cpp.o`.
+- Six unique hard errors remain:
+  - `SndDriverGlobals`: 104-byte LP64 runtime object versus 52-byte assertion.
+  - `centity_s`: 856 bytes versus 808 expected.
+  - `playerState_s`: 10,152 bytes versus 9,892 expected.
+  - Pointer-to-`int` narrowing at `DynEntity_client.cpp:1113,1127,1306`.
+- The raw CI log contains 109 unique warning locations/messages. The complete-engine diagnostic is non-blocking; green Actions do not mean the game engine compiled or linked.
+
+### Focused safe iteration recorded
+
+- Reviewed the actual #971 job steps and raw logs, compared the branch against `main`, compared KisakBlack against the stable pin, and fetched the exact `SndDriverGlobalsRecord32` header/test.
+- Confirmed the 52-byte record helper is still isolated: its test checks 13 ordered 32-bit words, while the production engine still fails the `sizeof(SndDriverGlobals) == 52` assertion. No production loader conversion is present in the inspected helper/test.
+- Updated this audit section with the fresh commit, CI, upstream and compiler evidence. No engine source or build behavior was modified by this documentation iteration.
+
+### Next smallest high-value production change and priority gates
+
+Implement the real `Load_SndDriverGlobals` wire-record/runtime-object conversion. Keep the serialized record at 52 bytes; resolve the XString and six array tokens; populate a separate native LP64 runtime object; and retain staging memory through deferred `Load_DelayStream` writes. Add immediate/deferred loader tests before switching the production loader. Then address the `centity_s`/`playerState_s` field layouts and the three pointer-handle call sites.
+
+1. **Compilability:** full pinned engine fails with six hard errors.
+2. **Platform isolation:** current-upstream CMake configure passes only after DirectX isolation; full platform/source isolation remains incomplete.
+3. **LP64:** three layout assertions and three pointer-narrowing errors remain.
+4. **Graphics bootstrap:** no integrated native Android renderer.
+5. **Nuketown loading:** no verified `mp_nuked` asset, collision or spawn loading.
+6. **Multiplayer:** no playable Android session; upstream has removed major in-tree DemonWare/`src/DW` components that need replacement or re-integration.
+7. **Performance:** no representative gameplay benchmarks.
+
+No complete engine link, device launch, Nuketown gameplay or playable APK is claimed.
+
+---
+
 ## Current review — 2026-11-10 post-run verification
 
 ### Fresh upstream pin and Windows/DirectX isolation
