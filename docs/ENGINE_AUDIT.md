@@ -1,3 +1,64 @@
+## Daily engineering review — 2026-11-21
+
+### Repository and Actions freshness
+
+- Repository: [portsandall/NUKE-ARM64](https://github.com/portsandall/NUKE-ARM64). Default branch `main` remains at `f778c1f4345588d2991942afed62f0483e72469e`.
+- [PR #65](https://github.com/portsandall/NUKE-ARM64/pull/65) remains open, unmerged and mergeable. Head: `ff88743204328f92373092aef837d3c5ff091d46`; comparison: 243 commits ahead, zero behind.
+- The three newest PR commits (`61fd9dc`, `e86e289`, `ff887432`) are audit/documentation-only, dated 2026-11-19 UTC / 2026-11-20 Brisbane. Latest code/test changes are `f38e9cf` and `7280665` from 2026-11-18 UTC.
+- Latest upstream KisakBlack remains `c2091160254ae56a16a296a0b2d49492362286d2` (2026-11-14), 15 commits ahead of the stable pin `6276ed21bc6fbaeab6f2ac6357ff22b82d3c4487`; no newer upstream commits are present.
+- Latest PR Actions: ARM64 bootstrap [run #979](https://github.com/portsandall/NUKE-ARM64/actions/runs/44642205270) completed successfully with all four jobs; Angle/vector [run #739](https://github.com/portsandall/NUKE-ARM64/actions/runs/44642205314) passed. Bootstrap jobs: host tests, Android AArch64 smoke, pinned upstream patch checks and upstream-head compatibility.
+- The pinned-upstream job passed the StringTable LP64 layout regression, 52-byte SndDriverGlobals wire-record regression, database pointer-relocation regression and DemonWare reference/bounded-string/mutex checks. Android smoke outputs are small ELF64/AArch64 probes, not the game executable.
+- The full-engine diagnostic within #979 is non-blocking and still reports `ROOT_CONFIGURE_EXIT=0`, `ROOT_BUILD_EXIT=1`; first failed object is `src/DynEntity/DynEntity_client.cpp.o`, Ninja step `[26/1064]`.
+
+### New source-level finding: the SndDriverGlobals pointer wrapper is also 32-bit serialized
+
+Inspection of the pinned upstream `src/database/db_load.cpp` and `src/sound/snd.h` confirmed two separate native-pointer hazards:
+
+1. `Load_SndDriverGlobals` calls `Load_Stream(..., varSndDriverGlobals, 52)` directly into the native `SndDriverGlobals` object, then reads its name and six pointer/count pairs. The structure contains native pointers and is 104 bytes on LP64; the 52-byte size describes the original 32-bit FastFile record.
+2. `Load_SndDriverGlobalsPtr` separately calls `Load_Stream(..., varSndDriverGlobalsPtr, 4)` directly into a native pointer slot, then interprets that slot as the 32-bit token and handles the `-1` / `-2` markers or calls `DB_ConvertOffsetToAlias`.
+
+The existing `SndDriverGlobalsRecord32` helper correctly models 13 ordered 32-bit words and is verified by host/Android tests, but neither production loader function uses it. Fixing only the 52-byte asset body would therefore leave the outer asset-pointer token path unsafe on LP64.
+
+Source references:
+- [Pinned db_load.cpp](https://github.com/SwagSoftware/KisakBlack/blob/6276ed21bc6fbaeab6f2ac6357ff22b82d3c4487/src/database/db_load.cpp)
+- [Pinned snd.h](https://github.com/SwagSoftware/KisakBlack/blob/6276ed21bc6fbaeab6f2ac6357ff22b82d3c4487/src/sound/snd.h)
+- [NUKE SndDriverGlobalsRecord32 helper](https://github.com/portsandall/NUKE-ARM64/blob/ff88743204328f92373092aef837d3c5ff091d46/include/nuke/snd_driver_globals_record32.h)
+
+The next loader change must decode the outer 32-bit pointer token separately, preserve `-1` / `-2` insertion and alias semantics, then read the 52-byte wire record into persistent database-lifetime staging and populate a distinct native LP64 object. Staging must remain valid across deferred `Load_DelayStream` writes. Do not read four bytes directly into an LP64 pointer slot, use stack-local staging, or widen the FastFile record to 104 bytes.
+
+### Other LP64 and platform status
+
+- Existing branch patches include Android atomic adaptation for DemonWare reference counting (`0013`) and bounded-string length calculation without pointer-to-int arithmetic (`0014`). Their targeted host/Android regression steps pass.
+- The StringTable transform now verifies LP64/ILP32 layouts (StringTableCell 16/8 bytes; StringTable 32/20 bytes) with explicit field offsets. This removes that isolated layout issue from the current diagnostic lane; it does not fix the remaining asset layouts.
+- Current upstream `c209116` retains the TreyBO physics submodule and Windows/MSVC, DirectX/D3D9, Steam, Bink and NVAPI build assumptions. The upstream-head lane checks out TreyBO recursively; the unmodified Android configure still stops at DirectX discovery, while patch `0012` allows Android NDK configure/generate. No upstream-head C++ build or link is claimed.
+
+### Current hard compiler failures
+
+The latest #979 raw job log still shows six hard errors:
+
+- `SndDriverGlobals`: 104-byte native LP64 object versus 52-byte assertion.
+- `centity_s`: 856 bytes versus 808 expected.
+- `playerState_s`: 10,152 bytes versus 9,892 expected.
+- Pointer-to-`int` narrowing at `DynEntity_client.cpp:1113,1127,1306`.
+
+Additional warnings remain for integer-to-pointer conversions at the constraint and physics-user-data paths (`907,919,922,1048,1189,1310`) and unhandled constraint enum values. These are warnings in this diagnostic; the three pointer-to-int conversions and three layout assertions are the six hard errors.
+
+### Priority gates and next production change
+
+1. **Compilability:** full pinned engine build fails at the first DynEntity object with six hard errors.
+2. **Platform isolation:** pinned Android NDK smoke and current-upstream configure after DirectX isolation pass; complete upstream C++ platform isolation is not done.
+3. **LP64:** StringTable and selected DemonWare helpers have targeted fixes; sound asset body plus outer sound-pointer token remain unintegrated, and entity/player-state layouts and physics handles remain unresolved.
+4. **Graphics bootstrap:** no integrated native Android renderer.
+5. **Nuketown loading:** no verified `mp_nuked` asset, collision or spawn loading.
+6. **Multiplayer:** no playable Android session; current upstream's service/networking changes still require integration work.
+7. **Performance:** no representative gameplay benchmarks.
+
+Next smallest high-value production change: implement the paired `Load_SndDriverGlobalsPtr` 32-bit-token decode and `Load_SndDriverGlobals` wire-record/runtime-object conversion together, with explicit DB-lifetime staging and tests for inline, shared, inserted and deferred-load paths. Only then rerun the complete engine diagnostic to see whether the first gameplay translation unit advances.
+
+No full engine link, Android device launch, Nuketown gameplay, multiplayer session or playable APK is claimed.
+
+---
+
 ## Daily engineering review — 2026-11-19
 
 ### Repository and freshness
